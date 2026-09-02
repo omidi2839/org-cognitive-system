@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('requested cognitive platform layout is present',()=>{const h=fs.readFileSync('public/index.html','utf8'),c=fs.readFileSync('public/styles.css','utf8');assert.match(h,/پلتفرم هوش شناختی سازمان/);assert.match(h,/امروز روی چه چیزی کار کنیم/);assert.match(h,/تحلیل اسناد/);assert.match(h,/پیشنهادهای هوشمند/);assert.match(h,/sidebar/);assert.match(c,/\.hero-card/);assert.match(c,/\.suggestion-chips/);assert.match(c,/\.analyze-card/);});

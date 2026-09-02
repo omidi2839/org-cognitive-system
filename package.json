@@ -1,0 +1,19 @@
+{
+  "name": "org-cognitive-build-0.7.3-meeting-orchestration-bridge",
+  "version": "0.7.3",
+  "type": "module",
+  "scripts": {
+    "dev": "node local-server.js",
+    "test": "node --test tests/*.test.js",
+    "check": "node --check api/index.js && node --check local-server.js && node --check src/infrastructure/postgresRepository.js && node --check src/infrastructure/storage/vercelBlobStorage.js && node --test tests/*.test.js",
+    "migrate": "node scripts/migrate.js",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "postgres": "^3.4.7",
+    "@vercel/blob": "^2.0.0"
+  }
+}
