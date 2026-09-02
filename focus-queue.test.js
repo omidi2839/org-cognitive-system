@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import {MemoryRepository} from '../src/infrastructure/memoryRepository.js';import {MockAIGateway} from '../src/ai/mockGateway.js';import {CognitiveService} from '../src/application/service.js';
+const actor={organizationId:'ORG:FOCUS',personId:'PER:1',roles:['expert'],correlationId:'F'};
+const setup=()=>new CognitiveService(new MemoryRepository(),new MockAIGateway());
+test('focus command resolves to cognitive prioritization workspace',async()=>{const s=setup();const r=await s.executeCommand(actor,{sessionId:'F1',text:'روی چه چیزی تمرکز کنم؟'});assert.equal(r.intent,'workspace.focus_queue');assert.equal(r.workspace.componentType,'focus_queue');assert.equal(r.capability,'cognitive_prioritization');});
+test('focus queue never declares fabricated organizational facts',async()=>{const s=setup();const f=await s.buildCognitiveFocusQueue(actor);assert.equal(f.summary.fabricated,false);assert.equal(f.summary.evidenceAware,true);assert.ok(Array.isArray(f.items));});
+test('frontend includes focus queue renderer',()=>{const j=fs.readFileSync('public/app.js','utf8'),c=fs.readFileSync('public/styles.css','utf8');assert.match(j,/focus_queue/);assert.match(c,/\.focus-queue/);assert.match(j,/چرا مهم است/);assert.match(j,/اقدام بعدی/);});

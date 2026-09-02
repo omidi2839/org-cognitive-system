@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { MemoryRepository } from '../src/infrastructure/memoryRepository.js';
+import { MemoryArtifactStorage } from '../src/infrastructure/storage/memoryArtifactStorage.js';
+import { MockAIGateway } from '../src/ai/mockGateway.js';
+import { CognitiveService } from '../src/application/service.js';
+const service=new CognitiveService(new MemoryRepository(),new MockAIGateway(),new MemoryArtifactStorage());
+const actor=service.actor({'x-org-id':'ORG:T','x-person-id':'PER:T'});
+test("command router recognizes today's meetings without fabricating records",async()=>{const r=await service.executeCommand(actor,{text:'امروز چه جلساتی دارم؟'});assert.equal(r.intent,'meeting.today');assert.equal(r.status,'planned');assert.match(r.items[0].subtitle,/هنوز/);});
+test('command router routes document analysis to live upload workspace',async()=>{const r=await service.executeCommand(actor,{text:'یک فایل را تحلیل کن'});assert.equal(r.intent,'document.analyze');assert.equal(r.status,'live');assert.equal(r.nextAction.view,'home');});

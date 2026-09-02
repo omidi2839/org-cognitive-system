@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('conversational home includes composer history and thinking states',()=>{const h=fs.readFileSync('public/index.html','utf8'),c=fs.readFileSync('public/styles.css','utf8'),j=fs.readFileSync('public/app.js','utf8');assert.match(h,/commandInput/);assert.match(h,/historyToggle/);assert.match(c,/\.thinking/);assert.match(c,/answerIn/);assert.match(j,/saveHistory/);});

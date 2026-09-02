@@ -1,0 +1,3 @@
+export const allowed=[
+ ['.docx','application/vnd.openxmlformats-officedocument.wordprocessingml.document'],['.xlsx','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],['.pptx','application/vnd.openxmlformats-officedocument.presentationml.presentation'],['.pdf','application/pdf'],['.txt','text/plain']];
+export function validateFile(fileName,mimeType,size){const max=Number(process.env.MAX_UPLOAD_BYTES||20*1024*1024);if(size>max)throw Object.assign(new Error('حجم فایل بیش از حد مجاز است.'),{code:'FILE_SIZE_LIMIT_EXCEEDED'});const lower=fileName.toLowerCase();const ok=allowed.some(([e,m])=>lower.endsWith(e)&&(mimeType===m||!mimeType));if(!ok)throw Object.assign(new Error('نوع فایل پشتیبانی نمی‌شود.'),{code:'FILE_TYPE_UNSUPPORTED'});}

@@ -1,6 +1,6 @@
 {
   "name": "org-cognitive-build-0.7.3-meeting-orchestration-bridge",
-  "version": "0.7.3",
+  "version": "0.7.3.1",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",

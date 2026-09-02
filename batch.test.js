@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { MemoryRepository } from '../src/infrastructure/memoryRepository.js';
+import { MemoryArtifactStorage } from '../src/infrastructure/storage/memoryArtifactStorage.js';
+import { MockAIGateway } from '../src/ai/mockGateway.js';
+import { CognitiveService } from '../src/application/service.js';
+import fs from 'node:fs';
+const service=new CognitiveService(new MemoryRepository(),new MockAIGateway(),new MemoryArtifactStorage());
+const actor=service.actor({'x-org-id':'ORG:BATCH','x-person-id':'PER:B'});
+const b64=p=>fs.readFileSync(new URL(p,import.meta.url)).toString('base64');
+test('batch onboarding creates job and detects duplicate group',async()=>{const f=b64('./fixtures/sample-fa.docx');const job=await service.uploadBatch(actor,{files:[{fileName:'a.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',contentBase64:f},{fileName:'b.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',contentBase64:f}]});assert.equal(job.completed,2);assert.equal(job.status,'completed');const inv=await service.knowledgeInventory(actor);assert.equal(inv.summary.duplicateGroups,1);});
+test('command router exposes knowledge inventory',async()=>{const r=await service.executeCommand(actor,{text:'فهرست دانش من را نشان بده'});assert.equal(r.intent,'knowledge.inventory');assert.equal(r.status,'live');});
