@@ -9,4 +9,4 @@ test('0.7.4.1 regression: «اولویت» is never interpreted as «مورد ا
  const second=await invoke({sessionId,text:scenario});
  assert.equal(second.statusCode,200); assert.equal(second.body.intent,'workspace.cognitive_attention'); assert.equal(second.body.capability,'cognitive_prioritization'); assert.equal(second.body.workspace?.componentType,'cognitive_attention'); assert.notEqual(second.body.title,'مورد اول انتخاب شد');
 });
-test('0.7.4.1 health exposes correction build',async()=>{const req={method:'GET',url:'/api/v1/health',headers:{}};const r=await new Promise((resolve,reject)=>{const out={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},end(p){resolve(JSON.parse(p))}};Promise.resolve(handler(req,out)).catch(reject)});assert.equal(r.version,'0.7.4.1')});
+test('0.7.4.1 health exposes correction build',async()=>{const req={method:'GET',url:'/api/v1/health',headers:{}};const r=await new Promise((resolve,reject)=>{const out={statusCode:200,headers:{},setHeader(k,v){this.headers[k]=v},end(p){resolve(JSON.parse(p))}};Promise.resolve(handler(req,out)).catch(reject)});assert.equal(r.version,'0.7.4.2')});

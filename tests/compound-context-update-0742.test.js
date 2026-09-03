@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MemoryRepository} from '../src/infrastructure/memoryRepository.js';
+import {MockAIGateway} from '../src/ai/mockGateway.js';
+import {CognitiveService} from '../src/application/service.js';
+const actor={organizationId:'ORG:SYN-001',personId:'PER:SARA',roles:['expert'],correlationId:'CORR:0742'};
+const scenario='عملکرد واحد آموزش در سه ماه اخیر کاهش یافته و فقط ۶۲ درصد برنامه مصوب محقق شده است. چند اقدام کلیدی نیز با تأخیر مواجه شده‌اند و احتمال می‌دهم این وضعیت بر تحقق اهداف سازمان اثر بگذارد. بررسی کن آیا این موضوع باید در اولویت توجه مدیریت قرار گیرد و برای جلسه مدیریتی آماده شود.';
+test('0.7.4.2 decomposes compound agenda update and does not verify authority from user statement',async()=>{
+ const s=new CognitiveService(new MemoryRepository(),new MockAIGateway()); const sessionId='S0742';
+ const a=await s.executeCommand(actor,{sessionId,text:scenario}); assert.equal(a.intent,'workspace.cognitive_attention');
+ const g=await s.executeCommand(actor,{sessionId,text:'این موضوع را به دستورکار مدیریت اضافه کن.'}); assert.equal(g.intent,'workspace.management_agenda');
+ const r=await s.executeCommand(actor,{sessionId,text:'آمادگی این دستورکار را برای جلسه بررسی کن.'}); assert.equal(r.intent,'workspace.agenda_readiness'); assert.equal(r.workspace.readiness.items[0].readinessScore,25);
+ const u=await s.executeCommand(actor,{sessionId,text:'مسئول این موضوع مدیر آموزش است. برای جلسه یک خلاصه مدیریتی بر اساس همین شواهد آماده کن. اختیار تصمیم‌گیری درباره اقدامات اصلاحی نیز با معاون سازمان است.'});
+ assert.equal(u.intent,'workspace.agenda_context_update');
+ assert.equal(u.workspace.componentType,'agenda_readiness');
+ assert.equal(u.workspace.readiness.items[0].readinessScore,75);
+ assert.deepEqual(u.workspace.readiness.items[0].missing,['authority']);
+ assert.equal(u.context.authorityClaim.value,'معاون سازمان');
+ assert.equal(u.context.authorityClaim.verified,false);
+ assert.equal(u.context.compoundClaims.length,3);
+ const blocked=await s.executeCommand(actor,{sessionId,text:'جلسه را آماده کن.'});
+ assert.equal(blocked.intent,'workspace.meeting_orchestration'); assert.equal(blocked.title,'جلسه هنوز برای سازماندهی آماده نیست');
+});
