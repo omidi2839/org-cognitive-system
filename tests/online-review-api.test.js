@@ -21,8 +21,8 @@ test('real command API routes online-review scenario to cognitive attention',asy
   assert.equal(r.body.workspace?.signalAssessment?.validated,false);
 });
 
-test('health exposes deployment build 0.7.3.2',async()=>{
+test('health exposes deployment build 0.7.4',async()=>{
   const r=await invoke({method:'GET',url:'/api/v1/health'});
   assert.equal(r.statusCode,200);
-  assert.equal(r.body.version,'0.7.3.2');
+  assert.equal(r.body.version,'0.7.4');
 });

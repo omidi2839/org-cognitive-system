@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {MemoryRepository} from '../src/infrastructure/memoryRepository.js';
+import {MockAIGateway} from '../src/ai/mockGateway.js';
+import {CognitiveService} from '../src/application/service.js';
+const actor={organizationId:'ORG:SYN-001',personId:'PER:SARA',roles:['expert'],correlationId:'CORR:074'};
+const scenario='عملکرد واحد آموزش کاهش یافته و فقط ۶۲ درصد برنامه محقق شده است و چند اقدام با تأخیر مواجه شده‌اند. بررسی کن آیا این موضوع باید در اولویت توجه مدیریت قرار گیرد.';
+test('conversation continues attention to management agenda and readiness without fabricating governance inputs',async()=>{
+ const s=new CognitiveService(new MemoryRepository(),new MockAIGateway());
+ const a=await s.executeCommand(actor,{sessionId:'S074',text:scenario});
+ assert.equal(a.intent,'workspace.cognitive_attention');
+ assert.ok(a.context.attentionSnapshot?.queue?.length);
+ const g=await s.executeCommand(actor,{sessionId:'S074',text:'این موضوع را به دستورکار مدیریت ببر'});
+ assert.equal(g.intent,'workspace.management_agenda');
+ assert.ok(g.workspace.agenda.agendaItems.length);
+ const r=await s.executeCommand(actor,{sessionId:'S074',text:'آمادگی دستورکار را برای جلسه بررسی کن'});
+ assert.equal(r.intent,'workspace.agenda_readiness');
+ assert.ok(r.workspace.readiness.incompleteCount>=1);
+ assert.equal(r.workspace.readiness.meetingReady,false);
+ assert.ok(r.workspace.readiness.items.some(x=>x.missing.includes('owner')));
+ assert.ok(r.workspace.readiness.items.some(x=>x.missing.includes('brief')));
+});
