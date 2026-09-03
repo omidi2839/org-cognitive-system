@@ -125,3 +125,11 @@ button,input,textarea,select{
 .workspace-head small,.workspace-result small{line-height:1.8}
 @media(max-width:900px){.command-row{grid-template-columns:58px 108px minmax(0,1fr)}.voice-btn{width:58px}.send-btn{width:108px}}
 @media(max-width:650px){.command-row{grid-template-columns:52px 88px minmax(0,1fr)}.voice-btn{width:52px}.send-btn{width:88px;height:52px;min-height:52px;max-height:52px}.voice-btn{height:52px;min-height:52px;max-height:52px}.command-row textarea{min-height:58px;height:58px;max-height:150px}.send-btn span:first-child{display:none}}
+
+/* Build 0.7.4.1 — command composer stability */
+.command-row{align-items:center}
+.command-row textarea{min-height:64px;max-height:180px;overflow-y:hidden;resize:none}
+.voice-btn,.send-btn{height:64px;align-self:center}
+.voice-btn{display:grid;place-items:center}
+.voice-btn svg{width:25px;height:25px;fill:currentColor}
+@media(max-width:650px){.voice-btn,.send-btn{height:58px}.command-row textarea{min-height:58px}}

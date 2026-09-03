@@ -1,6 +1,6 @@
 {
   "name": "org-cognitive-build-0.7.4-governed-continuation-ux",
-  "version": "0.7.4",
+  "version": "0.7.4.1",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
