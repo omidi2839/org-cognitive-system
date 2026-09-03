@@ -1335,7 +1335,27 @@ export class CognitiveService {
     const orgDocs=db.documents.filter(x=>x.organizationId===actor.organizationId);
 
     // Contextual follow-ups are resolved before generic intents.
-    if(has('دومی','دوم') && context.resultRefs?.length>=2){
+    if(context.agendaReadinessSnapshot && has('سازماندهی جلسه','آماده سازی جلسه','آماده‌سازی جلسه','جلسه را آماده کن','جلسه رو آماده کن')){
+      intent='workspace.meeting_orchestration';capability='meeting_orchestration';title='آماده‌سازی جلسه بر پایه دستورکار معتبر';
+      const mo=await this.orchestrateMeeting(actor,{readiness:context.agendaReadinessSnapshot,meeting:{title:'جلسه مدیریتی درباره موضوع در حال بررسی'},authorityRef:context.authorityRef||null});
+      status=mo.status==='live'?'live':'needs_clarification';
+      if(mo.status==='live'){workspace={componentType:'meeting_orchestration',layout:'comfortable',empty:false,orchestration:mo.orchestration,governance:mo.governance};contextPatch={meetingOrchestrationSnapshot:mo.orchestration};}
+      else{workspace={componentType:'agenda_readiness',layout:'comfortable',empty:false,readiness:context.agendaReadinessSnapshot,governance:{principle:'تا زمانی که حداقل یک موضوع آماده نباشد، جلسه به‌صورت خودکار سازماندهی نمی‌شود.'}};items=(context.agendaReadinessSnapshot.items||[]).map(x=>({title:x.title,subtitle:(x.missing||[]).join('، '),meta:x.readiness}));title='جلسه هنوز برای سازماندهی آماده نیست';}
+      nextAction={type:'stay_inline'};
+    } else if(context.managementAgendaSnapshot && has('آمادگی جلسه','آمادگی دستورکار','برای جلسه آماده','برای جلسه بررسی','آماده جلسه')){
+      intent='workspace.agenda_readiness';capability='agenda_readiness';status='live';title='ارزیابی آمادگی دستورکار برای جلسه';
+      const evidenceByItem={}; for(const x of (context.managementAgendaSnapshot.agendaItems||[])){evidenceByItem[x.id]=context.attentionSignalRef?[context.attentionSignalRef]:[];}
+      const ar=await this.assessAgendaReadiness(actor,{agenda:context.managementAgendaSnapshot,evidenceByItem,ownerByItem:{},briefByItem:{},authorityRef:context.authorityRef||null});
+      workspace={componentType:'agenda_readiness',layout:'comfortable',empty:false,readiness:ar.readiness,governance:ar.governance};
+      items=(ar.readiness?.items||[]).map(x=>({title:x.title,subtitle:(x.missing||[]).join('، '),meta:x.readiness,score:x.readinessScore}));
+      contextPatch={agendaReadinessSnapshot:ar.readiness};nextAction={type:'stay_inline'};
+    } else if(context.attentionSnapshot && has('دستورکار','دستور کار','دستور جلسه','برای مدیریت آماده','به مدیریت ببر','در جلسه مدیریت','به جلسه مدیریت')){
+      intent='workspace.management_agenda';capability='management_agenda';status='live';title='دستورکار مدیریتی پیشنهادی';
+      const ma=await this.buildManagementAgenda(actor,{attention:context.attentionSnapshot,meeting:{title:'دستورکار مدیریتی موضوع در حال بررسی'}});
+      workspace={componentType:'management_agenda',layout:'comfortable',empty:!(ma.agenda?.agendaItems||[]).length,agenda:ma.agenda,governance:ma.governance};
+      items=(ma.agenda?.agendaItems||[]).map(x=>({title:x.title,subtitle:x.purpose,meta:x.mode,score:x.score,ref:x.sourceRef}));
+      contextPatch={managementAgendaSnapshot:ma.agenda};nextAction={type:'stay_inline'};
+    } else if(has('دومی','دوم') && context.resultRefs?.length>=2){
       const ref=context.resultRefs[1]; const doc=orgDocs.find(x=>x.id===ref);
       intent='context.select'; capability='conversation_context'; status='live'; title='مورد دوم انتخاب شد';
       items=doc?[{title:doc.title,subtitle:doc.id,meta:`نسخه ${doc.version}`}]:[{title:'مورد انتخاب‌شده دیگر در دسترس نیست',subtitle:ref,meta:'stale context'}];
@@ -1390,7 +1410,7 @@ export class CognitiveService {
       const a=attentionResult.attention;
       items=(a?.queue||[]).map(x=>({title:x.title,subtitle:(x.reason||[]).join(' · '),meta:`${x.focusWindow} · score ${x.score}`,ref:x.ref,reason:x.reason,confidence:null,score:x.score}));
       workspace={componentType:'cognitive_attention',layout:'comfortable',empty:!items.length,explainability:true,attention:a,governance:attentionResult.governance,signalAssessment:{source:'human_reported_command',validated:false,canonical:false,statement:text,principle:'User-reported signal is evidence for attention triage, not validated organizational fact.'}};
-      contextPatch={resultRefs:items.map(x=>x.ref).filter(Boolean),attentionSignalRef:signalRef,attentionFromNaturalLanguage:true,attentionStatement:text};
+      contextPatch={resultRefs:items.map(x=>x.ref).filter(Boolean),attentionSignalRef:signalRef,attentionFromNaturalLanguage:true,attentionStatement:text,attentionSnapshot:a};
       nextAction={type:'stay_inline'};
     } else if((has('پروژه','موضوع') && has('بررسی','وضعیت','نمای کلی','جمع بندی','جمع‌بندی'))){
       intent='workspace.cross_object';capability='cognitive_workspace';status='live';
