@@ -1335,7 +1335,38 @@ export class CognitiveService {
     const orgDocs=db.documents.filter(x=>x.organizationId===actor.organizationId);
 
     // Contextual follow-ups are resolved before generic intents.
-    if(context.agendaReadinessSnapshot && has('سازماندهی جلسه','آماده سازی جلسه','آماده‌سازی جلسه','جلسه را آماده کن','جلسه رو آماده کن')){
+    const compoundAgendaUpdate=context.agendaReadinessSnapshot && (
+      (has('مسئول','مالک') && has('خلاصه','brief','بریف')) ||
+      (has('مسئول','مالک') && has('اختیار','تصمیم گیری','تصمیم‌گیری')) ||
+      (has('خلاصه','brief','بریف') && has('اختیار','تصمیم گیری','تصمیم‌گیری'))
+    );
+    if(compoundAgendaUpdate){
+      intent='workspace.agenda_context_update';capability='agenda_context_update';status='live';title='تکمیل زمینه دستورکار و بازسنجی آمادگی';
+      const prior=context.agendaReadinessSnapshot;
+      const agenda=context.managementAgendaSnapshot||{id:prior.agendaRef,agendaItems:(prior.items||[]).map(x=>({...x}))};
+      const agendaItems=agenda.agendaItems||[];
+      const ownerByItem={...(context.ownerByItem||{})};
+      const briefByItem={...(context.briefByItem||{})};
+      const evidenceByItem={...(context.evidenceByItem||{})};
+      const claims=[];
+      const ownerMatch=text.match(/مسئول(?:\s+این)?\s+موضوع\s+([^،,.]+?)(?:\s+است|\s+باشد|[،,.]|$)/u);
+      const ownerValue=ownerMatch?.[1]?.trim()||((has('مدیر آموزش')?'مدیر آموزش':null));
+      if(ownerValue){for(const x of agendaItems)ownerByItem[x.id]=`USER_CLAIM:${ownerValue}`;claims.push({type:'owner',label:'مسئول اعلام‌شده',value:ownerValue,validation:'user_provided'});}
+      if(has('خلاصه مدیریتی','خلاصه','brief','بریف')){
+        for(const x of agendaItems){briefByItem[x.id]=`AI_BRIEF_CANDIDATE:${x.id}`;}
+        claims.push({type:'brief',label:'خلاصه مدیریتی',value:'پیشنهاد خلاصه مدیریتی بر پایه شواهد موجود آماده شد',validation:'ai_candidate'});
+      }
+      const authorityMatch=text.match(/اختیار[^،,.]*?(?:با|بر عهده|در اختیار)\s+([^،,.]+?)(?:\s+است|\s+باشد|[،,.]|$)/u);
+      const authorityValue=authorityMatch?.[1]?.trim()||((has('معاون سازمان')?'معاون سازمان':null));
+      const authorityClaim=authorityValue?{value:authorityValue,source:'user_statement',verified:false,status:'نیازمند احراز از منبع معتبر اختیار'}:(context.authorityClaim||null);
+      if(authorityValue)claims.push({type:'authority',label:'ادعای اختیار',value:authorityValue,validation:'unverified'});
+      for(const x of agendaItems){if(!evidenceByItem[x.id])evidenceByItem[x.id]=context.attentionSignalRef?[context.attentionSignalRef]:[];}
+      // A user statement about authority is deliberately NOT passed as authorityRef.
+      const ar=await this.assessAgendaReadiness(actor,{agenda,evidenceByItem,ownerByItem,briefByItem,authorityRef:context.verifiedAuthorityRef||null});
+      workspace={componentType:'agenda_readiness',layout:'comfortable',empty:false,readiness:ar.readiness,governance:{...ar.governance,authorityClaim,claims,principle:'اطلاعات اعلام‌شده می‌تواند زمینه دستورکار را تکمیل کند؛ اما ادعای اختیار تا زمان احراز از منبع معتبر، اختیار سازمانی ایجاد نمی‌کند.'}};
+      items=(ar.readiness?.items||[]).map(x=>({title:x.title,subtitle:(x.missing||[]).join('، '),meta:x.readiness,score:x.readinessScore}));
+      contextPatch={agendaReadinessSnapshot:ar.readiness,ownerByItem,briefByItem,evidenceByItem,authorityClaim,compoundClaims:claims};nextAction={type:'stay_inline'};
+    } else if(context.agendaReadinessSnapshot && has('سازماندهی جلسه','آماده سازی جلسه','آماده‌سازی جلسه','جلسه را آماده کن','جلسه رو آماده کن')){
       intent='workspace.meeting_orchestration';capability='meeting_orchestration';title='آماده‌سازی جلسه بر پایه دستورکار معتبر';
       const mo=await this.orchestrateMeeting(actor,{readiness:context.agendaReadinessSnapshot,meeting:{title:'جلسه مدیریتی درباره موضوع در حال بررسی'},authorityRef:context.authorityRef||null});
       status=mo.status==='live'?'live':'needs_clarification';
@@ -1344,8 +1375,9 @@ export class CognitiveService {
       nextAction={type:'stay_inline'};
     } else if(context.managementAgendaSnapshot && has('آمادگی جلسه','آمادگی دستورکار','برای جلسه آماده','برای جلسه بررسی','آماده جلسه')){
       intent='workspace.agenda_readiness';capability='agenda_readiness';status='live';title='ارزیابی آمادگی دستورکار برای جلسه';
-      const evidenceByItem={}; for(const x of (context.managementAgendaSnapshot.agendaItems||[])){evidenceByItem[x.id]=context.attentionSignalRef?[context.attentionSignalRef]:[];}
-      const ar=await this.assessAgendaReadiness(actor,{agenda:context.managementAgendaSnapshot,evidenceByItem,ownerByItem:{},briefByItem:{},authorityRef:context.authorityRef||null});
+      const evidenceByItem={...(context.evidenceByItem||{})}; for(const x of (context.managementAgendaSnapshot.agendaItems||[])){if(!evidenceByItem[x.id])evidenceByItem[x.id]=context.attentionSignalRef?[context.attentionSignalRef]:[];}
+      const ownerByItem={...(context.ownerByItem||{})}, briefByItem={...(context.briefByItem||{})};
+      const ar=await this.assessAgendaReadiness(actor,{agenda:context.managementAgendaSnapshot,evidenceByItem,ownerByItem,briefByItem,authorityRef:context.verifiedAuthorityRef||null});
       workspace={componentType:'agenda_readiness',layout:'comfortable',empty:false,readiness:ar.readiness,governance:ar.governance};
       items=(ar.readiness?.items||[]).map(x=>({title:x.title,subtitle:(x.missing||[]).join('، '),meta:x.readiness,score:x.readinessScore}));
       contextPatch={agendaReadinessSnapshot:ar.readiness};nextAction={type:'stay_inline'};
