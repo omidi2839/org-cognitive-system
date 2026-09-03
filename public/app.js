@@ -45,6 +45,7 @@ function itemIcon(meta){
 }
 function renderWorkspaceItems(result){
  const type=result.workspace?.componentType||'generic_cards';
+ const w=result.workspace||{};
  const items=result.items||[];
  if(!items.length)return '<div class="workspace-empty">نتیجه‌ای برای نمایش وجود ندارد.</div>';
  if(type==='meeting_timeline'){
