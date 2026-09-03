@@ -1,4 +1,4 @@
-# Build 0.7.3.1 — Meeting Orchestration & Decision Brief Bridge V1
+# Build 0.7.3.2 — Meeting Orchestration & Decision Brief Bridge V1
 
 Ready agenda → evidence-backed meeting packs → authority gate → human convening. Brief ≠ Decision.
 

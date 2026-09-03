@@ -10,7 +10,7 @@ export default async function handler(req,res){
   try{
     const actor=service.actor(getHeaders(req));
     const path=new URL(req.url,'https://local').pathname;
-    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.3.1',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
+    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.3.2',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
     if(path==='/api/v1/health/ready'&&req.method==='GET'){ const dbOk=typeof repository.health==='function'?await repository.health():true; const st=service.storage; const storageOk=typeof st.health==='function'?await st.health():true; const durableRequired=String(process.env.REQUIRE_DURABLE_SERVICES||'').toLowerCase()==='true'; const durableOk=!durableRequired||(repositoryMode()==='postgres'&&storageMode()==='vercel-blob'); const ok=dbOk&&storageOk&&durableOk; return send(res,ok?200:503,{status:ok?'ready':'not_ready',persistence:repositoryMode(),storage:storageMode(),durableRequired,checks:{database:dbOk,storage:storageOk,durable:durableOk}}); }
     if(path==='/api/v1/me'&&req.method==='GET') return send(res,200,{person:{id:actor.personId,displayName:'سارا کارشناس'},organization:{id:actor.organizationId,name:'سازمان نمونه شناختی'},roles:actor.roles,locale:'fa-IR',direction:'rtl'});
     if(path==='/api/v1/dashboard'&&req.method==='GET') return send(res,200,await service.dashboard(actor));
