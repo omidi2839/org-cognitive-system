@@ -18,6 +18,7 @@
       <button class="nav-item" data-command="کارهای امروز من"><span>✓</span><b>کارها</b></button>
       <button class="nav-item" data-command="گزارش وضعیت امروز را نشان بده"><span>⌁</span><b>گزارش‌ها</b></button>
       <button class="nav-item" data-command="فهرست دانش من"><span>◈</span><b>دانش سازمانی</b></button>
+      <button id="analyzeDocs" class="nav-item" data-view="home"><span>⇧</span><b>تحلیل اسناد</b></button>
     </nav>
     <button class="nav-item settings"><span>⚙</span><b>تنظیمات</b></button>
   </aside>
@@ -55,15 +56,6 @@
         </div>
       </section>
 
-      <section class="knowledge-cta knowledge-workspace-dock">
-        <div class="knowledge-title">دانش و میز کار خود را تکمیل کنید <span>...</span></div>
-        <button id="analyzeDocs" class="analyze-card">
-          <span class="doc-icon">⇧</span>
-          <span class="divider"></span>
-          <b>تحلیل اسناد</b>
-        </button>
-      </section>
-
           <section id="commandResult" class="workspace-result hidden"></section>
 
       
@@ -89,7 +81,7 @@
       <section id="knowledge" class="view">
         <div class="sheet">
           <div class="sheet-head">
-            <span><b>دانش سازمانی</b><small>Inventory و اسناد قابل دسترس</small></span>
+            <span><b>دانش سازمانی</b><small>موجودی دانش و اسناد قابل دسترس</small></span>
             <button class="close-sheet" data-close>×</button>
           </div>
           <div id="inventory"></div>
@@ -99,7 +91,7 @@
       <section id="trace" class="view">
         <div class="sheet">
           <div class="sheet-head">
-            <span><b>ردیابی شناختی</b><small>Source → Candidate → Human Gate → Canonical</small></span>
+            <span><b>ردیابی شناختی</b><small>منبع ← پیشنهاد هوش مصنوعی ← بررسی انسانی ← دانش معتبر</small></span>
             <button class="close-sheet" data-close>×</button>
           </div>
           <div id="traceSteps"></div>

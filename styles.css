@@ -111,3 +111,17 @@ button,input,textarea,select{
 
 /* Meeting Orchestration Bridge V1 */
 .meeting-orch{display:grid;gap:13px}.mo-head{display:flex;justify-content:space-between}.mo-head small{font-size:9px;color:#8996a8}.mo-head h3{font-size:16px;margin:3px 0}.mo-head>span{font-size:8px;padding:6px 9px;border-radius:999px;background:#eef5ff;color:#2875d8}.mo-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.mo-summary article,.mo-flow article{padding:10px;border:1px solid #e7edf5;border-radius:11px;background:#fff}.mo-summary{text-align:center}.mo-summary b{display:block;font-size:17px;color:#2875d8}.mo-summary small,.mo-flow small{font-size:7px;color:#7f8c9d}.mo-flow{display:grid;gap:8px}.mo-flow article>div{display:flex;justify-content:space-between}.mo-flow b{font-size:10px}.mo-flow span{font-size:7px;padding:4px 6px;border-radius:999px;background:#f2f6fb}.mo-flow p{font-size:8px;color:#66768a}.mo-gate{display:grid;gap:4px;padding:11px;border-radius:12px;background:#f7f9fc}.mo-gate b{font-size:10px}.mo-gate span{font-size:8px;color:#68778b}
+
+
+/* Build 0.7.4 UX refinement: stable composer, sidebar knowledge capability, Persian-first UI */
+.command-row{grid-template-columns:64px 128px minmax(0,1fr);align-items:end;gap:12px}
+.command-row textarea{min-height:64px;max-height:180px;height:64px;overflow-y:auto;padding:18px 20px;line-height:1.9}
+.voice-btn,.send-btn{height:56px;min-height:56px;max-height:56px;align-self:end}
+.voice-btn{width:64px}
+.send-btn{width:128px;font-size:15px;gap:8px}
+.paper{font-size:20px}
+.knowledge-cta,.knowledge-workspace-dock{display:none!important}
+.intent-badge{display:inline-flex;direction:rtl}
+.workspace-head small,.workspace-result small{line-height:1.8}
+@media(max-width:900px){.command-row{grid-template-columns:58px 108px minmax(0,1fr)}.voice-btn{width:58px}.send-btn{width:108px}}
+@media(max-width:650px){.command-row{grid-template-columns:52px 88px minmax(0,1fr)}.voice-btn{width:52px}.send-btn{width:88px;height:52px;min-height:52px;max-height:52px}.voice-btn{height:52px;min-height:52px;max-height:52px}.command-row textarea{min-height:58px;height:58px;max-height:150px}.send-btn span:first-child{display:none}}
