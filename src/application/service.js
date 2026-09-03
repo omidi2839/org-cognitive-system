@@ -1373,6 +1373,25 @@ export class CognitiveService {
       intent='knowledge.inventory';capability='knowledge_onboarding';status='live';title='موجودی دانش';const inv=await this.knowledgeInventory(actor);items=[{title:`${inv.summary.documents} سند`,subtitle:`${inv.summary.artifacts} فایل اصلی · ${inv.summary.reviewPending} مورد نیازمند بررسی`,meta:`${inv.summary.duplicateGroups} گروه تکراری`}];nextAction={type:'open_view',view:'knowledge'};
     } else if(has('صف پردازش','وضعیت پردازش','صف فایل')){
       intent='knowledge.processing_queue';capability='knowledge_onboarding';status='live';title='صف پردازش دانش';const inv=await this.knowledgeInventory(actor);items=inv.recentJobs.map(j=>({title:`Batch ${j.id}`,subtitle:`${j.completed}/${j.total} تکمیل · ${j.failed} خطا`,meta:j.status}));if(!items.length)items=[{title:'صف پردازشی ثبت نشده',subtitle:'با ورود گروهی فایل، Jobها اینجا ظاهر می‌شوند.',meta:'empty'}];nextAction={type:'open_view',view:'knowledge'};
+    } else if(
+      has('اولویت توجه','در اولویت توجه','نیازمند توجه مدیریت','توجه مدیریت','اولویت مدیریت','در دستور توجه','دستور توجه') ||
+      ((has('ریسک','احتمال','اثر','تاثیر','تأثیر','عقب افتاده','عقب‌افتاده','تاخیر','تأخیر','کاهش عملکرد') && has('هدف','اهداف','تحقق','عملکرد','برنامه')) && has('مدیریت','اولویت','جلسه','توجه'))
+    ){
+      intent='workspace.cognitive_attention';capability='cognitive_prioritization';status='live';title='ارزیابی اولیه اولویت توجه مدیریت';
+      const reasons=[
+        'این موضوع مستقیماً به‌عنوان سیگنال نیازمند توجه مدیریتی مطرح شده است',
+        has('هدف','اهداف','تحقق')?'اثر بالقوه بر تحقق اهداف/برنامه سازمان در متن گزارش شده است':null,
+        has('عقب افتاده','عقب‌افتاده','تاخیر','تأخیر')?'انحراف زمانی یا تأخیر در متن گزارش شده است':null,
+        has('کاهش عملکرد','عملکرد')?'سیگنال عملکردی در متن گزارش شده است':null
+      ].filter(Boolean);
+      const score=Math.min(95,60+(has('هدف','اهداف','تحقق')?12:0)+(has('عقب افتاده','عقب‌افتاده','تاخیر','تأخیر')?10:0)+(has('ریسک','احتمال')?8:0));
+      const signalRef=newId('ATT-SIGNAL');
+      const attentionResult=await this.buildCognitiveAttention(actor,{decisionItems:[{id:signalRef,title:text.length>120?text.slice(0,117)+'…':text,priorityScore:score,reasons}]});
+      const a=attentionResult.attention;
+      items=(a?.queue||[]).map(x=>({title:x.title,subtitle:(x.reason||[]).join(' · '),meta:`${x.focusWindow} · score ${x.score}`,ref:x.ref,reason:x.reason,confidence:null,score:x.score}));
+      workspace={componentType:'cognitive_attention',layout:'comfortable',empty:!items.length,explainability:true,attention:a,governance:attentionResult.governance,signalAssessment:{source:'human_reported_command',validated:false,canonical:false,statement:text,principle:'User-reported signal is evidence for attention triage, not validated organizational fact.'}};
+      contextPatch={resultRefs:items.map(x=>x.ref).filter(Boolean),attentionSignalRef:signalRef,attentionFromNaturalLanguage:true,attentionStatement:text};
+      nextAction={type:'stay_inline'};
     } else if((has('پروژه','موضوع') && has('بررسی','وضعیت','نمای کلی','جمع بندی','جمع‌بندی'))){
       intent='workspace.cross_object';capability='cognitive_workspace';status='live';
       const cw=await this.crossObjectWorkspace(actor,text);title=`میز کار شناختی: ${cw.subject||'موضوع انتخاب‌شده'}`;
