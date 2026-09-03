@@ -1360,7 +1360,7 @@ export class CognitiveService {
       intent='context.select'; capability='conversation_context'; status='live'; title='مورد دوم انتخاب شد';
       items=doc?[{title:doc.title,subtitle:doc.id,meta:`نسخه ${doc.version}`}]:[{title:'مورد انتخاب‌شده دیگر در دسترس نیست',subtitle:ref,meta:'stale context'}];
       contextPatch={selectedRef:ref,selectedType:'document'}; nextAction={type:'open_view',view:'knowledge',documentId:doc?.id||null};
-    } else if(has('اولی','اول') && context.resultRefs?.length){
+    } else if((has('اولی') || /(^|\s)اول(?=\s|$|[؟?!،,.])/u.test(normalized)) && context.resultRefs?.length){
       const ref=context.resultRefs[0]; const doc=orgDocs.find(x=>x.id===ref);
       intent='context.select'; capability='conversation_context'; status='live'; title='مورد اول انتخاب شد';
       items=doc?[{title:doc.title,subtitle:doc.id,meta:`نسخه ${doc.version}`}]:[]; contextPatch={selectedRef:ref,selectedType:'document'};
