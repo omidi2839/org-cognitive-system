@@ -1,4 +1,4 @@
-/* Build 0.7.5.1 — Cognitive Workspace UX Refinement */
+/* Build 0.7.5.2 — Semantic Visual Hierarchy Refinement */
 .role-aware-layout{grid-template-columns:238px 1fr!important}.cognitive-sidebar{align-items:stretch!important;padding:20px 12px!important;overflow:auto}.brand-mark{display:flex;align-items:center;gap:10px;padding:2px 10px 18px;border-bottom:1px solid #edf1f7;margin-bottom:12px}.brand-mark .logo{margin:0!important}.brand-mark b{display:block;font-size:13px}.brand-mark small{font-size:10px;color:#98a3b5}.role-nav{gap:4px!important}.cognitive-sidebar .nav-item{grid-template-columns:28px 1fr!important;display:grid!important;place-items:initial!important;align-items:center;text-align:right;padding:10px 12px!important;border-radius:12px!important;gap:8px!important}.cognitive-sidebar .nav-item span{font-size:17px!important;text-align:center}.cognitive-sidebar .nav-item b{font-size:11px!important;line-height:1.55}.admin-entry{margin-top:auto!important;border-top:1px solid #edf1f7!important;padding-top:14px!important}.role-context{display:flex;align-items:center;gap:12px}.context-switcher{border:1px solid #e4eaf3;background:#fff;border-radius:13px;padding:8px 12px;display:grid;grid-template-columns:1fr 18px;column-gap:8px;text-align:right;color:#24324d;cursor:pointer}.context-switcher span{font-size:11px;font-weight:700}.context-switcher small{font-size:9px;color:#9aa5b6}.context-switcher i{grid-row:1/3;grid-column:2;align-self:center;font-style:normal;color:#7c899e}
 
 .workspace-context{background:#fff;border:1px solid #e8edf5;border-radius:28px;padding:28px;box-shadow:0 16px 48px rgba(28,53,98,.09);margin-bottom:22px}.workspace-context.hidden{display:none}.workspace-context-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border-bottom:1px solid #edf1f6;padding-bottom:20px;margin-bottom:20px}.workspace-kicker{font-size:10px;color:#2878e8}.workspace-context h1{font-size:27px;margin:5px 0 7px;color:#10244d}.workspace-context p{font-size:12px;color:#758299;margin:0;line-height:1.9}.persona-badge{white-space:nowrap;background:#eef5ff;color:#226ed9;padding:8px 12px;border-radius:999px;font-size:10px}
@@ -11,3 +11,20 @@
 
 @media(max-width:1000px){.role-aware-layout{grid-template-columns:94px 1fr!important}.brand-mark div,.cognitive-sidebar .nav-item b{display:none!important}.brand-mark{justify-content:center}.cognitive-sidebar .nav-item{grid-template-columns:1fr!important;place-items:center!important}.role-topbar .org-copy{display:none}.context-switcher span{font-size:10px}}
 @media(max-width:650px){.cognitive-sidebar{display:none!important}.workspace-context{padding:18px;border-radius:20px}.workspace-context-head{display:block}.persona-badge{display:inline-block;margin-top:12px}.stage-items{grid-template-columns:1fr 1fr}.context-switcher{display:none}.problem-pipeline{display:grid;grid-template-columns:1fr 1fr}.problem-pipeline i{display:none}}
+
+/* Build 0.7.5.2 — Semantic Visual Hierarchy Refinement */
+.cognitive-stage{--stage-accent:#2f78df;--stage-soft:#eef5ff;--stage-border:#d9e8fb;border-color:var(--stage-border);position:relative;overflow:hidden}
+.cognitive-stage::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--stage-accent);opacity:.8}
+.cognitive-stage.semantic-stage-1{--stage-accent:#2f78df;--stage-soft:#eef5ff;--stage-border:#d9e8fb}
+.cognitive-stage.semantic-stage-2{--stage-accent:#148b78;--stage-soft:#edf9f6;--stage-border:#d5eee8}
+.cognitive-stage.semantic-stage-3{--stage-accent:#b87916;--stage-soft:#fff8ea;--stage-border:#f2e4c5}
+.cognitive-stage.semantic-stage-4{--stage-accent:#7454b8;--stage-soft:#f6f1ff;--stage-border:#e6dcf8}
+.stage-head{margin:-15px -15px 12px;padding:16px 15px 12px;background:linear-gradient(90deg,var(--stage-soft),rgba(255,255,255,.78));border-bottom:1px solid var(--stage-border)}
+.stage-no{background:#fff;color:var(--stage-accent);border:1px solid var(--stage-border);box-shadow:0 3px 10px rgba(30,60,110,.04)}
+.stage-head b{color:var(--stage-accent);font-weight:800;font-size:13px}
+.stage-head small{color:#7c8798}
+.cognitive-stage .capability-card{background:#fff;border-color:#e7edf5}
+.cognitive-stage .capability-card b{color:#20314f}
+.cognitive-stage .capability-card small{color:#9ba6b8}
+.cognitive-stage .capability-card.live small{color:#4e7fbd}
+.cognitive-stage .capability-card.live .capability-icon{background:#eaf3ff;color:#2375e6}
