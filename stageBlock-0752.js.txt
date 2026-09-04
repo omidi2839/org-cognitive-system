@@ -1,0 +1,11 @@
+// Replace stageBlock in workspace-shell-075.js with:
+function stageBlock(stage, index){
+  const semanticClass=`semantic-stage-${(index%4)+1}`;
+  return `<section class="cognitive-stage ${semanticClass}">
+    <div class="stage-head">
+      <span class="stage-no">${String(index+1).padStart(2,'0')}</span>
+      <div><b>${stage.title}</b><small>${stage.subtitle||''}</small></div>
+    </div>
+    <div class="stage-items">${stage.items.map(capabilityCard).join('')}</div>
+  </section>`;
+}

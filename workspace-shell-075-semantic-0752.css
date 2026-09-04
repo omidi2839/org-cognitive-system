@@ -1,0 +1,13 @@
+/* Build 0.7.5.2 — Semantic Visual Hierarchy Refinement */
+.cognitive-stage{--stage-accent:#2f78df;--stage-soft:#f2f7ff;--stage-border:#dce9fb;border-color:var(--stage-border);position:relative;overflow:hidden}
+.cognitive-stage::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--stage-accent);opacity:.78}
+.cognitive-stage.semantic-stage-1{--stage-accent:#2f78df;--stage-soft:#eef5ff;--stage-border:#d9e8fb}
+.cognitive-stage.semantic-stage-2{--stage-accent:#148b78;--stage-soft:#edf9f6;--stage-border:#d5eee8}
+.cognitive-stage.semantic-stage-3{--stage-accent:#b87916;--stage-soft:#fff8ea;--stage-border:#f2e4c5}
+.cognitive-stage.semantic-stage-4{--stage-accent:#7454b8;--stage-soft:#f6f1ff;--stage-border:#e6dcf8}
+.stage-head{margin:-15px -15px 12px;padding:16px 15px 12px;background:linear-gradient(90deg,var(--stage-soft),rgba(255,255,255,.72));border-bottom:1px solid var(--stage-border)}
+.stage-no{background:var(--stage-soft);color:var(--stage-accent);border:1px solid var(--stage-border);box-shadow:0 3px 10px rgba(30,60,110,.04)}
+.stage-head b{color:var(--stage-accent);font-weight:800;font-size:13px}.stage-head small{color:#7c8798}
+.cognitive-stage .capability-card{background:#fff;border-color:#e7edf5}.cognitive-stage .capability-card b{color:#20314f}
+.cognitive-stage .capability-card small{color:#9ba6b8}.cognitive-stage .capability-card.live small{color:#4e7fbd}
+.cognitive-stage .capability-card.live .capability-icon{background:#eaf3ff;color:#2375e6}
