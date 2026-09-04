@@ -8,11 +8,10 @@ const getHeaders=req=>Object.fromEntries(Object.entries(req.headers||{}).map(([k
 const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(data));};
 export default async function handler(req,res){
   try{
-    const actor=service.actor(getHeaders(req));
-    const path=new URL(req.url,'https://local').pathname;
-    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.4.2',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
+    const actor=service.actor(getHeaders(req)); const path=new URL(req.url,'https://local').pathname;
+    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.5',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
     if(path==='/api/v1/health/ready'&&req.method==='GET'){ const dbOk=typeof repository.health==='function'?await repository.health():true; const st=service.storage; const storageOk=typeof st.health==='function'?await st.health():true; const durableRequired=String(process.env.REQUIRE_DURABLE_SERVICES||'').toLowerCase()==='true'; const durableOk=!durableRequired||(repositoryMode()==='postgres'&&storageMode()==='vercel-blob'); const ok=dbOk&&storageOk&&durableOk; return send(res,ok?200:503,{status:ok?'ready':'not_ready',persistence:repositoryMode(),storage:storageMode(),durableRequired,checks:{database:dbOk,storage:storageOk,durable:durableOk}}); }
-    if(path==='/api/v1/me'&&req.method==='GET') return send(res,200,{person:{id:actor.personId,displayName:'سارا کارشناس'},organization:{id:actor.organizationId,name:'سازمان نمونه شناختی'},roles:actor.roles,locale:'fa-IR',direction:'rtl'});
+    if(path==='/api/v1/me'&&req.method==='GET') return send(res,200,{person:{id:actor.personId,displayName:'حسین امیدی'},organization:{id:actor.organizationId,name:'سازمان نمونه شناختی'},roles:actor.roles,persona:'مدیر راهبردی',assignment:'مدیریت استراتژی و تحول',locale:'fa-IR',direction:'rtl'});
     if(path==='/api/v1/dashboard'&&req.method==='GET') return send(res,200,await service.dashboard(actor));
     if(path==='/api/v1/workspace/morning'&&req.method==='GET') return send(res,200,await service.personalMorningWorkspace(actor));
     if(path==='/api/v1/demo/morning'&&req.method==='POST') return send(res,201,await service.seedSyntheticMorning(actor));
@@ -37,10 +36,6 @@ export default async function handler(req,res){
     if(path==='/api/v1/workspace/agenda-readiness'&&req.method==='POST') return send(res,200,await service.assessAgendaReadiness(actor,req.body||{}));
     if(path==='/api/v1/workspace/meeting-orchestration'&&req.method==='POST') return send(res,200,await service.orchestrateMeeting(actor,req.body||{}));
     if(path==='/api/v1/sandbox/demo-state'&&req.method==='GET') return send(res,200,await service.getSandboxDemoState(actor));
-
-
-
-
     if(path==='/api/v1/documents'&&req.method==='POST') return send(res,201,await service.createDocument(actor,req.body||{}));
     if(path==='/api/v1/documents/upload'&&req.method==='POST') return send(res,201,await service.uploadDocument(actor,req.body||{}));
     if(path==='/api/v1/documents/batch-upload'&&req.method==='POST') return send(res,201,await service.uploadBatch(actor,req.body||{}));
