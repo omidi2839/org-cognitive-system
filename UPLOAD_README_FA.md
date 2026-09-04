@@ -1,5 +1,16 @@
-# Build 0.7.5.2
-این Patch کوچک روی 0.7.5.1 اعمال می‌شود:
-1) تابع stageBlock در workspace-shell-075.js و public/workspace-shell-075.js را مطابق فایل stageBlock-0752.js.txt جایگزین کنید.
-2) محتوای workspace-shell-075-semantic-0752.css را به انتهای هر دو فایل workspace-shell-075.css و public/workspace-shell-075.css اضافه کنید.
-رنگ‌ها فقط معنای ساختاری مرحله دارند: 01 آبی، 02 سبز/فیروزه‌ای، 03 کهربایی، 04 بنفش. رنگ وضعیت قابلیت‌ها مستقل می‌ماند.
+# Build 0.7.5.2 — Fixed Full Replacement Patch
+
+این نسخه اصلاح‌شده است. فایل‌های اصلی مورد استفاده سایت داخل Patch قرار دارند و باید با حفظ مسیر، فایل‌های هم‌نام Repository را Replace کنند.
+
+فایل‌های اصلی تغییرکرده:
+- workspace-shell-075.js
+- public/workspace-shell-075.js
+- workspace-shell-075.css
+- public/workspace-shell-075.css
+- api/index.js
+- package.json
+- tests/semantic-visual-hierarchy-0752.test.js
+
+تغییر بصری:
+01 آبی، 02 سبز/فیروزه‌ای، 03 کهربایی، 04 بنفش.
+رنگ مرحله فقط ساختار را نشان می‌دهد و رنگ وضعیت قابلیت‌ها مستقل می‌ماند.

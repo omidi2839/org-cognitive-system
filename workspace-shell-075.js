@@ -120,7 +120,8 @@ function capabilityCard(name){
 }
 
 function stageBlock(stage, index){
-  return `<section class="cognitive-stage">
+  const semanticClass=`semantic-stage-${(index%4)+1}`;
+  return `<section class="cognitive-stage ${semanticClass}">
     <div class="stage-head">
       <span class="stage-no">${String(index+1).padStart(2,'0')}</span>
       <div><b>${stage.title}</b><small>${stage.subtitle||''}</small></div>
