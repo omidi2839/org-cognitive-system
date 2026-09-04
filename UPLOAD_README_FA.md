@@ -1,16 +1,3 @@
-# Build 0.7.5.2 — Fixed Full Replacement Patch
-
-این نسخه اصلاح‌شده است. فایل‌های اصلی مورد استفاده سایت داخل Patch قرار دارند و باید با حفظ مسیر، فایل‌های هم‌نام Repository را Replace کنند.
-
-فایل‌های اصلی تغییرکرده:
-- workspace-shell-075.js
-- public/workspace-shell-075.js
-- workspace-shell-075.css
-- public/workspace-shell-075.css
-- api/index.js
-- package.json
-- tests/semantic-visual-hierarchy-0752.test.js
-
-تغییر بصری:
-01 آبی، 02 سبز/فیروزه‌ای، 03 کهربایی، 04 بنفش.
-رنگ مرحله فقط ساختار را نشان می‌دهد و رنگ وضعیت قابلیت‌ها مستقل می‌ماند.
+# Build 0.7.6 — Fixed Full Replacement
+این نسخه نیاز به Integration دستی ندارد. تمام محتویات ZIP را با حفظ مسیرها در ریشه Repository آپلود و فایل‌های هم‌نام را Replace کنید.
+اتصال JS/CSS، فعال‌سازی دو کارت اسناد، metadata سند و نسخه Build داخل فایل‌های واقعی اعمال شده‌اند.

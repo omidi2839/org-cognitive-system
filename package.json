@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.5.2-semantic-visual-hierarchy",
-  "version": "0.7.5.2",
+  "name": "org-cognitive-build-0.7.6-knowledge-foundation",
+  "version": "0.7.6",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
