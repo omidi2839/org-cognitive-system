@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.5-role-aware-workspace-shell",
-  "version": "0.7.5",
+  "name": "org-cognitive-build-0.7.5.1-cognitive-workspace-ux",
+  "version": "0.7.5.1",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",

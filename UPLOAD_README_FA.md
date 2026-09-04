@@ -1,8 +1,20 @@
-# Patch Build 0.7.5 — Role-Aware Cognitive Workspace Shell V1
+# Patch Build 0.7.5.1 — Cognitive Workspace UX Refinement
 
-این بسته فقط فایل‌های تغییرکرده/جدید را دارد. محتویات ZIP را با حفظ مسیرها در ریشه Repository آپلود کنید و فایل‌های هم‌نام را Replace کنید.
+محتویات ZIP را با حفظ ساختار پوشه‌ها در ریشه Repository بارگذاری و فایل‌های هم‌نام را Replace کنید.
 
-فایل‌ها:
+## اصلاحات اصلی
+- خروج Workspaceها از Grid هم‌سطح و تبدیل به مراحل/لایه‌های شناختی
+- افزودن «شاخص‌های برنامه» به برنامه‌ریزی و بودجه‌بندی
+- افزودن «تحقق برنامه‌ها» به تحقق و یادگیری
+- جایگزینی «تحقق مراجع تحقق» با «وضعیت مطلوبیت سازمان»
+- حفظ «مراجع تحقق سازمان» فقط در جهت‌گیری سازمان
+- Problem Pipeline برای مسائل سازمان
+- تفکیک تصمیم و مدیریت به ورودی، آماده‌سازی، حاکمیت و پس از تصمیم
+- تفکیک جلسات به پیش از جلسه، حین جلسه، خروجی و پس از جلسه
+- تفکیک برنامه‌ریزی به طراحی، تخصیص، آماده‌سازی اجرا و کنترل اجرا
+- parity کامل root/public
+
+## فایل‌ها
 - index.html
 - public/index.html
 - workspace-shell-075.js
@@ -11,6 +23,4 @@
 - public/workspace-shell-075.css
 - api/index.js
 - package.json
-- tests/role-aware-shell-075.test.js
-
-هدف: Role-aware shell، Persona مدیر راهبردی، معماری کامل Workspaceها، «مراجع تحقق سازمان»، و حفظ قابلیت‌های 0.7.4.2.
+- tests/cognitive-workspace-ux-0751.test.js
