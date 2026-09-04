@@ -1,109 +1,59 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>پلتفرم هوش شناختی سازمان</title>
 <link rel="stylesheet" href="./styles.css">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"></head>
+<link rel="stylesheet" href="./workspace-shell-075.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
 <body>
-<div class="app-layout">
-  <aside class="sidebar">
-    <div class="logo">✦</div>
-    <nav>
-      <button class="nav-item active" data-command="صبح بخیر، برنامه امروز من چیه؟"><span>⌂</span><b>خانه</b></button>
-      <button class="nav-item" data-view="knowledge"><span>□</span><b>اسناد</b></button>
-      <button class="nav-item" data-command="جلسات امروز من"><span>▣</span><b>جلسات</b></button>
-      <button class="nav-item" data-command="نامه‌های کارتابل من را نشان بده"><span>▱</span><b>کارتابل</b></button>
-      <button class="nav-item" data-command="کارهای امروز من"><span>✓</span><b>کارها</b></button>
-      <button class="nav-item" data-command="گزارش وضعیت امروز را نشان بده"><span>⌁</span><b>گزارش‌ها</b></button>
-      <button class="nav-item" data-command="فهرست دانش من"><span>◈</span><b>دانش سازمانی</b></button>
-      <button id="analyzeDocs" class="nav-item" data-view="home"><span>⇧</span><b>تحلیل اسناد</b></button>
-    </nav>
-    <button class="nav-item settings"><span>⚙</span><b>تنظیمات</b></button>
-  </aside>
-
-  <div class="page">
-    <header class="topbar">
-      <div class="assistant-select"><span class="spark">✦</span><b>دستیار هوشمند سازمانی</b><span>⌄</span></div>
-      <div class="org-user">
-        <div class="org-copy"><b>سازمان نمونه</b><small>مدیریت استراتژی و تحول</small></div>
-        <div class="avatar">س<span></span></div>
-      </div>
-    </header>
-
-    <main class="main">
-      <section class="hero-card">
-        <div class="eyebrow">پلتفرم هوش شناختی سازمان</div>
-        <h1>امروز روی چه چیزی کار کنیم؟</h1>
-
-        <div class="command-row">
-          <button id="voiceCommand" class="voice-btn" title="فرمان صوتی">♩</button>
-          <button id="runCommand" class="send-btn"><span>ارسال</span><span class="paper">➤</span></button>
-          <textarea id="commandInput" rows="1" placeholder="اینجا بنویسید..."></textarea>
-        </div>
-        <div id="voiceStatus" class="voice-status"></div>
-      </section>
-
-      <section class="suggestion-area">
-        <div class="suggestion-title"><span>✦</span> پیشنهادهای هوشمند <span>✦</span></div>
-        <div class="suggestion-chips"><button class="suggestion-chip" data-command="روی چه چیزی تمرکز کنم؟">◎ تمرکز امروز</button>
-          <button data-command="لیست کارهای امروز من"><span>▤</span> لیست کارهای امروز من</button>
-          <button data-command="امروز چه جلساتی دارم؟"><span>▣</span> امروز چه جلساتی دارم؟</button>
-          <button data-command="نامه‌های کارتابل من را نشان بده"><span>▱</span> نامه‌های کارتابل من</button>
-          <button data-command="اسناد جدید من را نشان بده"><span>□</span> اسناد جدید من</button>
-          <button data-command="فهرست دانش من"><span>•••</span> بیشتر</button>
-        </div>
-      </section>
-
-          <section id="commandResult" class="workspace-result hidden"></section>
-
-      
-
-      <section class="privacy-note"><span>♢</span> اطلاعات شما ایمن و محرمانه است</section>
-
-      <section id="home" class="view">
-        <div class="sheet">
-          <div class="sheet-head">
-            <span><b>تحلیل اسناد</b><small>فایل را وارد کنید تا تحلیل شناختی آغاز شود</small></span>
-            <button class="close-sheet" data-close>×</button>
-          </div>
-          <div class="upload-grid">
-            <input id="docTitle" placeholder="عنوان اختیاری">
-            <input id="realFile" type="file">
-            <button id="runFlow" class="primary">ورود و تحلیل</button>
-            <span id="flowStatus"></span>
-          </div>
-          <div id="candidates"></div>
-        </div>
-      </section>
-
-      <section id="knowledge" class="view">
-        <div class="sheet">
-          <div class="sheet-head">
-            <span><b>دانش سازمانی</b><small>موجودی دانش و اسناد قابل دسترس</small></span>
-            <button class="close-sheet" data-close>×</button>
-          </div>
-          <div id="inventory"></div>
-        </div>
-      </section>
-
-      <section id="trace" class="view">
-        <div class="sheet">
-          <div class="sheet-head">
-            <span><b>ردیابی شناختی</b><small>منبع ← پیشنهاد هوش مصنوعی ← بررسی انسانی ← دانش معتبر</small></span>
-            <button class="close-sheet" data-close>×</button>
-          </div>
-          <div id="traceSteps"></div>
-        </div>
-      </section>
-
-      <div id="stats" class="hidden-data"></div>
-      <div id="knowledgeList" class="hidden-data"></div>
-    </main>
+<div class="app-layout role-aware-layout">
+<aside class="sidebar cognitive-sidebar">
+  <div class="brand-mark"><span class="logo">✦</span><div><b>هوش شناختی</b><small>سازمان</small></div></div>
+  <nav id="roleNav" class="role-nav">
+    <button class="nav-item active" data-workspace="personal"><span>⌂</span><b>میزکار شناختی من</b></button>
+    <button class="nav-item" data-workspace="knowledge"><span>□</span><b>دانش و اسناد سازمان</b></button>
+    <button class="nav-item" data-workspace="direction"><span>⌁</span><b>جهت‌گیری سازمان</b></button>
+    <button class="nav-item" data-workspace="cognition"><span>◈</span><b>شناخت و تحلیل سازمان</b></button>
+    <button class="nav-item" data-workspace="problems"><span>◇</span><b>مسائل سازمان</b></button>
+    <button class="nav-item" data-workspace="decision"><span>◎</span><b>تصمیم و مدیریت</b></button>
+    <button class="nav-item" data-workspace="meetings"><span>▣</span><b>جلسات</b></button>
+    <button class="nav-item" data-workspace="planning"><span>▤</span><b>برنامه‌ریزی و بودجه‌بندی</b></button>
+    <button class="nav-item" data-workspace="realization"><span>↗</span><b>تحقق و یادگیری</b></button>
+  </nav>
+  <button class="nav-item admin-entry" data-workspace="admin"><span>⚙</span><b>مدیریت سامانه</b></button>
+</aside>
+<div class="page">
+<header class="topbar role-topbar">
+  <div class="assistant-select"><span class="spark">✦</span><b>دستیار هوشمند سازمانی</b><span>⌄</span></div>
+  <div class="role-context">
+    <div class="org-copy"><b>سازمان نمونه شناختی</b><small>حسین امیدی · مدیر راهبردی</small></div>
+    <button id="contextSwitcher" class="context-switcher"><span>مدیریت استراتژی و تحول</span><small>زمینه کاری</small><i>⌄</i></button>
+    <div class="avatar">ح<span></span></div>
   </div>
-</div>
+</header>
+<main class="main">
+  <section id="workspaceContext" class="workspace-context hidden"></section>
+  <section class="hero-card" id="personalHero">
+    <div class="eyebrow">پلتفرم هوش شناختی سازمان</div><h1>امروز روی چه چیزی کار کنیم؟</h1>
+    <div class="command-row">
+      <button id="voiceCommand" class="voice-btn" title="فرمان صوتی" aria-label="فرمان صوتی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
+      <button id="runCommand" class="send-btn"><span>ارسال</span><span class="paper">➤</span></button>
+      <textarea id="commandInput" rows="1" placeholder="اینجا بنویسید..."></textarea>
+    </div><div id="voiceStatus" class="voice-status"></div>
+  </section>
+  <section class="suggestion-area" id="personalSuggestions"><div class="suggestion-title"><span>✦</span> پیشنهادهای هوشمند <span>✦</span></div><div class="suggestion-chips">
+    <button class="suggestion-chip" data-command="روی چه چیزی تمرکز کنم؟">◎ اولویت‌های توجه</button><button data-command="مسائل راهبردی مهم را نشان بده">◇ مسائل راهبردی</button><button data-command="وضعیت تحقق اهداف را نشان بده">↗ وضعیت تحقق اهداف</button><button data-command="تصمیمات نیازمند اقدام را نشان بده">◎ تصمیمات نیازمند اقدام</button><button data-command="امروز چه جلساتی دارم؟">▣ جلسات مدیریتی</button>
+  </div></section>
+  <section id="commandResult" class="workspace-result hidden"></section>
+  <section class="privacy-note"><span>♢</span> اطلاعات شما ایمن و محرمانه است</section>
+
+  <section id="home" class="view"><div class="sheet"><div class="sheet-head"><span><b>تحلیل اسناد</b><small>فایل را وارد کنید تا تحلیل شناختی آغاز شود</small></span><button class="close-sheet" data-close>×</button></div><div class="upload-grid"><input id="docTitle" placeholder="عنوان اختیاری"><input id="realFile" type="file"><button id="runFlow" class="primary">ورود و تحلیل</button><span id="flowStatus"></span></div><div id="candidates"></div></div></section>
+  <section id="knowledge" class="view"><div class="sheet"><div class="sheet-head"><span><b>دانش سازمانی</b><small>موجودی دانش و اسناد قابل دسترس</small></span><button class="close-sheet" data-close>×</button></div><div id="inventory"></div></div></section>
+  <section id="trace" class="view"><div class="sheet"><div class="sheet-head"><span><b>ردیابی شناختی</b><small>منبع ← پیشنهاد هوش مصنوعی ← بررسی انسانی ← دانش معتبر</small></span><button class="close-sheet" data-close>×</button></div><div id="traceSteps"></div></div></section>
+  <div id="stats" class="hidden-data"></div><div id="knowledgeList" class="hidden-data"></div>
+</main></div></div>
 <aside class="history-rail"><button id="historyToggle" class="history-toggle">⌁ گفت‌وگوهای اخیر</button><div id="historyPanel" class="history-panel"></div></aside><input id="quickFile" type="file" hidden>
-<script src="./app.js"></script>
-</body>
-</html>
+<script src="./app.js"></script><script src="./workspace-shell-075.js"></script>
+</body></html>
