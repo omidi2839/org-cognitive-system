@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.6.4-document-separation-analysis-queue",
-  "version": "0.7.6.4",
+  "name": "org-cognitive-build-0.7.6.5-encoded-id-routing-fix",
+  "version": "0.7.6.5",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
