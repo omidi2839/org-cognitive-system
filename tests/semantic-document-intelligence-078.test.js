@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import fs from'node:fs';
+test('semantic intelligence + quality gate',()=>{const s=fs.readFileSync('src/application/cognitiveDocumentUnderstanding077.js','utf8'),u=fs.readFileSync('knowledge-workspace-076.js','utf8');for(const x of ['extractionQuality','EXTRACTION_QUALITY_BLOCKED','هم‌وقوعی معنایی','پرتکرار/برجسته','evidence'])assert.ok(s.includes(x));assert.ok(u.includes('کیفیت استخراج متن'));assert.ok(u.includes('شاهد از سند'));});
