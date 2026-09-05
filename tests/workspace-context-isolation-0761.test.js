@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('workspace context isolation',()=>{const j=fs.readFileSync('workspace-shell-075.js','utf8'),p=fs.readFileSync('public/workspace-shell-075.js','utf8');assert.equal(j,p);assert.ok(j.includes("commandResult.style.display='none'"));assert.ok(j.includes("commandResult.style.display=''"));assert.ok(j.includes("key!=='knowledge'"));});
