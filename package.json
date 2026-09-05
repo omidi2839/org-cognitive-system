@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.7-cognitive-document-understanding",
-  "version": "0.7.7",
+  "name": "org-cognitive-build-0.7.8-semantic-document-intelligence",
+  "version": "0.7.8",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
