@@ -109,6 +109,7 @@ const activeCapabilities = new Set([
 const ctx=document.getElementById('workspaceContext');
 const hero=document.getElementById('personalHero');
 const suggestions=document.getElementById('personalSuggestions');
+const commandResult=document.getElementById('commandResult');
 
 function capabilityCard(name){
   const live=activeCapabilities.has(name);
@@ -145,11 +146,15 @@ function render(key){
     ctx.classList.add('hidden');
     hero.style.display='';
     suggestions.style.display='';
+    if(commandResult) commandResult.style.display='';
+    document.getElementById('knowledge076')?.remove();
     return;
   }
 
   hero.style.display='none';
   suggestions.style.display='none';
+  if(commandResult) commandResult.style.display='none';
+  if(key!=='knowledge') document.getElementById('knowledge076')?.remove();
   ctx.classList.remove('hidden');
 
   ctx.innerHTML=`<div class="workspace-context-head">

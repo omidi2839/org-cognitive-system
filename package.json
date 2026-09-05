@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.6-knowledge-foundation",
-  "version": "0.7.6",
+  "name": "org-cognitive-build-0.7.6.1-workspace-context-fix",
+  "version": "0.7.6.1",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
