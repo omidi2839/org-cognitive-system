@@ -1,12 +1,12 @@
-# Build 0.7.6.2 — Upstream Document Form Refinement
+# Build 0.7.6.3 — Knowledge Zone & Classification Fix
 
-اصلاحات فرم اسناد بالادستی:
-- «سند بالادستی» از نوع سند حذف شد.
-- «چارچوب» و «ضوابط» اضافه شد.
-- طبقه‌بندی فقط «محرمانه» و «عمومی» است.
-- «سطح سازمانی» برای اسناد بالادستی به «دامنه سازمانی» تبدیل شد: کل سازمان / واحد سازمانی.
-- در انتخاب «واحد سازمانی»، فرم برای دریافت واحدها از ساختار سازمانی از endpoint `/api/v1/organization/units` آماده است.
-- اگر ساختار سازمانی هنوز در Build فعلی متصل نباشد، پیام صریح نمایش داده می‌شود و ثبت سند واحدی بدون انتخاب واحد مجاز نیست.
-- metadata شامل scopeType / organizationalUnitRef / organizationalUnitName آماده شده است.
+علت خطا:
+فرم 0.7.6 مقدار `organization` برای knowledgeZone ارسال می‌کرد، در حالی که Backend فقط `organizational` را معتبر می‌داند.
+
+اصلاحات:
+- knowledgeZone به `organizational` اصلاح شد.
+- طبقه‌بندی `public` به قرارداد Backend اضافه شد تا گزینه «عمومی» فرم هم معتبر باشد.
+- «محرمانه» همچنان به `confidential` نگاشت می‌شود.
+- Build به 0.7.6.3 افزایش یافت.
 
 این ZIP Full Replacement است.

@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.6.2-upstream-form-refinement",
-  "version": "0.7.6.2",
+  "name": "org-cognitive-build-0.7.6.3-knowledge-zone-classification-fix",
+  "version": "0.7.6.3",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",

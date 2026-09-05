@@ -81,7 +81,7 @@ function form(up){
      };
      const d=await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
        title:f.get('title'),fileName:file.name,mimeType:file.type||'application/octet-stream',
-       contentBase64:b64,classification:f.get('classification'),knowledgeZone:'organization',metadata
+       contentBase64:b64,classification:f.get('classification'),knowledgeZone:'organizational',metadata
      })});
      st.innerHTML=`<b>سند ثبت شد.</b> ${d.document?.id||''}<br>اکنون آماده تحلیل شناختی و بررسی انسانی است.`;
    }catch(err){st.textContent=err.message}
