@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.6.1-workspace-context-fix",
-  "version": "0.7.6.1",
+  "name": "org-cognitive-build-0.7.6.2-upstream-form-refinement",
+  "version": "0.7.6.2",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
