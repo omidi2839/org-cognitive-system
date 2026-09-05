@@ -27,15 +27,13 @@ function discoverConcepts(text){
   return uniq([...ranked,...words]).slice(0,18);
 }
 function extractionQuality(text,doc){
-  const t=norm(text), chars=t.length, fa=(t.match(/[\u0600-\u06FF]/g)||[]).length, replacement=(t.match(/�/g)||[]).length;
-  const words=t.split(/\s+/).filter(Boolean), avg=words.length?words.reduce((a,w)=>a+w.length,0)/words.length:0;
-  let score=0;
-  if(chars>=120)score+=.35; else if(chars>=50)score+=.18;
-  if(words.length>=25)score+=.25; else if(words.length>=10)score+=.12;
-  if(fa/Math.max(chars,1)>.35)score+=.22;
-  if(avg>=2.5&&avg<=14)score+=.18;
-  score=Math.max(0,Math.min(1,score-(replacement>2?.3:0)));
-  return {score,status:score>=.65?'passed':score>=.4?'warning':'blocked',characters:chars,words:words.length,persianRatio:Number((fa/Math.max(chars,1)).toFixed(2)),message:score>=.65?'کیفیت متن برای تحلیل شناختی مناسب است.':score>=.4?'متن قابل استفاده است اما کیفیت استخراج نیازمند توجه است.':'کیفیت استخراج متن برای تحلیل شناختی کافی نیست.'};
+  const t=norm(text),chars=t.length,fa=(t.match(/[\u0600-\u06FF]/g)||[]).length,replacement=(t.match(/�/g)||[]).length;
+  const words=t.split(/\s+/).filter(Boolean),avg=words.length?words.reduce((a,w)=>a+w.length,0)/words.length:0;
+  const persianRatio=fa/Math.max(chars,1),lexical=words.filter(w=>w.length>=3).length/Math.max(words.length,1);
+  let score=0;if(chars>=50)score+=.25;else if(chars>=20)score+=.16;if(words.length>=8)score+=.25;else if(words.length>=4)score+=.14;
+  if(persianRatio>.30)score+=.25;if(avg>=2.5&&avg<=16)score+=.15;if(lexical>.65)score+=.10;
+  score=Math.max(0,Math.min(1,score-(replacement>2?.35:0)));
+  return {score,status:score>=.60?'passed':score>=.38?'warning':'blocked',characters:chars,words:words.length,persianRatio:Number(persianRatio.toFixed(2)),lexicalDensity:Number(lexical.toFixed(2)),message:score>=.60?'کیفیت متن برای تحلیل شناختی مناسب است.':score>=.38?'متن کوتاه است اما برای تحلیل با احتیاط قابل استفاده است.':'کیفیت استخراج متن برای تحلیل شناختی کافی نیست.'};
 }
 function relations(text,concepts){
   const rs=[];
@@ -102,8 +100,12 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
     const existing=(db.documentAnalyses||[]).filter(a=>a.organizationId===actor.organizationId&&a.documentRef===documentId).sort((a,b)=>b.version-a.version);
     if(existing[0]&&!forceNewVersion) return {analysis:existing[0],reused:true};
 
-    const text=doc.normalizedText||'';
+    const normDoc=(db.normalizedDocuments||[])
+      .filter(x=>x.organizationId===actor.organizationId&&x.documentRef===documentId&&x.sourceVersion<=doc.version)
+      .sort((a,b)=>b.sourceVersion-a.sourceVersion)[0];
+    const text=normDoc?.text||doc.content||'';
     const quality=extractionQuality(text,doc);
+    quality.source=normDoc?{normalizedRef:normDoc.id,structure:normDoc.structure,language:normDoc.language}:{normalizedRef:null,structure:null,language:'unknown'};
     if(quality.status==='blocked'){
       const e=new Error('کیفیت استخراج متن برای تحلیل شناختی کافی نیست. ابتدا متن سند باید با کیفیت مناسب استخراج شود.');
       e.code='EXTRACTION_QUALITY_BLOCKED'; e.details=quality; throw e;
