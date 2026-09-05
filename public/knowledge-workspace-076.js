@@ -85,37 +85,45 @@ function form(up){
 function flow(){document.getElementById('k76body').innerHTML=`<div class="k76flow">${['سند اصلی','استخراج و نرمال‌سازی','انتخاب برای تحلیل','مفهوم / گزاره پیشنهادی','اتصال به شاهد','بررسی انسانی','دانش معتبر'].map((x,i)=>`<span><b>0${i+1}</b>${x}</span>`).join('<i>←</i>')}</div><div class="k76note"><b>اصل بنیادین:</b> ثبت سند و تحلیل سند دو مرحله مستقل‌اند.</div>`}
 
 async function analysisPanel(){
- shell('تحلیل اسناد','اسناد قبلاً ثبت‌شده را انتخاب کنید؛ در این مرحله فایل جدیدی بارگذاری نمی‌شود.',false);
- const b=document.getElementById('k76body');
- b.innerHTML='<div class="k76loading">در حال دریافت اسناد قابل تحلیل…</div>';
+ shell('تحلیل شناختی اسناد','اسناد بر اساس چرخه تحلیل تفکیک شده‌اند؛ مشاهده تحلیل هرگز تحلیل مجدد اجرا نمی‌کند.',false);
+ const b=document.getElementById('k76body');b.innerHTML='<div class="k76loading">در حال دریافت چرخه تحلیل اسناد…</div>';
  try{
-  const d=await api('/api/v1/knowledge/documents');
-  const items=(d.items||[]).filter(x=>['upstream','general'].includes(x.documentClass));
-  b.innerHTML=`<div class="k76analysishead"><div><b>صف اسناد برای تحلیل</b><small>${items.length} سند ثبت‌شده</small></div><div class="k76legend"><span>بالادستی</span><span>عمومی</span></div></div>
-  <div class="k76docs">${items.length?items.map(analysisRow).join(''):'<div class="k76empty">هنوز سندی برای تحلیل وجود ندارد. ابتدا سند را در «اسناد بالادستی» یا «اسناد عمومی» ثبت کنید.</div>'}</div>
-  <div id="k76analysisResult"></div>`;
-  b.querySelectorAll('[data-analyze-doc]').forEach(btn=>btn.onclick=()=>runAnalysis(btn.dataset.analyzeDoc));
+  const d=await api('/api/v1/knowledge/documents'),items=(d.items||[]).filter(x=>['upstream','general'].includes(x.documentClass));
+  const queue=items.filter(x=>!x.analysis),review=items.filter(x=>x.analysis&&x.analysis.status!=='approved'),approved=items.filter(x=>x.analysis?.status==='approved');
+  b.innerHTML=`${analysisGroup('در انتظار تحلیل','queue',queue,'این اسناد هنوز وارد فهم شناختی نشده‌اند.')}
+  ${analysisGroup('تحلیل‌شده / در انتظار بررسی','review',review,'تحلیل وجود دارد؛ آن را مشاهده، تکمیل و تأیید کنید.')}
+  ${analysisGroup('تحلیل تأییدشده','approved',approved,'معنای تأییدشده و منشأ آن قابل مشاهده است.')}<div id="k77detail"></div>`;
+  b.querySelectorAll('[data-start-analysis]').forEach(x=>x.onclick=()=>startAnalysis(x.dataset.startAnalysis));
+  b.querySelectorAll('[data-view-analysis]').forEach(x=>x.onclick=()=>viewAnalysis(x.dataset.viewAnalysis));
  }catch(e){b.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
-
-function analysisRow(d){
- const cls=d.documentClass==='upstream'?'بالادستی':'عمومی';
- const done=d.status==='processed';
- return `<article class="k76doc k76analysisrow"><div><span class="k76class ${d.documentClass}">${cls}</span><b>${esc(d.title)}</b><small>${esc(d.documentType||'—')} · ${esc(d.sourceFileName||'')}</small></div>
- <div class="k76docmeta"><span>${done?'تحلیل‌شده':'آماده تحلیل'}</span><span>${d.candidates?.pending||0} بررسی باز</span>
- <button data-analyze-doc="${esc(d.id)}">${done?'تحلیل مجدد':'ورود به تحلیل'}</button></div></article>`;
+function analysisGroup(title,type,items,desc){
+ const label={queue:'در صف',review:'نیازمند بررسی',approved:'تأییدشده'}[type];
+ return `<section class="k77group ${type}"><header><div><b>${title}</b><small>${desc}</small></div><span>${items.length}</span></header>
+ <div class="k76docs">${items.length?items.map(d=>`<article class="k76doc"><div><span class="k76class ${d.documentClass}">${d.documentClass==='upstream'?'بالادستی':'عمومی'}</span><b>${esc(d.title)}</b><small>${esc(d.documentType||'—')} ${d.analysis?'· تحلیل v'+d.analysis.version:''}</small></div><div class="k76docmeta"><span>${label}</span>${d.analysis?.openQuestions?`<span>${d.analysis.openQuestions} پرسش باز</span>`:''}<button ${type==='queue'?`data-start-analysis="${esc(d.id)}"`:`data-view-analysis="${esc(d.id)}"`}>${type==='queue'?'ورود به تحلیل':type==='approved'?'مشاهده دانش تأییدشده':'مشاهده و بررسی تحلیل'}</button></div></article>`).join(''):'<div class="k77emptygroup">موردی وجود ندارد.</div>'}</div></section>`;
 }
-
-async function runAnalysis(id){
- const r=document.getElementById('k76analysisResult');r.innerHTML='<div class="k76loading">در حال تحلیل سند و تولید پیشنهادهای شناختی…</div>';
- try{
-  const p=await api(`/api/v1/documents/${encodeURIComponent(id)}/process`,{method:'POST',body:'{}'});
-  const cs=p.candidates||[];
-  r.innerHTML=`<div class="k76result"><h3>تحلیل انجام شد</h3><p>${cs.length} پیشنهاد برای بررسی انسانی تولید شد.</p>
-  <div class="k76candidates">${cs.map(c=>`<div><span>${c.kind==='topic'?'مفهوم/موضوع':'گزاره'}</span><b>${esc(c.value)}</b>${window.review?`<button onclick="review('${c.id}','accept')">تأیید</button>`:''}</div>`).join('')}</div></div>`;
- }catch(e){r.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
+async function startAnalysis(id){
+ const d=document.getElementById('k77detail');d.innerHTML='<div class="k76loading">در حال ساخت پرونده فهم شناختی سند…</div>';
+ try{await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis`,{method:'POST',body:'{}'});await viewAnalysis(id);await refreshAnalysisGroups()}catch(e){d.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
-
+async function refreshAnalysisGroups(){ /* deliberate: detail remains visible; list refresh happens next open to avoid destroying review state */ }
+async function viewAnalysis(id){
+ const d=document.getElementById('k77detail');d.innerHTML='<div class="k76loading">در حال دریافت تحلیل موجود؛ بدون اجرای تحلیل مجدد…</div>';
+ try{const r=await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis`),a=r.analysis;renderUnderstanding(id,a,r.versions||[])}catch(e){d.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
+}
+function renderUnderstanding(id,a,versions){
+ const d=document.getElementById('k77detail');
+ d.innerHTML=`<section class="k77understanding"><header><div><small>پرونده فهم سند · نسخه ${a.version}</small><h3>تحلیل شناختی سند</h3><p>${esc(a.understanding?.summary||'')}</p></div><span class="k77confidence">اطمینان ${Math.round((a.understanding?.confidence||0)*100)}٪</span></header>
+ <div class="k77cols"><div class="k77box"><h4>مفاهیم کشف‌شده</h4>${(a.concepts||[]).map(c=>`<div class="k77concept"><b>${esc(c.label)}</b><small>${c.organizationalMeaning?'معنای سازمانی: '+esc(c.organizationalMeaning):'معنا هنوز Candidate است'} · ${Math.round(c.confidence*100)}٪</small></div>`).join('')||'<small>مفهومی کشف نشد.</small>'}</div>
+ <div class="k77box"><h4>روابط مفهومی</h4>${(a.relations||[]).map(x=>`<div class="k77relation"><b>${esc(x.source)}</b><span>← ${esc(x.type)} ←</span><b>${esc(x.target)}</b><small>شاهد: ${esc(x.evidence)}</small></div>`).join('')||'<small>رابطه‌ای کشف نشد.</small>'}</div></div>
+ <div class="k77box"><h4>گزاره‌های معنایی</h4>${(a.claims||[]).map(x=>`<div class="k77claim"><span>${esc(x.claimType)}</span><b>${esc(x.interpretation)}</b><small>شاهد متنی: ${esc(x.evidence)}</small></div>`).join('')||'<small>گزاره‌ای شناسایی نشد.</small>'}</div>
+ <div class="k77box questions"><h4>پرسش‌های شناختی برای تکمیل فهم</h4>${(a.questions||[]).map(q=>q.status==='answered'?`<div class="k77answered"><b>${esc(q.question)}</b><p>پاسخ: ${esc(q.answer)}</p></div>`:`<form data-cq="${esc(q.id)}" data-doc="${esc(id)}"><b>${esc(q.question)}</b><small>${esc(q.reason)}</small><textarea required placeholder="پاسخ شما برای اصلاح معنای سازمانی…"></textarea><button>ثبت پاسخ و اصلاح مدل فهم</button></form>`).join('')||'<small>پرسش بازی وجود ندارد.</small>'}</div>
+ <div class="k77actions"><button class="secondary" data-reanalyze="${esc(id)}">ایجاد نسخه جدید تحلیل</button>${a.status!=='approved'?'<button class="approve" data-approve="'+esc(id)+'">تأیید تحلیل تکمیل‌شده</button>':'<span class="approved">تحلیل تأیید شده است</span>'}</div>
+ <div class="k76note">مشاهده تحلیل ≠ تحلیل مجدد. تحلیل مجدد فقط با «ایجاد نسخه جدید تحلیل» انجام می‌شود و نسخه قبلی حفظ می‌گردد.</div></section>`;
+ d.querySelectorAll('[data-cq]').forEach(f=>f.onsubmit=async e=>{e.preventDefault();const ta=f.querySelector('textarea'),btn=f.querySelector('button');btn.disabled=true;try{const r=await api(`/api/v1/documents/${encodeURIComponent(f.dataset.doc)}/cognitive-questions`,{method:'POST',body:JSON.stringify({questionId:f.dataset.cq,answer:ta.value})});renderUnderstanding(f.dataset.doc,r.analysis,r.versions||[])}catch(err){alert(err.message)}});
+ d.querySelector('[data-reanalyze]')?.addEventListener('click',async e=>{if(!confirm('نسخه جدید تحلیل ساخته شود؟ نسخه فعلی حفظ خواهد شد.'))return;const r=await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis`,{method:'POST',body:JSON.stringify({forceNewVersion:true})});renderUnderstanding(id,r.analysis,versions)});
+ d.querySelector('[data-approve]')?.addEventListener('click',async()=>{try{const r=await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis/approve`,{method:'POST',body:'{}'});renderUnderstanding(id,r.analysis,r.versions||[])}catch(err){alert(err.message)}});
+}
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-capability]');if(!b)return;
  if(b.dataset.capability==='اسناد بالادستی'){e.preventDefault();e.stopImmediatePropagation();panel('upstream')}
