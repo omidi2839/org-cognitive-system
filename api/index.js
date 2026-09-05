@@ -11,7 +11,8 @@ export default async function handler(req,res){
     const actor=service.actor(getHeaders(req));
     const requestUrl=new URL(req.url,'https://local');
     const path=requestUrl.pathname;
-    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.6.4',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
+    const decodedPath=decodeURIComponent(path);
+    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.7.6.5',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
     if(path==='/api/v1/health/ready'&&req.method==='GET'){ const dbOk=typeof repository.health==='function'?await repository.health():true; const st=service.storage; const storageOk=typeof st.health==='function'?await st.health():true; const durableRequired=String(process.env.REQUIRE_DURABLE_SERVICES||'').toLowerCase()==='true'; const durableOk=!durableRequired||(repositoryMode()==='postgres'&&storageMode()==='vercel-blob'); const ok=dbOk&&storageOk&&durableOk; return send(res,ok?200:503,{status:ok?'ready':'not_ready',persistence:repositoryMode(),storage:storageMode(),durableRequired,checks:{database:dbOk,storage:storageOk,durable:durableOk}}); }
     if(path==='/api/v1/me'&&req.method==='GET') return send(res,200,{person:{id:actor.personId,displayName:'حسین امیدی'},organization:{id:actor.organizationId,name:'سازمان نمونه شناختی'},roles:actor.roles,persona:'مدیر راهبردی',assignment:'مدیریت استراتژی و تحول',locale:'fa-IR',direction:'rtl'});
     if(path==='/api/v1/dashboard'&&req.method==='GET') return send(res,200,await service.dashboard(actor));
@@ -44,9 +45,9 @@ export default async function handler(req,res){
     if(path==='/api/v1/knowledge/inventory'&&req.method==='GET') return send(res,200,await service.knowledgeInventory(actor));
     if(path==='/api/v1/knowledge/documents'&&req.method==='GET') return send(res,200,await service.knowledgeDocuments(actor,requestUrl.searchParams.get('class')||null));
     if(path.startsWith('/api/v1/sources/')&&req.method==='GET'){ const ref=decodeURIComponent(path.slice('/api/v1/sources/'.length)); return send(res,200,await service.resolveSourceReference(actor,ref)); }
-    const pm=path.match(/^\/api\/v1\/documents\/(DOC:[^/]+)\/process$/); if(pm&&req.method==='POST') return send(res,200,await service.processDocument(actor,decodeURIComponent(pm[1])));
-    const tm=path.match(/^\/api\/v1\/documents\/(DOC:[^/]+)\/trace$/); if(tm&&req.method==='GET') return send(res,200,await service.trace(actor,decodeURIComponent(tm[1])));
-    const cm=path.match(/^\/api\/v1\/candidates\/(CAND:[^/]+)\/review$/); if(cm&&req.method==='POST') return send(res,200,await service.reviewCandidate(actor,decodeURIComponent(cm[1]),req.body||{}));
+    const pm=decodedPath.match(/^\/api\/v1\/documents\/(DOC:[^/]+)\/process$/); if(pm&&req.method==='POST') return send(res,200,await service.processDocument(actor,pm[1]));
+    const tm=decodedPath.match(/^\/api\/v1\/documents\/(DOC:[^/]+)\/trace$/); if(tm&&req.method==='GET') return send(res,200,await service.trace(actor,tm[1]));
+    const cm=decodedPath.match(/^\/api\/v1\/candidates\/(CAND:[^/]+)\/review$/); if(cm&&req.method==='POST') return send(res,200,await service.reviewCandidate(actor,cm[1],req.body||{}));
     return send(res,404,{code:'NOT_FOUND',message:'مسیر پیدا نشد.'});
   }catch(e){ console.error(e); return send(res,e.code?.includes('NOT_FOUND')?404:e.code?.includes('DENIED')?403:400,{code:e.code||'INTERNAL_ERROR',message:e.message||'خطای داخلی'}); }
 }
