@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.7.6.3-knowledge-zone-classification-fix",
-  "version": "0.7.6.3",
+  "name": "org-cognitive-build-0.7.6.4-document-separation-analysis-queue",
+  "version": "0.7.6.4",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
