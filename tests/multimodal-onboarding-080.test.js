@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import fs from'node:fs';
+test('critical normalized source + multimodal foundation',()=>{const s=fs.readFileSync('src/application/cognitiveDocumentUnderstanding077.js','utf8'),m=fs.readFileSync('src/processing/mime.js','utf8'),u=fs.readFileSync('knowledge-workspace-076.js','utf8');assert.ok(s.includes('db.normalizedDocuments'));assert.ok(!s.includes("doc.normalizedText||''"));for(const x of ['.docx','.pdf','.pptx','.xlsx','.png','.jpg','.webp'])assert.ok(m.includes(x));assert.ok(u.includes('.pptx,.xlsx'));});
