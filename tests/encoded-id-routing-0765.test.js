@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+test('encoded ids route correctly',()=>{const a=fs.readFileSync('api/index.js','utf8');assert.ok(a.includes('const decodedPath=decodeURIComponent(path);'));assert.ok(a.includes('const pm=decodedPath.match('));assert.ok(a.includes('const tm=decodedPath.match('));assert.ok(a.includes('const cm=decodedPath.match('));const decoded=decodeURIComponent('/api/v1/documents/DOC%3A123/process');assert.match(decoded,/^\/api\/v1\/documents\/(DOC:[^/]+)\/process$/);});
