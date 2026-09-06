@@ -1,14 +1,12 @@
-# Build 0.9.0.7 — Isolated Serverless Probe
+# Build 0.9.0.8 — Restore Missing Mock Gateway
 
-این Patch هیچ بخشی از موتور شناختی یا Repository را تغییر نمی‌دهد.
+Root cause confirmed:
+api/index.js imports src/ai/mockGateway.js, but that file is missing from the current repository.
 
-دو فایل دارد:
-- api/ping.js
-- vercel.json
+Git history shows that src/ai was deleted in commit:
+bccd4d6fd33b0802baea68061728e139c0e0863c
 
-مسیر تست:
-GET /diag/ping
+This patch restores exactly:
+src/ai/mockGateway.js
 
-این مسیر به یک Serverless Function کاملاً مستقل با صفر import و صفر وابستگی به DB/Storage/AI می‌رود.
-اگر /diag/ping نیز FUNCTION_INVOCATION_FAILED بدهد، مشکل از خود Project/Runtime/Deployment configuration است.
-اگر /diag/ping پاسخ JSON بدهد، Runtime سالم است و مشکل مشخصاً در api/index.js یا bundling مسیر اصلی است.
+No other files are changed.
