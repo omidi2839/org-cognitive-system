@@ -1,13 +1,14 @@
-# Build 0.9.0.6 — Cold-Boot Diagnostic Boundary
+# Build 0.9.0.7 — Isolated Serverless Probe
 
-این نسخه هیچ import از لایه‌های برنامه را در بالای api/index.js ندارد.
+این Patch هیچ بخشی از موتور شناختی یا Repository را تغییر نمی‌دهد.
 
-هدف:
-- اگر Serverless Function به علت import/module-evaluation crash می‌کند، خود /api/v1/health باید همچنان بالا بیاید.
-- /api/v1/diagnostics/cold-boot هر import و constructor را یکی‌یکی و داخل try/catch اجرا می‌کند تا دقیقاً اولین مرحله خراب مشخص شود.
+دو فایل دارد:
+- api/ping.js
+- vercel.json
 
-پس از Deploy:
-1) /api/v1/health
-2) /api/v1/diagnostics/cold-boot
+مسیر تست:
+GET /diag/ping
 
-اگر Health هم 500 بدهد، مشکل دیگر از کد application imports نیست و باید deployment/runtime configuration بررسی شود.
+این مسیر به یک Serverless Function کاملاً مستقل با صفر import و صفر وابستگی به DB/Storage/AI می‌رود.
+اگر /diag/ping نیز FUNCTION_INVOCATION_FAILED بدهد، مشکل از خود Project/Runtime/Deployment configuration است.
+اگر /diag/ping پاسخ JSON بدهد، Runtime سالم است و مشکل مشخصاً در api/index.js یا bundling مسیر اصلی است.
