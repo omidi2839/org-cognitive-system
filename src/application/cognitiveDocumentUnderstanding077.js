@@ -7,18 +7,59 @@ const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 function semanticUnits(text){
   return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(norm).filter(x=>x.length>8);
 }
-const stop=new Set('این آن که را به از در با برای و یا یک بر تا نیز شده شود است هستند بود باشد خود مورد جهت صورت طریق عنوان سازمان سند کل کلی اصلی های'.split(' '));
-const compoundEntities=['حوزه های علمیه خواهران','حوزه‌های علمیه خواهران','حوزه ‌ های علمیه خواهران','سنت نبوی','مکتب اهل بیت','مکتب اهل‌بیت','قرآن کریم','قرآن','نظام اسلامی','جوامع'];
-const semanticTerms=['بانوان وارسته','بانوان فرهیخته','وارسته','فرهیخته','نیازهای دینی','ن یازهای دینی','جوامع','نظام اسلامی','حوزه های علمیه خواهران','حوزه‌های علمیه خواهران'];
-const actions=['تبیین','ترویج','تبلیغ','تعلیم','تربیت','پژوهش','آموزش','هدایت','تقویت','توسعه','ارتقا','ارتقای','صیانت','تحقق','گسترش','توانمندسازی'];
-const relMarkers=[['مبتنی بر','epistemic_basis'],['با تأکید بر','emphasis'],['به منظور','purpose'],['از طریق','means'],['در راستای','alignment'],['موجب','causal_claim'],['باعث','causal_claim']];
-function sentenceUnits(text){return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(norm).filter(x=>x.length>3)}
-function claimType(u){if(/رسالت|ماموریت|مأموریت/.test(u))return'mission_claim';if(/چشم.?انداز/.test(u))return'vision_claim';if(/هدف|اهداف/.test(u))return'goal_claim';if(/سیاست|باید|نباید|الزام/.test(u))return'policy_claim';if(/راهبرد|استراتژ/.test(u))return'strategy_claim';if(/تعریف|عبارت است از|منظور از/.test(u))return'definitional_claim';return /توسعه|تقویت|ارتقا|بهبود|تحقق|تبیین|ترویج|تبلیغ/.test(u)?'directional_claim':'descriptive_claim'}
-function frames(text){return sentenceUnits(text).map((u,i)=>({id:`SU:${i+1}`,text:u,claimType:claimType(u),entities:compoundEntities.filter(x=>u.includes(x)).filter((x,i,a)=>!a.some((y,j)=>j<i&&y.includes(x))).map(label=>({label,type:/حوزه/.test(label)?'organizational_entity':'reference_source'})),actions:actions.filter(x=>u.includes(x)).map(label=>({label,type:'action_or_function'})),concepts:semanticTerms.filter(x=>u.includes(x.replace('ن یاز','نیاز'))).map(label=>({label:label.replace('ن یاز','نیاز'),type:/وارسته|فرهیخته/.test(label)?'quality_attribute':/نیاز/.test(label)?'need_concept':/جوامع|نظام/.test(label)?'stakeholder_or_scope':'concept'})),relations:relMarkers.filter(([m])=>u.includes(m)).map(([marker,type])=>({marker,type}))}))}
+const stop=new Set('این آن که را به از در با برای و یا یک بر تا نیز شده شود است هستند بود باشد خود مورد جهت صورت طریق عنوان سازمان سند کل کلی اصلی های می شود می گردد گردد شده است باشد باشند خواهد باید'.split(' '));
+const actions=['تبیین','ترویج','تبلیغ','تعلیم','تربیت','پژوهش','آموزش','هدایت','تقویت','توسعه','ارتقا','ارتقای','صیانت','تحقق','گسترش','توانمندسازی','رفع','ایجاد','تأمین','حفظ','پشتیبانی','ساماندهی','مدیریت','برنامه ریزی','برنامه‌ریزی'];
+const relMarkers=[['مبتنی بر','epistemic_basis'],['با تأکید بر','emphasis'],['به منظور','purpose'],['برای','purpose'],['از طریق','means'],['در راستای','alignment'],['موجب','causal_claim'],['باعث','causal_claim'],['در','scope'],['از','source_or_origin'],['با','association']];
+const roleHints=[
+ ['نیاز','need_concept'],['نیازهای','need_concept'],['هدف','goal_concept'],['اهداف','goal_concept'],
+ ['بانوان','target_group'],['طلاب','target_group'],['جامعه','stakeholder_or_scope'],['جوامع','stakeholder_or_scope'],
+ ['نظام','stakeholder_or_scope'],['حوزه','organizational_entity'],['قرآن','epistemic_source'],['سنت','epistemic_source'],['مکتب','epistemic_source']
+];
+const clean=s=>norm(String(s||'')).replace(/ن\s+یاز/g,'نیاز').replace(/حوزه\s*[‌ ]+\s*های/g,'حوزه های').replace(/[«»"()]/g,'').trim();
+const tokenise=u=>clean(u).split(/\s+/).map(x=>x.replace(/^[،,:؛\-]+|[،,:؛\-]+$/g,'')).filter(Boolean);
+function sentenceUnits(text){return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(clean).filter(x=>x.length>3)}
+function claimType(u){if(/رسالت|ماموریت|مأموریت/.test(u))return'mission_claim';if(/چشم.?انداز/.test(u))return'vision_claim';if(/هدف|اهداف/.test(u))return'goal_claim';if(/سیاست|باید|نباید|الزام/.test(u))return'policy_claim';if(/راهبرد|استراتژ/.test(u))return'strategy_claim';if(/تعریف|عبارت است از|منظور از/.test(u))return'definitional_claim';return /توسعه|تقویت|ارتقا|بهبود|تحقق|تبیین|ترویج|تبلیغ|تربیت|رفع/.test(u)?'directional_claim':'descriptive_claim'}
+function phraseRole(label){
+ const hit=roleHints.find(([x])=>label.includes(x));if(hit)return hit[1];
+ if(/وارسته|فرهیخته|متخصص|توانمند|شایسته|مطلوب|اسلامی|دینی|علمی|فرهنگی|اجتماعی/.test(label))return'attribute_or_quality';
+ if(actions.some(x=>label===x||label.startsWith(x+' ')))return'action_or_function';
+ return label.split(/\s+/).length>1?'compound_concept':'concept_candidate';
+}
+function openCandidates(u){
+ const toks=tokenise(u),out=[],seen=new Set(),add=(label,type,spanStart,spanEnd,score=.55)=>{
+   label=clean(label);if(!label||label.length<2||stop.has(label)||seen.has(type+':'+label))return;
+   if(label.split(/\s+/).every(x=>stop.has(x)))return;
+   seen.add(type+':'+label);out.push({label,type,spanStart,spanEnd,score});
+ };
+ // actions are anchors, but concepts are not limited to this list.
+ for(let i=0;i<toks.length;i++)if(actions.includes(toks[i]))add(toks[i],'action_or_function',i,i,.82);
+ // open 1–4 token noun/adjective phrase candidates; punctuation and relation words define boundaries.
+ const boundary=new Set(['برای','از','در','با','بر','تا','و','یا','که','به','مبتنی','منظور','طریق','راستای']);
+ for(let i=0;i<toks.length;i++){
+   if(stop.has(toks[i])||boundary.has(toks[i])||actions.includes(toks[i]))continue;
+   for(let n=1;n<=4&&i+n<=toks.length;n++){
+     const seg=toks.slice(i,i+n);if(seg.some(x=>boundary.has(x)||actions.includes(x)))break;
+     const label=seg.join(' '),role=phraseRole(label);
+     const meaningful=seg.filter(x=>!stop.has(x)).length;
+     if(meaningful && (n>1 || role!=='concept_candidate'))add(label,role,i,i+n-1,.50+n*.08);
+   }
+ }
+ // preserve coordinated adjective/quality structures: "بانوان وارسته و فرهیخته".
+ for(const m of u.matchAll(/([\u0600-\u06FF]{3,})\s+([\u0600-\u06FF]{3,})\s+و\s+([\u0600-\u06FF]{3,})/g)){
+   add(`${m[1]} ${m[2]}`,phraseRole(`${m[1]} ${m[2]}`),-1,-1,.78);add(m[3],phraseRole(m[3]),-1,-1,.68);
+ }
+ // prefer longest useful spans, but keep nested spans with distinct roles.
+ return out.sort((a,b)=>b.score-a.score||b.label.length-a.label.length);
+}
+function frames(text){return sentenceUnits(text).map((u,i)=>{
+ const candidates=openCandidates(u),acts=candidates.filter(x=>x.type==='action_or_function');
+ const concepts=candidates.filter(x=>x.type!=='action_or_function');
+ return {id:`SU:${i+1}`,text:u,claimType:claimType(u),entities:concepts.filter(x=>['organizational_entity','stakeholder_or_scope','target_group','epistemic_source'].includes(x.type)),actions:acts,concepts,relations:relMarkers.filter(([m])=>u.includes(m)).map(([marker,type])=>({marker,type}))};
+})}
 function discoverConcepts(text){
- const fs=frames(text),map=new Map(),add=(label,type,evidence,role,score)=>{label=norm(label);if(!label||stop.has(label))return;const k=type+':'+label,x=map.get(k)||{label,type,evidence:[],roles:[],score:0};if(!x.evidence.includes(evidence))x.evidence.push(evidence);if(!x.roles.includes(role))x.roles.push(role);x.score+=score;map.set(k,x)};
- for(const f of fs){const w=['mission_claim','vision_claim','goal_claim','policy_claim','strategy_claim'].includes(f.claimType)?4:2;f.entities.forEach(x=>add(x.label,x.type,f.text,'entity',w+2));(f.concepts||[]).forEach(x=>add(x.label,x.type,f.text,'concept',w+2));f.actions.forEach(x=>add(x.label,x.type,f.text,f.claimType,w+2));f.relations.forEach(x=>add(x.marker,'relation_marker',f.text,x.type,w));}
- return [...map.values()].sort((x,y)=>y.score-x.score||y.label.length-x.label.length);
+ const map=new Map(),add=(x,evidence,claim)=>{const k=x.type+':'+x.label,v=map.get(k)||{label:x.label,type:x.type,evidence:[],roles:[],score:0,source:'open_semantic_candidate'};if(!v.evidence.includes(evidence))v.evidence.push(evidence);if(!v.roles.includes(claim))v.roles.push(claim);v.score+=x.score||.55;map.set(k,v)};
+ for(const f of frames(text)){[...f.actions,...f.concepts].forEach(x=>add(x,f.text,f.claimType));f.relations.forEach(x=>add({label:x.marker,type:'relation_marker',score:.5},f.text,x.type))}
+ return [...map.values()].sort((a,b)=>b.score-a.score||b.label.length-a.label.length);
 }
 function extractionQuality(text,doc){
   const t=norm(text),chars=t.length,fa=(t.match(/[\u0600-\u06FF]/g)||[]).length,replacement=(t.match(/�/g)||[]).length;
@@ -30,18 +71,25 @@ function extractionQuality(text,doc){
   return {score,status:score>=.60?'passed':score>=.38?'warning':'blocked',characters:chars,words:words.length,persianRatio:Number(persianRatio.toFixed(2)),lexicalDensity:Number(lexical.toFixed(2)),message:score>=.60?'کیفیت متن برای تحلیل شناختی مناسب است.':score>=.38?'متن کوتاه است اما برای تحلیل با احتیاط قابل استفاده است.':'کیفیت استخراج متن برای تحلیل شناختی کافی نیست.'};
 }
 function relations(text,concepts){
- const rs=[];let n=0,add=(source,target,type,evidence,c=.7)=>rs.push({id:`REL:${++n}`,source,target,type,evidence,confidence:c,status:'candidate'});
- for(const f of frames(text)){const aa=f.actions.map(x=>x.label);if(aa.length>1)for(let i=0;i<aa.length-1;i++)add(aa[i],aa[i+1],'co_function_in_same_claim',f.text,.62);for(const r of f.relations){if(r.type==='epistemic_basis'){const refs=['قرآن','سنت نبوی','مکتب اهل بیت','مکتب اهل‌بیت'].filter(x=>f.text.includes(x));for(const x of aa)for(const y of refs)add(x,y,'epistemic_basis',f.text,.84)}else if(aa.length)add(aa.join('، '),r.marker,r.type,f.text,.7)}}
- return rs.slice(0,80);
+ const rs=[];let n=0,add=(source,target,type,evidence,c=.65)=>{if(source&&target&&source!==target)rs.push({id:`REL:${++n}`,source,target,type,evidence,confidence:c,status:'candidate'})};
+ for(const f of frames(text)){
+   const aa=f.actions.map(x=>x.label),cc=f.concepts.map(x=>x.label);
+   if(aa.length)for(const a of aa)for(const c of cc.slice(0,12))add(a,c,'contextual_semantic_relation',f.text,.58);
+   if(aa.length>1)for(let i=0;i<aa.length-1;i++)add(aa[i],aa[i+1],'co_function_in_same_claim',f.text,.64);
+   for(const r of f.relations)if(aa.length)add(aa.join('، '),r.marker,r.type,f.text,.68);
+ }
+ return rs;
 }
-function claims(units){return units.map((u,i)=>{const f=frames(u)[0]||{};return{id:`CLM:${i+1}`,text:u,type:claimType(u),semanticFrame:{entities:f.entities||[],actions:f.actions||[],relations:f.relations||[]},status:'candidate'}})}
+function claims(units){return units.map((u,i)=>{const f=frames(u)[0]||{};return{id:`CLM:${i+1}`,text:u,type:claimType(u),semanticFrame:{entities:f.entities||[],actions:f.actions||[],concepts:f.concepts||[],relations:f.relations||[]},status:'candidate'}})}
 function questions(text,concepts,relations,units){
- const qs=[],push=(question,reason,target,evidence,ct,ctx={})=>qs.push({id:newId('CQ'),evidenceGroupId:'EVID:'+Math.abs([...evidence].reduce((a,c)=>((a<<5)-a)+c.charCodeAt(0)|0,0)),question,reason,target,evidence,claimType:ct,status:'open',semanticContext:ctx});
- for(const f of frames(text)){const aa=f.actions.map(x=>x.label),ee=f.entities.map(x=>x.label),cc=(f.concepts||[]).map(x=>x.label),all=[...new Set([...aa,...ee,...cc])];
- if(aa.length>1)push(`در این گزاره، «${aa.join('، ')}» چه تفاوت مفهومی و کارکردی دارند؛ مراحل یک فرایندند یا کارکردهای مستقل؟`,'مرز و نسبت چند کنش کلیدی باید روشن شود.',aa.join('، '),f.text,f.claimType,{highlightConcepts:all,interpretation:`سامانه ${aa.length} کارکرد مرتبط را در یک گزاره تشخیص داده، اما نوع رابطه آنها نیازمند احراز انسانی است.`,proposedRelations:['هم‌عرض','ترتیبی','مکمل یکدیگر','علّی/اثرگذار بر یکدیگر','جزء و کل','رابطه دیگری دارند'],expectedClarificationType:'relation_and_definition'});
- for(const x of aa.slice(0,4))push(`در همین گزاره، منظور سازمان از «${x}» دقیقاً چیست و تحقق آن چگونه قابل تشخیص است؟`,'تعریف سازمانی باید در بافت همان گزاره تکمیل شود.',x,f.text,f.claimType,{highlightConcepts:all,interpretation:`«${x}» به‌عنوان کنش/کارکرد کلیدی این گزاره تشخیص داده شده است.`,proposedRelations:[],expectedClarificationType:'organizational_definition'});
- for(const r of f.relations)if(r.type==='epistemic_basis')push('عبارت «مبتنی بر» در این گزاره چه نوع رابطه‌ای ایجاد می‌کند؟ نسبت قرآن، سنت نبوی و مکتب اهل‌بیت در این مبنا چیست؟','نوع رابطه معرفتی/تفسیری باید احراز شود.',r.marker,f.text,f.claimType,{highlightConcepts:['مبتنی بر',...ee.filter(x=>/قرآن|سنت|مکتب/.test(x))],interpretation:'سامانه یک رابطه مبنایی/معرفتی تشخیص داده است؛ ساختار دقیق آن هنوز قطعی نیست.',proposedRelations:['منابع هم‌عرض','اجزای یک منظومه معرفتی','ترتیب مرجعیت','رابطه تفسیری/تبیینی','رابطه دیگری دارند'],expectedClarificationType:'relation'});
- }return qs;
+ const qs=[],push=(f,question,reason,target,ctx={})=>qs.push({id:newId('CQ'),evidenceGroupId:f.id,question,reason,target,evidence:f.text,claimType:f.claimType,status:'open',semanticContext:ctx});
+ for(const f of frames(text)){
+   const aa=f.actions.map(x=>x.label),cc=[...new Set(f.concepts.map(x=>x.label))],all=[...new Set([...aa,...cc])];
+   if(all.length)push(f,'آیا مفاهیم کلیدی استخراج‌شده از این گزاره کامل و از نظر معنای سازمانی درست هستند؟','سامانه نامزدهای مفهومی را از خود ساختار عبارت استخراج کرده است؛ انسان باید مرز و اهمیت آنها را احراز کند.',all.join('، '),{highlightConcepts:all,conceptRoles:f.concepts.map(x=>({label:x.label,type:x.type})),interpretation:`${all.length} نامزد معنایی از این گزاره استخراج شده است.`,proposedRelations:[],expectedClarificationType:'concept_validation'});
+   if(aa.length>1)push(f,`نسبت میان کنش‌های «${aa.join('، ')}» در این گزاره چیست؟`,'چند کنش در یک گزاره دیده شده است.',aa.join('، '),{highlightConcepts:all,interpretation:'نوع رابطه میان کنش‌ها هنوز قطعی نیست.',proposedRelations:['هم‌عرض','ترتیبی','مکمل یکدیگر','علّی/اثرگذار','جزء و کل','رابطه دیگری دارند'],expectedClarificationType:'relation'});
+   if(cc.length>1)push(f,'کدام‌یک از این مفاهیم مستقل‌اند و کدام‌یک باید به‌صورت یک مفهوم مرکب در مدل سازمان ثبت شوند؟','مرز مفهوم مرکب با واژه‌های وابسته باید مشخص شود.',cc.join('، '),{highlightConcepts:all,interpretation:'استخراج باز ممکن است هم مفهوم مرکب و هم اجزای آن را نامزد کند.',proposedRelations:['مفهوم مستقل','مفهوم مرکب','ویژگی/صفت','ذی‌نفع/دامنه','نیاز','مرجع/منبع'],expectedClarificationType:'concept_boundary'});
+ }
+ return qs;
 }
 
 export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveService {
@@ -80,9 +128,9 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
       status:qs.length?'awaiting_human_clarification':'awaiting_human_review',
       extractionQuality:quality,
       semanticUnits:units.map((x,i)=>({id:`SU:${i+1}`,text:x})),
-      concepts:concepts.map((x,i)=>({id:`CON:${i+1}`,label:x,confidence:.62,status:'candidate'})),
+      concepts:conceptObjects.map((x,i)=>({id:`CON:${i+1}`,label:x.label,type:x.type,confidence:Math.min(.9,.5+(x.score||0)*.12),score:x.score,evidence:x.evidence,roles:x.roles,source:x.source,status:'candidate'})),
       relations:rels,claims:cls,questions:qs,clarifications:[],
-      understanding:{engine:'semantic-document-intelligence-v1',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
+      understanding:{engine:'open-semantic-concept-extraction-v1',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
       provenance:{documentRef:documentId,documentVersion:doc.version,sourceFileName:doc.sourceFileName},
       createdAt:now(),createdBy:actor.personId||'system'
     };
