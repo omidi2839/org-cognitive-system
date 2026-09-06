@@ -1,13 +1,12 @@
-# Build 0.9.0.3 — Repository / AI Isolation Hotfix
+# Build 0.9.0.4 — Stable API Boundary Restore
 
-این Patch دو اصل را اعمال می‌کند:
+این نسخه به‌جای Patch کردن دوباره knowledgeDocuments، مرز معماری را به حالت پایدار برمی‌گرداند:
 
-1. مخزن اسناد دیگر در زمان Boot به ماژول‌های AI وابسته نیست.
-   import مستقیم semanticProvider از بالای Service حذف شده و فقط هنگام «شروع تحلیل» به‌صورت dynamic import بارگذاری می‌شود.
+- API در زمان Boot فقط KnowledgeCognitiveService پایدار را import و instantiate می‌کند.
+- CognitiveDocumentUnderstandingService و کل زنجیره 0.9 فقط هنگام فراخوانی endpointهای تحلیل شناختی، با dynamic import بارگذاری می‌شوند.
+- بنابراین «مخزن اسناد»، داشبورد، افزودن سند و سایر مسیرهای پایه هیچ وابستگی Boot-time به موتور جدید 0.9 ندارند.
+- endpointهای cognitive-analysis همچنان از موتور جدید 0.9 استفاده می‌کنند.
 
-2. knowledgeDocuments دیگر super.knowledgeDocuments را صدا نمی‌زند.
-   فهرست مخزن مستقیماً و دفاعی از Repository خوانده می‌شود و برای آرایه‌های قدیمی/ناقص runtime_state نیز safe است.
+این طراحی عملاً Stable Core و Experimental Cognitive Layer را جدا می‌کند.
 
-هدف: باز شدن مخزن اسناد حتی اگر AI Provider یا لایه تحلیل شناختی اشکال جداگانه داشته باشد.
-
-Health: 0.9.0.3
+Health: 0.9.0.4
