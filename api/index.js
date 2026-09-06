@@ -23,7 +23,7 @@ export default async function handler(req,res){
     const requestUrl=new URL(req.url,'https://local');
     const path=requestUrl.pathname;
     const decodedPath=decodeURIComponent(path);
-    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.9.0.4',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
+    if(path==='/api/v1/health'&&req.method==='GET') return send(res,200,{status:'ok',version:'0.9.0.5',environment:process.env.VERCEL_ENV||'local',persistence:repositoryMode(),storage:storageMode()});
     if(path==='/api/v1/health/ready'&&req.method==='GET'){ const dbOk=typeof repository.health==='function'?await repository.health():true; const st=service.storage; const storageOk=typeof st.health==='function'?await st.health():true; const durableRequired=String(process.env.REQUIRE_DURABLE_SERVICES||'').toLowerCase()==='true'; const durableOk=!durableRequired||(repositoryMode()==='postgres'&&storageMode()==='vercel-blob'); const ok=dbOk&&storageOk&&durableOk; return send(res,ok?200:503,{status:ok?'ready':'not_ready',persistence:repositoryMode(),storage:storageMode(),durableRequired,checks:{database:dbOk,storage:storageOk,durable:durableOk}}); }
     if(path==='/api/v1/me'&&req.method==='GET') return send(res,200,{person:{id:actor.personId,displayName:'حسین امیدی'},organization:{id:actor.organizationId,name:'سازمان نمونه شناختی'},roles:actor.roles,persona:'مدیر راهبردی',assignment:'مدیریت استراتژی و تحول',locale:'fa-IR',direction:'rtl'});
     if(path==='/api/v1/dashboard'&&req.method==='GET') return send(res,200,await service.dashboard(actor));
@@ -53,6 +53,34 @@ export default async function handler(req,res){
     if(path==='/api/v1/documents'&&req.method==='POST') return send(res,201,await service.createDocument(actor,req.body||{}));
     if(path==='/api/v1/documents/upload'&&req.method==='POST') return send(res,201,await service.uploadDocument(actor,req.body||{}));
     if(path==='/api/v1/documents/batch-upload'&&req.method==='POST') return send(res,201,await service.uploadBatch(actor,req.body||{}));
+    if(path==='/api/v1/diagnostics/repository'&&req.method==='GET'){
+      const report={version:'0.9.0.5',route:path,repositoryMode:repositoryMode(),storageMode:storageMode(),steps:[]};
+      const step=async(name,fn)=>{
+        const started=Date.now();
+        try{
+          const value=await fn();
+          report.steps.push({name,ok:true,ms:Date.now()-started,value});
+          return value;
+        }catch(err){
+          report.steps.push({name,ok:false,ms:Date.now()-started,error:{name:err?.name||null,code:err?.code||null,message:err?.message||String(err)}});
+          return undefined;
+        }
+      };
+      await step('repository.health',async()=>typeof repository.health==='function'?await repository.health():'not-implemented');
+      const db=await step('repository.all',async()=>await repository.all());
+      if(db!==undefined) report.stateShape={
+        keys:Object.keys(db||{}),
+        documents:Array.isArray(db?.documents)?db.documents.length:'not-array',
+        artifacts:Array.isArray(db?.artifacts)?db.artifacts.length:'not-array',
+        candidates:Array.isArray(db?.candidates)?db.candidates.length:'not-array',
+        normalizedDocuments:Array.isArray(db?.normalizedDocuments)?db.normalizedDocuments.length:'not-array',
+        documentAnalyses:Array.isArray(db?.documentAnalyses)?db.documentAnalyses.length:'missing-or-not-array'
+      };
+      const result=await step('service.knowledgeDocuments(upstream)',async()=>await service.knowledgeDocuments(actor,'upstream'));
+      if(result!==undefined) report.knowledgeSummary=result?.summary||null;
+      report.ok=report.steps.every(x=>x.ok);
+      return send(res,report.ok?200:503,report);
+    }
     if(path==='/api/v1/knowledge/inventory'&&req.method==='GET') return send(res,200,await service.knowledgeInventory(actor));
     if(path==='/api/v1/knowledge/documents'&&req.method==='GET') return send(res,200,await service.knowledgeDocuments(actor,requestUrl.searchParams.get('class')||null));
     if(path.startsWith('/api/v1/sources/')&&req.method==='GET'){ const ref=decodeURIComponent(path.slice('/api/v1/sources/'.length)); return send(res,200,await service.resolveSourceReference(actor,ref)); }
