@@ -27,3 +27,14 @@
 .k842num{font-size:8px;color:#718096;background:#f1f5f9;border-radius:999px;padding:4px 7px}.k842title{font-size:10px;color:#253858;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .k842count{font-size:8px;color:#246fd7}.k842done{font-size:8px;color:#16805f;background:#e8f7f0;border-radius:999px;padding:4px 7px}
 .k842evidenceBody{padding:0 12px 10px;border-top:1px solid #edf1f6}.k842evidenceGroup.done{border-color:#cfe8dc}
+
+/* 0.9.0 calm evidence accordion */
+.k842evidenceGroup{border:1px solid #d7e8e2!important;background:#fbfefd!important;box-shadow:0 3px 14px rgba(37,94,78,.045)}
+.k842evidenceToggle{background:#f1f8f5!important;color:#294a40!important}
+.k842evidenceToggle:hover{background:#eaf5f1!important}
+.k842plus{background:#dcefe8!important;color:#397663!important}
+.k842num{background:#e8f3ef!important;color:#527268!important}
+.k842title{color:#315248!important}
+.k842count{color:#4d7f70!important}
+.k842evidenceBody{border-top-color:#dcebe6!important;background:#fcfffe}
+.k831evidence{border-right-color:#78aa9b!important;background:#f7fbfa!important;color:#4f2929!important}
