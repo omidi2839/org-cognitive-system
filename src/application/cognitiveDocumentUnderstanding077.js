@@ -17,7 +17,6 @@ function materialize(ai){
 }
 export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveService{
  async knowledgeDocuments(actor,documentClass=null){
-  // Repository screen is intentionally isolated from AI / cognitive-analysis modules.
   const db=await this.repo.all();
   const documents=Array.isArray(db?.documents)?db.documents:[];
   const candidatesAll=Array.isArray(db?.candidates)?db.candidates:[];
@@ -35,9 +34,7 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
   }
   const items=docs.slice().sort((a,b)=>String(b?.createdAt||'').localeCompare(String(a?.createdAt||''))).map(d=>{
     const dc=candidates.filter(c=>c.documentRef===d.id);
-    const analysis=analysesAll
-      .filter(a=>a?.organizationId===actor.organizationId&&a?.documentId===d.id)
-      .sort((a,b)=>(b?.version||0)-(a?.version||0))[0]||null;
+    const analysis=analysesAll.filter(a=>a?.organizationId===actor.organizationId&&a?.documentId===d.id).sort((a,b)=>(b?.version||0)-(a?.version||0))[0]||null;
     return {
       id:d.id,title:d.title||'بدون عنوان',documentClass:d.documentClass||'unclassified',
       documentType:d.documentType||null,status:d.status||'registered',version:d.version||1,
@@ -45,32 +42,17 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
       classification:d.classification||'internal',organizationalLevel:d.organizationalLevel||null,
       organizationalUnitRef:d.organizationalUnitRef||null,organizationalUnitName:d.organizationalUnitName||null,
       subjectArea:d.subjectArea||null,sourceFileName:d.sourceFileName||null,createdAt:d.createdAt||null,
-      candidates:{
-        total:dc.length,
-        pending:dc.filter(x=>x?.status==='ready_for_review').length,
-        accepted:dc.filter(x=>['accepted','corrected'].includes(x?.status)).length
-      },
-      analysis:analysis?{
-        id:analysis.id,version:analysis.version,status:analysis.status,
-        openQuestions:(Array.isArray(analysis.questions)?analysis.questions:[]).filter(q=>q?.status==='open').length
-      }:null
+      candidates:{total:dc.length,pending:dc.filter(x=>x?.status==='ready_for_review').length,accepted:dc.filter(x=>['accepted','corrected'].includes(x?.status)).length},
+      analysis:analysis?{id:analysis.id,version:analysis.version,status:analysis.status,openQuestions:(Array.isArray(analysis.questions)?analysis.questions:[]).filter(q=>q?.status==='open').length}:null
     };
   });
-  return {
-    filter:{documentClass:documentClass||'all'},
-    summary:{
-      documents:items.length,
-      reviewPending:candidates.filter(x=>x?.status==='ready_for_review').length,
-      duplicateGroups:Object.values(checksumGroups).filter(g=>g.length>1).length
-    },
-    items
-  };
+  return {filter:{documentClass:documentClass||'all'},summary:{documents:items.length,reviewPending:candidates.filter(x=>x?.status==='ready_for_review').length,duplicateGroups:Object.values(checksumGroups).filter(g=>g.length>1).length},items};
  }
  async analyzeDocument(actor,documentId,{forceNewVersion=false}={}){
   const db=await this.repo.all(),doc=(db.documents||[]).find(x=>x.id===documentId&&x.organizationId===actor.organizationId);if(!doc)throw new Error('DOCUMENT_NOT_FOUND');
   const versions=(db.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((a,b)=>b.version-a.version);
   if(versions[0]&&!forceNewVersion)return{analysis:versions[0],versions};
-  const nd=(db.normalizedDocuments||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0];
+  const nd=(db.normalizedDocuments||[]).filter(x=>x.organizationId===actor.organizationId&&(x.documentRef===documentId||x.documentId===documentId)).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0];
   const text=norm(nd?.text||doc.content||'');if(!text)throw new Error('DOCUMENT_TEXT_NOT_AVAILABLE');
   const {semanticProvider}=await import('../ai/semanticProvider.js');
   const provider=semanticProvider(),ai=await provider.analyze({text,document:doc}),m=materialize(ai),version=(versions[0]?.version||0)+1;
@@ -82,6 +64,5 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
  async analyzeDocumentCognitively(actor,documentId,body={}){return this.analyzeDocument(actor,documentId,body)}
  async answerCognitiveQuestion(actor,documentId,body={}){return this.answerQuestion(actor,documentId,body)}
  async approveDocumentAnalysis(actor,documentId){return this.approveAnalysis(actor,documentId)}
-
  async approveAnalysis(actor,documentId){let result;await this.repo.mutate(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');if((a.questions||[]).some(q=>q.status==='open'))throw new Error('OPEN_COGNITIVE_QUESTIONS');a.status='approved';a.approvedAt=now();a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
 }
