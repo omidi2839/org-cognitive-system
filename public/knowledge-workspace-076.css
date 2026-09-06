@@ -9,3 +9,7 @@
 .k78quality{margin:10px 0;padding:10px 12px;border:1px solid #dbe7f5;background:#f7faff;border-radius:12px;display:flex;justify-content:space-between;gap:10px;font-size:9px}.k78quality span{color:#60728c}.questions blockquote{margin:7px 0;padding:8px 10px;background:#f7f8fa;border-right:3px solid #b7c6da;border-radius:7px;font-size:8px;color:#687990}
 
 .k80formats{display:block;margin:4px 0 7px;color:#73839a;font-size:8px;font-weight:400}
+
+.k82evidenceLabel{color:#b42318;font-weight:900!important}blockquote{color:#b42318!important;font-weight:800!important;background:#fff5f5!important;border-right:4px solid #d92d20!important;padding:9px 11px!important;border-radius:8px;line-height:1.9}
+.k82concepts,.k82relations{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}.k82concepts span{background:#eef4ff;border:1px solid #b2ccff;color:#1849a9;border-radius:999px;padding:4px 8px;font-size:8px;font-weight:800;cursor:help}
+.k82interpret{background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:8px 10px;font-size:8px;line-height:1.8;margin:7px 0}.k82question{font-weight:800;line-height:1.9;margin:8px 0}.k82relation{border:1px solid #cbd5e1;background:white;border-radius:999px;padding:5px 9px;font-size:8px}
