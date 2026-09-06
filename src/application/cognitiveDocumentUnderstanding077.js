@@ -1,6 +1,5 @@
 import { KnowledgeCognitiveService } from './knowledgeService0764.js';
 import { newId, now } from '../domain/contracts.js';
-import { semanticProvider } from '../ai/semanticProvider.js';
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 function extractionQuality(text){const t=norm(text),words=t.split(/\s+/).filter(Boolean),fa=(t.match(/[\u0600-\u06FF]/g)||[]).length;let score=0;if(t.length>=50)score+=.35;if(words.length>=8)score+=.30;if(fa/Math.max(t.length,1)>.30)score+=.35;return{score:Math.min(1,score),status:score>=.6?'passed':'warning',message:score>=.6?'کیفیت متن برای تحلیل شناختی مناسب است.':'متن با احتیاط تحلیل می‌شود.'}}
 function materialize(ai){
@@ -18,27 +17,54 @@ function materialize(ai){
 }
 export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveService{
  async knowledgeDocuments(actor,documentClass=null){
-  const base=await super.knowledgeDocuments(actor,documentClass);
-  // The repository list is primary. Cognitive enrichment must not be able to break it.
-  try{
-    const db=await this.repo.all();
-    base.items=base.items.map(d=>{
-      const analyses=(db.documentAnalyses||[])
-        .filter(a=>a.organizationId===actor.organizationId&&a.documentId===d.id)
-        .sort((a,b)=>(b.version||0)-(a.version||0));
-      const analysis=analyses[0]||null;
-      return {...d,analysis:analysis?{
-        id:analysis.id,
-        version:analysis.version,
-        status:analysis.status,
-        openQuestions:(analysis.questions||[]).filter(q=>q.status==='open').length
-      }:null};
-    });
-  }catch(e){
-    console.warn('KNOWLEDGE_ANALYSIS_ENRICHMENT_SKIPPED',e?.message||e);
-    base.items=base.items.map(d=>({...d,analysis:null}));
+  // Repository screen is intentionally isolated from AI / cognitive-analysis modules.
+  const db=await this.repo.all();
+  const documents=Array.isArray(db?.documents)?db.documents:[];
+  const candidatesAll=Array.isArray(db?.candidates)?db.candidates:[];
+  const artifactsAll=Array.isArray(db?.artifacts)?db.artifacts:[];
+  const analysesAll=Array.isArray(db?.documentAnalyses)?db.documentAnalyses:[];
+  const orgDocs=documents.filter(x=>x?.organizationId===actor.organizationId);
+  const docs=documentClass?orgDocs.filter(x=>x?.documentClass===documentClass):orgDocs;
+  const docIds=new Set(docs.map(x=>x.id));
+  const candidates=candidatesAll.filter(x=>x?.organizationId===actor.organizationId&&docIds.has(x.documentRef));
+  const artifacts=artifactsAll.filter(x=>x?.organizationId===actor.organizationId&&docIds.has(x.documentRef));
+  const checksumGroups={};
+  for(const a of artifacts){
+    const key=a?.checksum||`artifact:${a?.id||Math.random()}`;
+    (checksumGroups[key]??=[]).push(a);
   }
-  return base;
+  const items=docs.slice().sort((a,b)=>String(b?.createdAt||'').localeCompare(String(a?.createdAt||''))).map(d=>{
+    const dc=candidates.filter(c=>c.documentRef===d.id);
+    const analysis=analysesAll
+      .filter(a=>a?.organizationId===actor.organizationId&&a?.documentId===d.id)
+      .sort((a,b)=>(b?.version||0)-(a?.version||0))[0]||null;
+    return {
+      id:d.id,title:d.title||'بدون عنوان',documentClass:d.documentClass||'unclassified',
+      documentType:d.documentType||null,status:d.status||'registered',version:d.version||1,
+      issuer:d.issuer||null,validityStatus:d.validityStatus||'unknown',
+      classification:d.classification||'internal',organizationalLevel:d.organizationalLevel||null,
+      organizationalUnitRef:d.organizationalUnitRef||null,organizationalUnitName:d.organizationalUnitName||null,
+      subjectArea:d.subjectArea||null,sourceFileName:d.sourceFileName||null,createdAt:d.createdAt||null,
+      candidates:{
+        total:dc.length,
+        pending:dc.filter(x=>x?.status==='ready_for_review').length,
+        accepted:dc.filter(x=>['accepted','corrected'].includes(x?.status)).length
+      },
+      analysis:analysis?{
+        id:analysis.id,version:analysis.version,status:analysis.status,
+        openQuestions:(Array.isArray(analysis.questions)?analysis.questions:[]).filter(q=>q?.status==='open').length
+      }:null
+    };
+  });
+  return {
+    filter:{documentClass:documentClass||'all'},
+    summary:{
+      documents:items.length,
+      reviewPending:candidates.filter(x=>x?.status==='ready_for_review').length,
+      duplicateGroups:Object.values(checksumGroups).filter(g=>g.length>1).length
+    },
+    items
+  };
  }
  async analyzeDocument(actor,documentId,{forceNewVersion=false}={}){
   const db=await this.repo.all(),doc=(db.documents||[]).find(x=>x.id===documentId&&x.organizationId===actor.organizationId);if(!doc)throw new Error('DOCUMENT_NOT_FOUND');
@@ -46,6 +72,7 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
   if(versions[0]&&!forceNewVersion)return{analysis:versions[0],versions};
   const nd=(db.normalizedDocuments||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0];
   const text=norm(nd?.text||doc.content||'');if(!text)throw new Error('DOCUMENT_TEXT_NOT_AVAILABLE');
+  const {semanticProvider}=await import('../ai/semanticProvider.js');
   const provider=semanticProvider(),ai=await provider.analyze({text,document:doc}),m=materialize(ai),version=(versions[0]?.version||0)+1;
   const analysis={id:newId('DA'),organizationId:actor.organizationId,documentId,version,status:'needs_review',createdAt:now(),updatedAt:now(),engine:'contextual-semantic-understanding-v1',provider:ai.provider,model:ai.model||null,extractionQuality:extractionQuality(text),documentZones:ai.documentZones||[],semanticUnits:(ai.documentZones||[]).map((z,i)=>({id:`SU:${i+1}`,text:z.text,zone:z.zone,eligibleForConceptualization:z.zone==='body'})),concepts:m.concepts,relations:m.relations,claims:m.claims,questions:m.questions,understanding:{summary:`${m.claims.length} گزاره محتوایی پس از تفکیک ساختار سند تحلیل شد؛ ${m.questions.length} پرسش شناختی اختصاصی ایجاد شد.`,confidence:m.claims.length?.72:.45}};
   await this.repo.mutate(d=>{d.documentAnalyses=d.documentAnalyses||[];d.documentAnalyses.push(analysis);return d});return{analysis,versions:[analysis,...versions]};
