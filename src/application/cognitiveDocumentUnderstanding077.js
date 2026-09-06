@@ -34,5 +34,9 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
  }
  async getDocumentAnalysis(actor,documentId){const db=await this.repo.all(),versions=(db.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((a,b)=>b.version-a.version);if(!versions[0])throw new Error('ANALYSIS_NOT_FOUND');return{analysis:versions[0],versions}}
  async answerQuestion(actor,documentId,{questionId,answer}){let result;await this.repo.transact(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');const q=(a.questions||[]).find(x=>x.id===questionId);if(!q)throw new Error('QUESTION_NOT_FOUND');q.status='answered';q.answer=norm(answer);q.answeredAt=now();for(const c of a.concepts||[])if((q.semanticContext?.highlightConcepts||[]).includes(c.label)){c.organizationalMeaning=q.answer;c.status='human_clarified';c.confidence=Math.max(c.confidence||0,.9)}a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
+ async analyzeDocumentCognitively(actor,documentId,body={}){return this.analyzeDocument(actor,documentId,body)}
+ async answerCognitiveQuestion(actor,documentId,body={}){return this.answerQuestion(actor,documentId,body)}
+ async approveDocumentAnalysis(actor,documentId){return this.approveAnalysis(actor,documentId)}
+
  async approveAnalysis(actor,documentId){let result;await this.repo.transact(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');if((a.questions||[]).some(q=>q.status==='open'))throw new Error('OPEN_COGNITIVE_QUESTIONS');a.status='approved';a.approvedAt=now();a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
 }
