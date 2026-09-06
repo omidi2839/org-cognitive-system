@@ -18,6 +18,9 @@ const roleHints=[
 const clean=s=>norm(String(s||'')).replace(/ن\s+یاز/g,'نیاز').replace(/حوزه\s*[‌ ]+\s*های/g,'حوزه های').replace(/[«»"()]/g,'').trim();
 const tokenise=u=>clean(u).split(/\s+/).map(x=>x.replace(/^[،,:؛\-]+|[،,:؛\-]+$/g,'')).filter(Boolean);
 
+const verbBoundaries=new Set('است بود باشد هستند شد شده شود گردید گردد می‌شود خواهد میتوان می‌توان نمی‌توان آمد آورد رسید فراموش کرد کردند دارد دارند داشت داشته نمود نماید'.split(' '));
+const relationWords=new Set('برای از در با بر تا به که و یا اما ولی سپس ضمن توسط بوسیله به‌وسیله یعنی'.split(' '));
+const tokens=u=>clean(u).split(/\s+/).map(x=>x.replace(/^[«»"'،,:؛.!؟()\-]+|[«»"'،,:؛.!؟()\-]+$/g,'')).filter(Boolean);
 function semanticRole(label){
  if(/نیاز/.test(label))return'need';
  if(/بانوان|طلاب|دانشجویان|مردم|جوامع|جامعه|مراجع|علما|علماء|خطبا/.test(label))return'stakeholder_or_target';
@@ -42,7 +45,7 @@ function openCandidates(u){
   const sc=candidateScore(label);if(sc<.58)return;
   out.push({label,type:semanticRole(label),spanStart:start,spanEnd:end,score:sc});
  };
- ts.forEach((t,i)=>{if(actionLexicon.includes(t))out.push({label:t,type:'action_or_function',spanStart:i,spanEnd:i,score:.90})});
+ ts.forEach((t,i)=>{if(actions.includes(t))out.push({label:t,type:'action_or_function',spanStart:i,spanEnd:i,score:.90})});
  let chunk=[];
  const flush=()=>{
   if(!chunk.length)return;
@@ -52,7 +55,7 @@ function openCandidates(u){
   }
   chunk=[];
  };
- ts.forEach((t,i)=>{if(blocked(t)||actionLexicon.includes(t))flush();else chunk.push({t,i})});flush();
+ ts.forEach((t,i)=>{if(blocked(t)||actions.includes(t))flush();else chunk.push({t,i})});flush();
  out.sort((a,b)=>b.score-a.score||b.label.length-a.label.length);
  const kept=[];
  for(const c of out){
@@ -154,7 +157,7 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
       semanticUnits:frames(text).map(x=>({id:x.id,text:x.text,zone:x.zone,eligibleForConceptualization:x.eligibleForConceptualization})),
       concepts:conceptObjects.map((x,i)=>({id:`CON:${i+1}`,label:x.label,type:x.type,confidence:Math.min(.9,.5+(x.score||0)*.12),score:x.score,evidence:x.evidence,roles:x.roles,source:x.source,status:'candidate'})),
       relations:rels,claims:cls,questions:qs,clarifications:[],
-      understanding:{engine:'document-structure-aware-semantic-v1-hotfix',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
+      understanding:{engine:'document-structure-aware-semantic-v1-hotfix2',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
       provenance:{documentRef:documentId,documentVersion:doc.version,sourceFileName:doc.sourceFileName},
       createdAt:now(),createdBy:actor.personId||'system'
     };
