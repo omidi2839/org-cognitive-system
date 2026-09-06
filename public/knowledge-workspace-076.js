@@ -119,8 +119,16 @@ function renderQuestion(q,id,index){
 }
 function groupedQuestions(a,id){
  const groups=[],by=new Map();
- for(const q of (a.questions||[])){const key=q.evidenceGroupId||q.evidence||q.id;if(!by.has(key)){const g={evidence:q.evidence||'',items:[]};by.set(key,g);groups.push(g)}by.get(key).items.push(q)}
- return groups.map((g,gi)=>`<section class="k831evidenceGroup"><header><span>گزاره ${gi+1}</span><b>شاهد از سند</b></header><div class="k831evidence">${esc(g.evidence)}</div><div class="k831questions">${g.items.map((q,i)=>renderQuestion(q,id,i)).join('')}</div></section>`).join('')||'<small>پرسشی ایجاد نشده است.</small>';
+ for(const q of (a.questions||[])){const key=q.evidenceGroupId||q.evidence||q.id;if(!by.has(key)){const g={key,evidence:q.evidence||'',items:[]};by.set(key,g);groups.push(g)}by.get(key).items.push(q)}
+ return groups.map((g,gi)=>{const done=g.items.every(q=>q.status==='answered'),open=g.items.some(q=>q.status==='open');return `<section class="k842evidenceGroup ${done?'done':''}" data-evidence-group="${esc(g.key)}"><button type="button" class="k842evidenceToggle" aria-expanded="false"><span class="k842plus">+</span><span class="k842num">گزاره ${gi+1}</span><span class="k842title">${esc(g.evidence)}</span>${done?'<span class="k842done">تکمیل شد ✓</span>':`<span class="k842count">${g.items.filter(q=>q.status==='open').length} پرسش</span>`}</button><div class="k842evidenceBody" hidden><div class="k831evidence">${esc(g.evidence)}</div><div class="k831questions">${g.items.map((q,i)=>renderQuestion(q,id,i)).join('')}</div></div></section>`}).join('')||'<small>پرسشی ایجاد نشده است.</small>';
+}
+function wireEvidenceAccordions(root){
+ root.querySelectorAll('.k842evidenceToggle').forEach(btn=>btn.onclick=()=>{const body=btn.nextElementSibling,willOpen=body.hidden;root.querySelectorAll('.k842evidenceBody').forEach(x=>x.hidden=true);root.querySelectorAll('.k842evidenceToggle').forEach(x=>{x.setAttribute('aria-expanded','false');const p=x.querySelector('.k842plus');if(p)p.textContent='+'});body.hidden=!willOpen;btn.setAttribute('aria-expanded',String(willOpen));btn.querySelector('.k842plus').textContent=willOpen?'−':'+'});
+}
+function openNextEvidence(root,afterKey=null){
+ const groups=[...root.querySelectorAll('.k842evidenceGroup')];let start=afterKey?groups.findIndex(g=>g.dataset.evidenceGroup===afterKey)+1:0;
+ const target=groups.slice(start).find(g=>!g.classList.contains('done'))||groups.find(g=>!g.classList.contains('done'));
+ target?.querySelector('.k842evidenceToggle')?.click();
 }
 function renderUnderstanding(id,a,versions){
  const d=document.getElementById('k77detail');
@@ -129,7 +137,8 @@ function renderUnderstanding(id,a,versions){
  <div class="k77box questions"><h4>پرسش‌های شناختی برای تکمیل فهم</h4>${groupedQuestions(a,id)}</div>
  <div class="k77actions"><button class="secondary" data-reanalyze="${esc(id)}">ایجاد نسخه جدید تحلیل</button>${a.status!=='approved'?'<button class="approve" data-approve="'+esc(id)+'">تأیید تحلیل تکمیل‌شده</button>':'<span class="approved">تحلیل تأیید شده است</span>'}</div>
  <div class="k76note">مشاهده تحلیل ≠ تحلیل مجدد. تحلیل مجدد فقط با «ایجاد نسخه جدید تحلیل» انجام می‌شود و نسخه قبلی حفظ می‌گردد.</div></section>`;
- d.querySelectorAll('[data-cq]').forEach(f=>f.onsubmit=async e=>{e.preventDefault();const ta=f.querySelector('textarea'),btn=f.querySelector('button');btn.disabled=true;try{const r=await api(`/api/v1/documents/${encodeURIComponent(f.dataset.doc)}/cognitive-questions`,{method:'POST',body:JSON.stringify({questionId:f.dataset.cq,answer:ta.value})});renderUnderstanding(f.dataset.doc,r.analysis,r.versions||[])}catch(err){alert(err.message)}});
+ wireEvidenceAccordions(d);
+ d.querySelectorAll('[data-cq]').forEach(f=>f.onsubmit=async e=>{e.preventDefault();const ta=f.querySelector('textarea'),btn=f.querySelector('button'),groupKey=f.closest('[data-evidence-group]')?.dataset.evidenceGroup;btn.disabled=true;try{const r=await api(`/api/v1/documents/${encodeURIComponent(f.dataset.doc)}/cognitive-questions`,{method:'POST',body:JSON.stringify({questionId:f.dataset.cq,answer:ta.value})});renderUnderstanding(f.dataset.doc,r.analysis,r.versions||[]);openNextEvidence(document.getElementById('k77detail'),groupKey)}catch(err){alert(err.message)}});
  d.querySelector('[data-reanalyze]')?.addEventListener('click',async e=>{if(!confirm('نسخه جدید تحلیل ساخته شود؟ نسخه فعلی حفظ خواهد شد.'))return;const r=await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis`,{method:'POST',body:JSON.stringify({forceNewVersion:true})});renderUnderstanding(id,r.analysis,versions)});
  d.querySelector('[data-approve]')?.addEventListener('click',async()=>{try{const r=await api(`/api/v1/documents/${encodeURIComponent(id)}/cognitive-analysis/approve`,{method:'POST',body:'{}'});renderUnderstanding(id,r.analysis,r.versions||[])}catch(err){alert(err.message)}});
 }
