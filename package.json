@@ -1,6 +1,6 @@
 {
   "name": "org-cognitive-build-0.8.4.2-document-structure-accordion",
-  "version": "0.8.4-2",
+  "version": "0.8.4-2-1",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
