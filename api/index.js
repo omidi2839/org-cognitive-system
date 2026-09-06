@@ -1,3 +1,8 @@
+import { createRepository, repositoryMode } from '../src/infrastructure/repositoryFactory.js';
+import { MockAIGateway } from '../src/ai/mockGateway.js';
+import { KnowledgeCognitiveService } from '../src/application/knowledgeService0764.js';
+import { createArtifactStorage, storageMode } from '../src/infrastructure/storage/storageFactory.js';
+
 const send=(res,status,data)=>{
   res.statusCode=status;
   res.setHeader('content-type','application/json; charset=utf-8');
@@ -13,15 +18,10 @@ let appPromise=null;
 async function bootApplication(){
   if(appPromise) return appPromise;
   appPromise=(async()=>{
-    const rf=await import('../src/infrastructure/repositoryFactory.js');
-    const mg=await import('../src/ai/mockGateway.js');
-    const ks=await import('../src/application/knowledgeService0764.js');
-    const sf=await import('../src/infrastructure/storage/storageFactory.js');
-
-    const repository=rf.createRepository();
-    const aiGateway=new mg.MockAIGateway();
-    const artifactStorage=sf.createArtifactStorage();
-    const service=new ks.KnowledgeCognitiveService(repository,aiGateway,artifactStorage);
+    const repository=createRepository();
+    const aiGateway=new MockAIGateway();
+    const artifactStorage=createArtifactStorage();
+    const service=new KnowledgeCognitiveService(repository,aiGateway,artifactStorage);
 
     let cognitivePromise=null;
     const getCognitiveService=()=>{
@@ -38,8 +38,8 @@ async function bootApplication(){
       repository,
       service,
       getCognitiveService,
-      repositoryMode:rf.repositoryMode,
-      storageMode:sf.storageMode
+      repositoryMode,
+      storageMode
     };
   })();
   try{return await appPromise;}
@@ -47,7 +47,7 @@ async function bootApplication(){
 }
 
 async function coldBootDiagnostic(){
-  const report={version:'0.9.0.6',phase:'cold-boot',steps:[]};
+  const report={version:'0.9.0.9',phase:'static-dependency-graph',steps:[]};
   const step=async(name,fn)=>{
     const started=Date.now();
     try{
@@ -62,14 +62,10 @@ async function coldBootDiagnostic(){
       throw Object.assign(new Error('DIAGNOSTIC_STEP_FAILED'),{diagnosticReport:report});
     }
   };
-  const rf=await step('import.repositoryFactory',()=>import('../src/infrastructure/repositoryFactory.js'));
-  const mg=await step('import.mockGateway',()=>import('../src/ai/mockGateway.js'));
-  const ks=await step('import.knowledgeService0764',()=>import('../src/application/knowledgeService0764.js'));
-  const sf=await step('import.storageFactory',()=>import('../src/infrastructure/storage/storageFactory.js'));
-  const repository=await step('createRepository',()=>rf.createRepository());
-  const aiGateway=await step('new.MockAIGateway',()=>new mg.MockAIGateway());
-  const storage=await step('createArtifactStorage',()=>sf.createArtifactStorage());
-  const service=await step('new.KnowledgeCognitiveService',()=>new ks.KnowledgeCognitiveService(repository,aiGateway,storage));
+  const repository=await step('createRepository',()=>createRepository());
+  const aiGateway=await step('new.MockAIGateway',()=>new MockAIGateway());
+  const storage=await step('createArtifactStorage',()=>createArtifactStorage());
+  const service=await step('new.KnowledgeCognitiveService',()=>new KnowledgeCognitiveService(repository,aiGateway,storage));
   const actor=await step('service.actor',()=>service.actor({'x-org-id':'ORG:SYN-001','x-person-id':'PER:DIAG'}));
   await step('repository.health',async()=>typeof repository.health==='function'?await repository.health():'not-implemented');
   const db=await step('repository.all',()=>repository.all());
@@ -93,7 +89,7 @@ export default async function handler(req,res){
 
   // These two routes require ZERO application imports.
   if(path==='/api/v1/health'&&req.method==='GET'){
-    return send(res,200,{status:'ok',version:'0.9.0.6',phase:'cold-boot-safe'});
+    return send(res,200,{status:'ok',version:'0.9.0.9',phase:'static-dependency-graph'});
   }
 
   if(path==='/api/v1/diagnostics/cold-boot'&&req.method==='GET'){
@@ -102,7 +98,7 @@ export default async function handler(req,res){
       return send(res,200,report);
     }catch(e){
       const report=e?.diagnosticReport||{
-        version:'0.9.0.6',phase:'cold-boot',ok:false,
+        version:'0.9.0.9',phase:'cold-boot',ok:false,
         fatal:{name:e?.name||null,code:e?.code||null,message:e?.message||String(e)}
       };
       report.ok=false;
