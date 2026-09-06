@@ -17,6 +17,53 @@ const roleHints=[
 ];
 const clean=s=>norm(String(s||'')).replace(/ن\s+یاز/g,'نیاز').replace(/حوزه\s*[‌ ]+\s*های/g,'حوزه های').replace(/[«»"()]/g,'').trim();
 const tokenise=u=>clean(u).split(/\s+/).map(x=>x.replace(/^[،,:؛\-]+|[،,:؛\-]+$/g,'')).filter(Boolean);
+
+function semanticRole(label){
+ if(/نیاز/.test(label))return'need';
+ if(/بانوان|طلاب|دانشجویان|مردم|جوامع|جامعه|مراجع|علما|علماء|خطبا/.test(label))return'stakeholder_or_target';
+ if(/حوزه|شورا|وزارت|دانشگاه|مرکز|مؤسسه|نهاد|نظام/.test(label))return'organizational_or_system_entity';
+ if(/قرآن|سنت|مکتب|منبع|مرجع/.test(label))return'epistemic_or_reference';
+ if(/وارسته|فرهیخته|متخصص|شایسته|توانمند|اسلامی|دینی|علمی|فرهنگی|اجتماعی|شکوهمند/.test(label))return'quality_or_attribute';
+ return'concept';
+}
+function candidateScore(label){
+ let score=.45,ws=label.split(/\s+/);
+ if(ws.length===2)score+=.16;if(ws.length===3)score+=.20;if(ws.length>3)score-=.08;
+ if(/نیاز|هدف|رسالت|مأموریت|حوزه|نظام|جامعه|جوامع|بانوان|طلاب|قرآن|سنت|مکتب|مرجع|علما|علماء|خطبا|انقلاب/.test(label))score+=.18;
+ if(/وارسته|فرهیخته|دینی|اسلامی|علمی|فرهنگی|اجتماعی|شکوهمند/.test(label))score+=.10;
+ if(/است|بود|شد|شود|کرد|آمد|رسید|فراموش|نمی‌توان|می‌توان/.test(label))score-=.65;
+ return score;
+}
+function openCandidates(u){
+ const ts=tokens(u),out=[];
+ const blocked=t=>stop.has(t)||verbBoundaries.has(t)||relationWords.has(t)||/^(است|بود|شد|شود|شده|کرد|آمد|رسید|فراموش|نمی|می)$/.test(t);
+ const add=(label,start,end)=>{
+  label=clean(label);if(!label||label.length<3)return;
+  const sc=candidateScore(label);if(sc<.58)return;
+  out.push({label,type:semanticRole(label),spanStart:start,spanEnd:end,score:sc});
+ };
+ ts.forEach((t,i)=>{if(actionLexicon.includes(t))out.push({label:t,type:'action_or_function',spanStart:i,spanEnd:i,score:.90})});
+ let chunk=[];
+ const flush=()=>{
+  if(!chunk.length)return;
+  const vals=chunk.map(x=>x.t);
+  for(let n=Math.min(3,vals.length);n>=1;n--)for(let i=0;i+n<=vals.length;i++){
+   const seg=vals.slice(i,i+n);if(seg.some(blocked))continue;add(seg.join(' '),chunk[i].i,chunk[i+n-1].i);
+  }
+  chunk=[];
+ };
+ ts.forEach((t,i)=>{if(blocked(t)||actionLexicon.includes(t))flush();else chunk.push({t,i})});flush();
+ out.sort((a,b)=>b.score-a.score||b.label.length-a.label.length);
+ const kept=[];
+ for(const c of out){
+  if(kept.some(k=>k.label===c.label&&k.type===c.type))continue;
+  if(/^(نمونه|بارز|دیگر|بزرگ|سهم|ثمر|وجود)$/.test(c.label))continue;
+  const contained=kept.find(k=>k.label.includes(c.label)&&k.type===c.type&&k.score>=c.score+.05);
+  if(contained&&c.label.split(/\s+/).length>1)continue;
+  kept.push(c);
+ }
+ return kept.slice(0,8);
+}
 function sentenceUnits(text){return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(clean).filter(x=>x.length>2)}
 const ceremonial=/^(بسم\s*الله\s*الرحمن\s*الرحیم|بسم\s*الله|الحمد\s*لله|هو\s*تعالی|هو)$/;
 const metaLabels=/^(متن\s*(مصوبه|تصویب.?نامه|سند|ماده)|عنوان\s*(مصوبه|سند)|موضوع|شماره|تاریخ|پیوست|مرجع\s*تصویب|دستور\s*جلسه)\s*[:：\-–—]?\s*$/;
@@ -107,7 +154,7 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
       semanticUnits:frames(text).map(x=>({id:x.id,text:x.text,zone:x.zone,eligibleForConceptualization:x.eligibleForConceptualization})),
       concepts:conceptObjects.map((x,i)=>({id:`CON:${i+1}`,label:x.label,type:x.type,confidence:Math.min(.9,.5+(x.score||0)*.12),score:x.score,evidence:x.evidence,roles:x.roles,source:x.source,status:'candidate'})),
       relations:rels,claims:cls,questions:qs,clarifications:[],
-      understanding:{engine:'document-structure-aware-semantic-v1',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
+      understanding:{engine:'document-structure-aware-semantic-v1-hotfix',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
       provenance:{documentRef:documentId,documentVersion:doc.version,sourceFileName:doc.sourceFileName},
       createdAt:now(),createdBy:actor.personId||'system'
     };
