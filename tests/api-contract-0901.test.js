@@ -1,0 +1,3 @@
+import test from'node:test';import assert from'node:assert/strict';import fs from'node:fs';
+const api=fs.readFileSync('api/index.js','utf8'),svc=fs.readFileSync('src/application/cognitiveDocumentUnderstanding077.js','utf8');
+test('API contract',()=>{for(const m of ['analyzeDocumentCognitively','getDocumentAnalysis','answerCognitiveQuestion','approveDocumentAnalysis']){assert.ok(api.includes('service.'+m));assert.ok(svc.includes(' '+m+'('))}});
