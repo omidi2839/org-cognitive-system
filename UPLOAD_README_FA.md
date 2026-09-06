@@ -1,10 +1,10 @@
-# Build 0.8.0 — Multimodal Organizational Knowledge Onboarding Foundation
-
-اصلاح بحرانی: در 0.7.8 موتور تحلیل به doc.normalizedText مراجعه می‌کرد، اما uploadDocument متن واقعی را در normalizedDocuments ذخیره می‌کند. بنابراین DOCX سالم هم به‌اشتباه خالی ارزیابی می‌شد. 0.8.0 منبع canonical را اصلاح می‌کند.
-
-- Quality Gate برای اسناد کوتاه فارسی بازطراحی شد.
-- ورودی‌ها: DOCX/PDF/PPTX/XLSX/TXT/MD/PNG/JPG/JPEG/WEBP
-- Word/PowerPoint/Excel: استخراج native structured
-- PDF: فعلاً text-layer-lite؛ PDF پیچیده/اسکن‌شده نیازمند provider پیشرفته است.
-- Image: به‌عنوان artifact شناخته می‌شود ولی بدون Vision/OCR واقعی، متن حدسی ساخته نمی‌شود.
-- این Build foundation چندرسانه‌ای است؛ Vision/LLM واقعی هنوز باید در AI Gateway متصل شود.
+# Build 0.8.1 — Claim-Centered Semantic Analysis V1
+- تحلیل از جمله/گزاره شروع می‌شود، نه N-gram کلمات.
+- Entity، Action/Function، Concept، Relation و Claim از هم جدا شدند.
+- «حوزه‌های علمیه خواهران» به‌صورت موجودیت مرکب شناخته می‌شود و «های» مفهوم نیست.
+- گزاره‌های رسالت/چشم‌انداز/هدف/سیاست/راهبرد/تعریف تشخیص داده می‌شوند.
+- «تبیین، ترویج، تبلیغ» در بافت همان گزاره تحلیل و درباره مرز مفهومی آنها سؤال می‌شود.
+- «مبتنی بر» به‌عنوان رابطه معرفتی Candidate ثبت می‌شود.
+- سقف ۱۸ مفهوم حذف و سقف فنی ۶۰ Candidate جایگزین شد.
+- سؤال‌ها به شاهد همان گزاره متصل‌اند.
+این Build قرارداد deterministic را اصلاح می‌کند؛ LLM واقعی هنوز مرحله بعد است.
