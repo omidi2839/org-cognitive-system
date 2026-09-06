@@ -20,3 +20,4 @@ After deploy test:
 3. /api/v1/knowledge/documents?class=upstream
 
 Health version: 0.9.0.9
+Vercel deployment trigger test - 2026-09-06
