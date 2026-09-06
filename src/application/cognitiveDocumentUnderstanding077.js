@@ -18,8 +18,26 @@ function materialize(ai){
 }
 export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveService{
  async knowledgeDocuments(actor,documentClass=null){
-  const base=await super.knowledgeDocuments(actor,documentClass),db=await this.repo.all();
-  base.items=base.items.map(d=>{const analyses=(db.documentAnalyses||[]).filter(a=>a.organizationId===actor.organizationId&&a.documentId===d.id).sort((a,b)=>b.version-a.version),analysis=analyses[0]||null;return{...d,analysis:analysis?{id:analysis.id,version:analysis.version,status:analysis.status,openQuestions:(analysis.questions||[]).filter(q=>q.status==='open').length}:null}});
+  const base=await super.knowledgeDocuments(actor,documentClass);
+  // The repository list is primary. Cognitive enrichment must not be able to break it.
+  try{
+    const db=await this.repo.all();
+    base.items=base.items.map(d=>{
+      const analyses=(db.documentAnalyses||[])
+        .filter(a=>a.organizationId===actor.organizationId&&a.documentId===d.id)
+        .sort((a,b)=>(b.version||0)-(a.version||0));
+      const analysis=analyses[0]||null;
+      return {...d,analysis:analysis?{
+        id:analysis.id,
+        version:analysis.version,
+        status:analysis.status,
+        openQuestions:(analysis.questions||[]).filter(q=>q.status==='open').length
+      }:null};
+    });
+  }catch(e){
+    console.warn('KNOWLEDGE_ANALYSIS_ENRICHMENT_SKIPPED',e?.message||e);
+    base.items=base.items.map(d=>({...d,analysis:null}));
+  }
   return base;
  }
  async analyzeDocument(actor,documentId,{forceNewVersion=false}={}){
@@ -30,13 +48,13 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
   const text=norm(nd?.text||doc.content||'');if(!text)throw new Error('DOCUMENT_TEXT_NOT_AVAILABLE');
   const provider=semanticProvider(),ai=await provider.analyze({text,document:doc}),m=materialize(ai),version=(versions[0]?.version||0)+1;
   const analysis={id:newId('DA'),organizationId:actor.organizationId,documentId,version,status:'needs_review',createdAt:now(),updatedAt:now(),engine:'contextual-semantic-understanding-v1',provider:ai.provider,model:ai.model||null,extractionQuality:extractionQuality(text),documentZones:ai.documentZones||[],semanticUnits:(ai.documentZones||[]).map((z,i)=>({id:`SU:${i+1}`,text:z.text,zone:z.zone,eligibleForConceptualization:z.zone==='body'})),concepts:m.concepts,relations:m.relations,claims:m.claims,questions:m.questions,understanding:{summary:`${m.claims.length} گزاره محتوایی پس از تفکیک ساختار سند تحلیل شد؛ ${m.questions.length} پرسش شناختی اختصاصی ایجاد شد.`,confidence:m.claims.length?.72:.45}};
-  await this.repo.transact(d=>{d.documentAnalyses=d.documentAnalyses||[];d.documentAnalyses.push(analysis);return d});return{analysis,versions:[analysis,...versions]};
+  await this.repo.mutate(d=>{d.documentAnalyses=d.documentAnalyses||[];d.documentAnalyses.push(analysis);return d});return{analysis,versions:[analysis,...versions]};
  }
  async getDocumentAnalysis(actor,documentId){const db=await this.repo.all(),versions=(db.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((a,b)=>b.version-a.version);if(!versions[0])throw new Error('ANALYSIS_NOT_FOUND');return{analysis:versions[0],versions}}
- async answerQuestion(actor,documentId,{questionId,answer}){let result;await this.repo.transact(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');const q=(a.questions||[]).find(x=>x.id===questionId);if(!q)throw new Error('QUESTION_NOT_FOUND');q.status='answered';q.answer=norm(answer);q.answeredAt=now();for(const c of a.concepts||[])if((q.semanticContext?.highlightConcepts||[]).includes(c.label)){c.organizationalMeaning=q.answer;c.status='human_clarified';c.confidence=Math.max(c.confidence||0,.9)}a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
+ async answerQuestion(actor,documentId,{questionId,answer}){let result;await this.repo.mutate(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');const q=(a.questions||[]).find(x=>x.id===questionId);if(!q)throw new Error('QUESTION_NOT_FOUND');q.status='answered';q.answer=norm(answer);q.answeredAt=now();for(const c of a.concepts||[])if((q.semanticContext?.highlightConcepts||[]).includes(c.label)){c.organizationalMeaning=q.answer;c.status='human_clarified';c.confidence=Math.max(c.confidence||0,.9)}a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
  async analyzeDocumentCognitively(actor,documentId,body={}){return this.analyzeDocument(actor,documentId,body)}
  async answerCognitiveQuestion(actor,documentId,body={}){return this.answerQuestion(actor,documentId,body)}
  async approveDocumentAnalysis(actor,documentId){return this.approveAnalysis(actor,documentId)}
 
- async approveAnalysis(actor,documentId){let result;await this.repo.transact(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');if((a.questions||[]).some(q=>q.status==='open'))throw new Error('OPEN_COGNITIVE_QUESTIONS');a.status='approved';a.approvedAt=now();a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
+ async approveAnalysis(actor,documentId){let result;await this.repo.mutate(d=>{const a=(d.documentAnalyses||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentId===documentId).sort((x,y)=>y.version-x.version)[0];if(!a)throw new Error('ANALYSIS_NOT_FOUND');if((a.questions||[]).some(q=>q.status==='open'))throw new Error('OPEN_COGNITIVE_QUESTIONS');a.status='approved';a.approvedAt=now();a.updatedAt=now();result=a;return d});return{analysis:result,versions:[]}}
 }
