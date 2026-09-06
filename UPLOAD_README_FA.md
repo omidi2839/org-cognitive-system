@@ -1,10 +1,27 @@
-# Build 0.8.4.2 — Document Structure Guard + Evidence Accordion
-- «بسم الله الرحمن الرحیم» و افتتاحیه‌های تشریفاتی: خارج از مفهوم‌سازی.
-- برچسب‌هایی مثل «متن مصوبه:»، «عنوان سند:»، «موضوع:»: خارج از مفهوم‌سازی.
-- تیترهای تنها مثل «رسالت حوزه‌های علمیه خواهران:»، «اهداف:»، «وظایف:» و ...: خارج از مفهوم‌سازی.
-- عنوان کوتاه سند در ابتدای فایل: خارج از مفهوم‌سازی.
-- فقط zone=body وارد concept/question pipeline می‌شود.
-- هر شاهد سند در UI به صورت Accordion بسته نمایش داده می‌شود.
-- + برای بازکردن، − برای بستن؛ در هر لحظه یک گروه باز.
-- پس از ثبت پاسخ، گروه فعلی جمع می‌شود و گروه بعدیِ تکمیل‌نشده خودکار باز می‌شود.
-- گروه تکمیل‌شده با «تکمیل شد ✓» مشخص می‌شود.
+# Build 0.9.0 — Contextual Semantic Understanding & Cognitive Question Generation V1
+
+## تغییر معماری
+Rule Engine قبلی دیگر موتور اصلی پرسش نیست. Provider abstraction اضافه شد:
+- AI_PROVIDER=openai → OpenAI Responses API + Structured Outputs
+- AI_PROVIDER=deterministic → fallback محدود و صادقانه
+
+## خروجی AI
+Document Zones → Claims → Concepts/Roles → Relations → Ambiguities → Claim-specific Questions
+
+## اصل سؤال
+سؤال از ابهام و رابطه خاص همان گزاره تولید می‌شود، نه Template ثابت برای هر Concept.
+
+## ساختار سند
+مدل موظف است Title/Heading/Label/Ceremonial/Preamble را از Body جدا کند. فقط Body به Claim تبدیل می‌شود.
+Fallback نیز «بسم الله»، «متن مصوبه:»، «رسالت ...:» و Headingهای مشابه را حذف می‌کند.
+
+## UI
+Evidence Accordion حفظ شد و از آبی تند به سبز-آبی بسیار ملایم تغییر کرد.
+
+## فعال‌سازی AI واقعی
+در Vercel Environment Variables:
+AI_PROVIDER=openai
+AI_MODEL=gpt-5.6-sol
+AI_API_KEY=<secret>
+AI_BASE_URL=https://api.openai.com/v1
+بدون AI_API_KEY، سامانه عمداً به deterministic fallback می‌رود و ادعای AI واقعی ندارد.

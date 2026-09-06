@@ -134,7 +134,7 @@ function renderUnderstanding(id,a,versions){
  const d=document.getElementById('k77detail');
  d.innerHTML=`<section class="k77understanding"><header><div><small>پرونده فهم سند · نسخه ${a.version}</small><h3>تحلیل شناختی سند</h3><p>${esc(a.understanding?.summary||'')}</p></div><span class="k77confidence">اطمینان ${Math.round((a.understanding?.confidence||0)*100)}٪</span></header>
  <div class="k78quality"><b>کیفیت ورود و استخراج</b><span>${a.extractionQuality?Math.round(a.extractionQuality.score*100)+'٪ · '+esc(a.extractionQuality.message):'—'}</span></div>
- <div class="k77box questions"><h4>پرسش‌های شناختی برای تکمیل فهم</h4>${groupedQuestions(a,id)}</div>
+ <div class="k77box questions"><h4>پرسش‌های اختصاصی برای روشن‌سازی معنای گزاره‌ها</h4>${groupedQuestions(a,id)}</div>
  <div class="k77actions"><button class="secondary" data-reanalyze="${esc(id)}">ایجاد نسخه جدید تحلیل</button>${a.status!=='approved'?'<button class="approve" data-approve="'+esc(id)+'">تأیید تحلیل تکمیل‌شده</button>':'<span class="approved">تحلیل تأیید شده است</span>'}</div>
  <div class="k76note">مشاهده تحلیل ≠ تحلیل مجدد. تحلیل مجدد فقط با «ایجاد نسخه جدید تحلیل» انجام می‌شود و نسخه قبلی حفظ می‌گردد.</div></section>`;
  wireEvidenceAccordions(d);

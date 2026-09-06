@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.8.4.2-document-structure-accordion",
-  "version": "0.8.4-2-2",
+  "name": "org-cognitive-build-0.9.0-contextual-semantic-understanding",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
