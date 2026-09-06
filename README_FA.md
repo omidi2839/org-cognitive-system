@@ -1,12 +1,22 @@
-# Build 0.9.0.8 — Restore Missing Mock Gateway
+# Build 0.9.0.9 — Static Dependency Graph
 
-Root cause confirmed:
-api/index.js imports src/ai/mockGateway.js, but that file is missing from the current repository.
+Root cause refinement:
+- `src/ai/mockGateway.js` exists in GitHub.
+- Vercel still reports it missing at runtime.
+- Current `api/index.js` loads that file via dynamic import.
+- This build restores the stable dependencies as top-level static imports so Vercel's function tracer/bundler must include them in the serverless bundle.
 
-Git history shows that src/ai was deleted in commit:
-bccd4d6fd33b0802baea68061728e139c0e0863c
+Statically imported:
+- repositoryFactory.js
+- mockGateway.js
+- knowledgeService0764.js
+- storageFactory.js
 
-This patch restores exactly:
-src/ai/mockGateway.js
+The experimental cognitive service remains lazy-loaded.
 
-No other files are changed.
+After deploy test:
+1. /api/v1/health
+2. /api/v1/diagnostics/cold-boot
+3. /api/v1/knowledge/documents?class=upstream
+
+Health version: 0.9.0.9
