@@ -5,7 +5,7 @@ const uniq=a=>[...new Set(a.filter(Boolean))];
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 
 function semanticUnits(text){
-  return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(norm).filter(x=>x.length>8).slice(0,120);
+  return String(text||'').split(/\n|(?<=[.!؟!؛])/).map(norm).filter(x=>x.length>8);
 }
 const stop=new Set('این آن که را به از در با برای و یا یک بر تا نیز شده شود است هستند بود باشد خود مورد جهت صورت طریق عنوان سازمان سند کل کلی اصلی های'.split(' '));
 const compoundEntities=['حوزه های علمیه خواهران','حوزه‌های علمیه خواهران','حوزه ‌ های علمیه خواهران','سنت نبوی','مکتب اهل بیت','مکتب اهل‌بیت','قرآن کریم','قرآن','نظام اسلامی','جوامع'];
@@ -17,8 +17,8 @@ function claimType(u){if(/رسالت|ماموریت|مأموریت/.test(u))retu
 function frames(text){return sentenceUnits(text).map((u,i)=>({id:`SU:${i+1}`,text:u,claimType:claimType(u),entities:compoundEntities.filter(x=>u.includes(x)).filter((x,i,a)=>!a.some((y,j)=>j<i&&y.includes(x))).map(label=>({label,type:/حوزه/.test(label)?'organizational_entity':'reference_source'})),actions:actions.filter(x=>u.includes(x)).map(label=>({label,type:'action_or_function'})),concepts:semanticTerms.filter(x=>u.includes(x.replace('ن یاز','نیاز'))).map(label=>({label:label.replace('ن یاز','نیاز'),type:/وارسته|فرهیخته/.test(label)?'quality_attribute':/نیاز/.test(label)?'need_concept':/جوامع|نظام/.test(label)?'stakeholder_or_scope':'concept'})),relations:relMarkers.filter(([m])=>u.includes(m)).map(([marker,type])=>({marker,type}))}))}
 function discoverConcepts(text){
  const fs=frames(text),map=new Map(),add=(label,type,evidence,role,score)=>{label=norm(label);if(!label||stop.has(label))return;const k=type+':'+label,x=map.get(k)||{label,type,evidence:[],roles:[],score:0};if(!x.evidence.includes(evidence))x.evidence.push(evidence);if(!x.roles.includes(role))x.roles.push(role);x.score+=score;map.set(k,x)};
- for(const f of fs){const w=['mission_claim','vision_claim','goal_claim','policy_claim','strategy_claim'].includes(f.claimType)?4:2;f.entities.forEach(x=>add(x.label,x.type,f.text,'entity',w+2));f.actions.forEach(x=>add(x.label,x.type,f.text,f.claimType,w+2));f.relations.forEach(x=>add(x.marker,'relation_marker',f.text,x.type,w));}
- return [...map.values()].sort((x,y)=>y.score-x.score||y.label.length-x.label.length).slice(0,60);
+ for(const f of fs){const w=['mission_claim','vision_claim','goal_claim','policy_claim','strategy_claim'].includes(f.claimType)?4:2;f.entities.forEach(x=>add(x.label,x.type,f.text,'entity',w+2));(f.concepts||[]).forEach(x=>add(x.label,x.type,f.text,'concept',w+2));f.actions.forEach(x=>add(x.label,x.type,f.text,f.claimType,w+2));f.relations.forEach(x=>add(x.marker,'relation_marker',f.text,x.type,w));}
+ return [...map.values()].sort((x,y)=>y.score-x.score||y.label.length-x.label.length);
 }
 function extractionQuality(text,doc){
   const t=norm(text),chars=t.length,fa=(t.match(/[\u0600-\u06FF]/g)||[]).length,replacement=(t.match(/�/g)||[]).length;
@@ -41,7 +41,7 @@ function questions(text,concepts,relations,units){
  if(aa.length>1)push(`در این گزاره، «${aa.join('، ')}» چه تفاوت مفهومی و کارکردی دارند؛ مراحل یک فرایندند یا کارکردهای مستقل؟`,'مرز و نسبت چند کنش کلیدی باید روشن شود.',aa.join('، '),f.text,f.claimType,{highlightConcepts:all,interpretation:`سامانه ${aa.length} کارکرد مرتبط را در یک گزاره تشخیص داده، اما نوع رابطه آنها نیازمند احراز انسانی است.`,proposedRelations:['هم‌عرض','ترتیبی','مکمل یکدیگر','علّی/اثرگذار بر یکدیگر','جزء و کل','رابطه دیگری دارند'],expectedClarificationType:'relation_and_definition'});
  for(const x of aa.slice(0,4))push(`در همین گزاره، منظور سازمان از «${x}» دقیقاً چیست و تحقق آن چگونه قابل تشخیص است؟`,'تعریف سازمانی باید در بافت همان گزاره تکمیل شود.',x,f.text,f.claimType,{highlightConcepts:all,interpretation:`«${x}» به‌عنوان کنش/کارکرد کلیدی این گزاره تشخیص داده شده است.`,proposedRelations:[],expectedClarificationType:'organizational_definition'});
  for(const r of f.relations)if(r.type==='epistemic_basis')push('عبارت «مبتنی بر» در این گزاره چه نوع رابطه‌ای ایجاد می‌کند؟ نسبت قرآن، سنت نبوی و مکتب اهل‌بیت در این مبنا چیست؟','نوع رابطه معرفتی/تفسیری باید احراز شود.',r.marker,f.text,f.claimType,{highlightConcepts:['مبتنی بر',...ee.filter(x=>/قرآن|سنت|مکتب/.test(x))],interpretation:'سامانه یک رابطه مبنایی/معرفتی تشخیص داده است؛ ساختار دقیق آن هنوز قطعی نیست.',proposedRelations:['منابع هم‌عرض','اجزای یک منظومه معرفتی','ترتیب مرجعیت','رابطه تفسیری/تبیینی','رابطه دیگری دارند'],expectedClarificationType:'relation'});
- if(qs.length>=12)break}return qs;
+ }return qs;
 }
 
 export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveService {
@@ -79,7 +79,7 @@ export class CognitiveDocumentUnderstandingService extends KnowledgeCognitiveSer
       id:newId('DAN'),organizationId:actor.organizationId,documentRef:documentId,version,
       status:qs.length?'awaiting_human_clarification':'awaiting_human_review',
       extractionQuality:quality,
-      semanticUnits:units.slice(0,24).map((x,i)=>({id:`SU:${i+1}`,text:x})),
+      semanticUnits:units.map((x,i)=>({id:`SU:${i+1}`,text:x})),
       concepts:concepts.map((x,i)=>({id:`CON:${i+1}`,label:x,confidence:.62,status:'candidate'})),
       relations:rels,claims:cls,questions:qs,clarifications:[],
       understanding:{engine:'semantic-document-intelligence-v1',summary:`${concepts.length} مفهوم، ${rels.length} رابطه، ${cls.length} گزاره معنایی و ${qs.length} پرسش شناختی شناسایی شد.`,confidence:Math.min(.86,.48+concepts.length*.025+rels.length*.025)},
