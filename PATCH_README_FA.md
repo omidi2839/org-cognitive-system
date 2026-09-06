@@ -1,10 +1,13 @@
-# Build 0.9.0.2 — Minimal Repository Runtime Patch
+# Build 0.9.0.3 — Repository / AI Isolation Hotfix
 
-این ZIP عمداً فقط دو فایل اجرایی تغییرکرده را دارد تا هیچ فایل دیگری از مخزن overwrite نشود.
+این Patch دو اصل را اعمال می‌کند:
 
-علت‌های اصلاح‌شده:
-1) مخزن اسناد دیگر به enrichment تحلیل وابسته نیست؛ اگر enrichment خطا بدهد، فهرست اسناد باید همچنان نمایش داده شود.
-2) موتور 0.9 از repo.transact استفاده می‌کرد، در حالی که Repositoryهای پروژه قرارداد mutate دارند؛ این مورد اصلاح شد.
-3) قرارداد قدیمی API برای analyze/answer/approve حفظ شده است.
+1. مخزن اسناد دیگر در زمان Boot به ماژول‌های AI وابسته نیست.
+   import مستقیم semanticProvider از بالای Service حذف شده و فقط هنگام «شروع تحلیل» به‌صورت dynamic import بارگذاری می‌شود.
 
-Health: 0.9.0.2
+2. knowledgeDocuments دیگر super.knowledgeDocuments را صدا نمی‌زند.
+   فهرست مخزن مستقیماً و دفاعی از Repository خوانده می‌شود و برای آرایه‌های قدیمی/ناقص runtime_state نیز safe است.
+
+هدف: باز شدن مخزن اسناد حتی اگر AI Provider یا لایه تحلیل شناختی اشکال جداگانه داشته باشد.
+
+Health: 0.9.0.3
