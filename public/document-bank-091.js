@@ -28,6 +28,11 @@ const highlightText=(text,q)=>{
 };
 const fmtDate=v=>{if(!v)return'—';try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v))}catch{return toFa(v)}};
 const api=async(p)=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001'}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت بانک اسناد');return d};
+let lastSearchQuery='';
+async function persistenceStatus(){
+ try{return await api('/api/v1/health/ready')}catch{return null}
+}
+
 
 function persianize(root){
  if(!root)return;
@@ -107,6 +112,64 @@ function ensureShell(){
  return x;
 }
 
+
+function closeDocumentModal(){
+ const m=document.getElementById('k91docmodal');
+ if(m)m.remove();
+ document.body.classList.remove('k91-modal-open');
+}
+
+async function openDocumentModal(documentId,q=''){
+ closeDocumentModal();
+ const wrap=document.createElement('div');
+ wrap.id='k91docmodal';
+ wrap.className='k91modalbackdrop';
+ wrap.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true" aria-label="مشاهده سند">
+   <div class="k91modal-loading">در حال دریافت متن سند…</div>
+ </div>`;
+ wrap.addEventListener('click',e=>{if(e.target===wrap)closeDocumentModal()});
+ document.body.appendChild(wrap);
+ document.body.classList.add('k91-modal-open');
+ try{
+   const d=await api('/api/v1/knowledge/document-bank/'+encodeURIComponent(documentId));
+   const x=d.item||{};
+   const body=String(x.text||'').trim();
+   const rendered=q?highlightText(body,q):esc(body);
+   wrap.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true">
+     <div class="k91modalhead">
+       <div>
+         <div class="k91modalbadges">
+           <span>${docClass(x.documentClass)}</span>
+           <span>${statusLabel(x.validityStatus)}</span>
+           <span>${classLabel(x.classification)}</span>
+         </div>
+         <h3>${esc(x.title||'بدون عنوان')}</h3>
+         <p>${esc(x.documentType||'—')} · ${esc(x.subjectArea||'بدون موضوع')} · ${esc(x.issuer||'مرجع نامشخص')}</p>
+       </div>
+       <button class="k91modalclose" type="button" aria-label="بستن">×</button>
+     </div>
+     <div class="k91modalmeta">
+       <span>تاریخ صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span>
+       <span>پایان اعتبار <b>${fmtDate(x.validUntil)}</b></span>
+       <span>نسخه <b>${toFa(x.version||1)}</b></span>
+     </div>
+     <div class="k91modalbody">
+       ${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای برای این سند موجود نیست.</div>'}
+     </div>
+   </div>`;
+   wrap.querySelector('.k91modalclose').onclick=closeDocumentModal;
+   persianize(wrap);
+   if(q){
+     setTimeout(()=>{
+       wrap.querySelector('.k91highlight')?.scrollIntoView({block:'center',behavior:'smooth'});
+     },80);
+   }
+ }catch(e){
+   wrap.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose" type="button">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;
+   wrap.querySelector('.k91modalclose').onclick=closeDocumentModal;
+ }
+}
+
 function statusLabel(v){return({active:'معتبر',draft:'پیش‌نویس',expired:'منقضی',revoked:'لغوشده',superseded:'جایگزین‌شده',unknown:'نیازمند احراز'})[v]||v||'نیازمند احراز'}
 function classLabel(v){return({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]||v||'—'}
 function docClass(v){return v==='upstream'?'بالادستی':v==='general'?'عمومی':'سایر'}
@@ -130,14 +193,17 @@ function resultRow(d,q){
  return `<article class="k91result">
    <div class="k91result-main">
      <div class="k91badges"><span>${docClass(d.documentClass)}</span><span>${statusLabel(d.validityStatus)}</span><span>${classLabel(d.classification)}</span>${matchBadge}</div>
-     <h4>${esc(d.title||'بدون عنوان')}</h4>
-     <p>${esc(d.documentType||'—')} · ${esc(d.subjectArea||'بدون موضوع')} · ${esc(d.issuer||'مرجع نامشخص')}</p>
-     ${snippetsBlock(d,q)}
+     <button type="button" class="k91doctitle" data-doc-preview="${esc(d.id)}">${esc(d.title||'بدون عنوان')}</button>
+     <div class="k91result-info">
+       <p>${esc(d.documentType||'—')} · ${esc(d.subjectArea||'بدون موضوع')} · ${esc(d.issuer||'مرجع نامشخص')}</p>
+       ${snippetsBlock(d,q)}
+     </div>
    </div>
    <div class="k91dates">
      <span>تاریخ تصویب/صدور<b>${fmtDate(d.issuedAt||d.createdAt)}</b></span>
      <span>پایان اعتبار<b>${fmtDate(d.validUntil)}</b></span>
      <span>نسخه<b>${toFa(d.version||1)}</b></span>
+     <button type="button" class="k91previewbtn" data-doc-preview="${esc(d.id)}">مشاهده سند</button>
    </div>
  </article>`;
 }
@@ -154,6 +220,7 @@ async function runBankSearch(){
  try{
    const d=await api('/api/v1/knowledge/document-bank?'+p.toString());
    const q=String(fd.get('q')||'').trim();
+   lastSearchQuery=q;
    if(count){
      count.textContent=q
        ?`${toFa(d.summary?.visible||0)} سند · ${toFa(d.summary?.totalOccurrences||0)} تطابق متنی`
@@ -170,7 +237,7 @@ async function openBank(){
  const ctx=document.getElementById('workspaceContext');
  if(ctx)ctx.classList.add('k91-hidden-workspace');
  const x=ensureShell(),b=x.querySelector('#k76body');
- b.innerHTML=`<div class="k91hero"><div><b>بانک اطلاعات اسناد سازمان</b><span>هر سند یک نتیجه است و تعداد همه تطابق‌های متنی داخل همان سند جداگانه نمایش داده می‌شود.</span></div><strong id="k91count">—</strong></div>
+ b.innerHTML=`<div id="k91persist"></div><div class="k91hero"><div><b>بانک اطلاعات اسناد سازمان</b><span>هر سند یک نتیجه است و تعداد همه تطابق‌های متنی داخل همان سند جداگانه نمایش داده می‌شود.</span></div><strong id="k91count">—</strong></div>
  <form id="k91search" class="k91search"><label class="k91q">جستجو در عنوان، موضوع، مرجع و متن سند<input name="q" placeholder="مثلاً استقلال حوزه، بودجه فرهنگی، منابع انسانی…"></label><div class="k91filters">
  <label>نوع سند<select name="documentClass"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select></label>
  <label>وضعیت اعتبار<select name="validity"><option value="">همه وضعیت‌ها</option><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="revoked">لغوشده</option><option value="superseded">جایگزین‌شده</option><option value="unknown">نیازمند احراز</option></select></label>
@@ -183,10 +250,25 @@ async function openBank(){
  f.onreset=()=>setTimeout(runBankSearch,0);
  persianize(x);
  window.scrollTo({top:0,behavior:'smooth'});
+ const ps=await persistenceStatus();
+ const pb=document.getElementById('k91persist');
+ if(pb&&ps){
+   const durable=ps.persistence==='postgres';
+   pb.innerHTML=durable
+     ?'<div class="k91persist-ok">ذخیره‌سازی پایدار فعال است · PostgreSQL</div>'
+     :'<div class="k91persist-warn"><b>هشدار:</b> این محیط روی حافظه موقت اجرا می‌شود و با Deploy یا Cold Start ممکن است اسناد از بین بروند. DATABASE_URL باید برای همین Environment در Vercel تنظیم شود.</div>';
+ }
  await runBankSearch();
 }
 
 document.addEventListener('click',e=>{
+ const preview=e.target.closest('[data-doc-preview]');
+ if(preview){
+   e.preventDefault();
+   e.stopPropagation();
+   openDocumentModal(preview.dataset.docPreview,lastSearchQuery);
+   return;
+ }
  const c=e.target.closest('[data-capability="بانک اسناد"]');
  if(c){
    e.preventDefault();
@@ -208,6 +290,7 @@ function queueEnhancement(){
 const obs=new MutationObserver(queueEnhancement);
 obs.observe(document.documentElement,{subtree:true,childList:true});
 
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDocumentModal()});
 document.addEventListener('DOMContentLoaded',queueEnhancement);
 queueEnhancement();
 })();

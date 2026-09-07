@@ -1,4 +1,4 @@
-/* Hotfix 0.9.1.7 — navigation refinement + Persian-aware search highlighting */
+/* Hotfix 0.9.1.8 — durable persistence visibility + result hierarchy + document preview */
 .k76head>div>small:first-child{display:none!important}
 .k91-hidden-workspace{display:none!important}
 .k91bank-mode{position:relative}
@@ -15,3 +15,30 @@
 @media(max-width:600px){.k91filters{grid-template-columns:1fr}.k91dates{grid-template-columns:1fr}.k91hero{align-items:flex-start;flex-direction:column}.k91back{width:100%}}
 
 .k91highlight{background:#ffe36e;color:#3f3410;border-radius:4px;padding:0 2px;font-weight:700;box-shadow:inset 0 -1px 0 rgba(125,97,35,.18)}
+
+.k91persist-ok,.k91persist-warn{margin:14px 0 10px;padding:10px 12px;border-radius:12px;font-size:9px;line-height:1.9}
+.k91persist-ok{background:#eef8f3;border:1px solid #cfe8dc;color:#356a5b}
+.k91persist-warn{background:#fff7e8;border:1px solid #eed8a9;color:#795a1b}
+.k91result{overflow:hidden;padding:0!important}
+.k91result-main{padding:14px 15px 0}
+.k91doctitle{display:block;width:100%;text-align:right;border:0;background:transparent;padding:0;margin:8px 0 8px;color:#223550;font-size:11px;font-weight:700;font-family:inherit;cursor:pointer}
+.k91doctitle:hover{color:#397663;text-decoration:underline}
+.k91result-info{margin:0 -15px;padding:10px 15px 14px;background:#f6f9fc;border-top:1px solid #e8eef4}
+.k91result-info p{color:#66778e!important;font-size:8px}
+.k91dates{padding:14px 14px 14px 0}
+.k91previewbtn{grid-column:1/-1;border:1px solid #d9e6e1;background:#f4faf7;color:#356a5b;border-radius:9px;padding:7px 10px;font-family:inherit;font-size:8px;cursor:pointer}
+.k91previewbtn:hover{background:#eaf5f0}
+.k91-modal-open{overflow:hidden}
+.k91modalbackdrop{position:fixed;inset:0;background:rgba(19,32,49,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:24px}
+.k91modal{width:min(860px,94vw);max-height:84vh;background:#fff;border-radius:18px;box-shadow:0 24px 70px rgba(18,35,52,.22);display:flex;flex-direction:column;overflow:hidden;direction:rtl}
+.k91modal-loading{padding:36px;text-align:center;color:#718096}
+.k91modalhead{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:18px 20px 14px;border-bottom:1px solid #e8edf2;background:#fbfcfd}
+.k91modalhead h3{margin:8px 0 4px;color:#213650;font-size:16px}
+.k91modalhead p{margin:0;color:#7a8796;font-size:9px}
+.k91modalbadges{display:flex;gap:5px;flex-wrap:wrap}.k91modalbadges span{font-size:8px;padding:4px 7px;border-radius:999px;background:#edf6f3;color:#467366}
+.k91modalclose{border:0;background:#eef3f6;color:#5a6a7c;width:34px;height:34px;border-radius:10px;font-size:20px;cursor:pointer;flex:0 0 auto}
+.k91modalmeta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 20px;background:#f5f8fb;border-bottom:1px solid #e7edf2}
+.k91modalmeta span{font-size:8px;color:#8793a1;background:#fff;border-radius:9px;padding:8px 10px}.k91modalmeta b{display:block;color:#4d5f73;margin-top:3px}
+.k91modalbody{overflow:auto;padding:18px 20px 24px}
+.k91fulltext{white-space:pre-wrap;line-height:2.15;font-size:11px;color:#33465d;text-align:right}
+@media(max-width:700px){.k91modalbackdrop{padding:8px}.k91modal{width:98vw;max-height:92vh}.k91modalmeta{grid-template-columns:1fr}.k91dates{padding:0 14px 14px}.k91result-main{padding-bottom:0}}
