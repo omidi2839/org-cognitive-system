@@ -1,4 +1,4 @@
-/* Hotfix 0.9.2.2 — stronger search expansion + back navigation CTA */
+/* Hotfix 0.9.2.3 — corrected selectors + back button geometry */
 .k76head>div>small:first-child{display:none!important}
 .k91-hidden-workspace{display:none!important}
 .k91bank-mode{position:relative}
@@ -77,3 +77,67 @@
   box-shadow:0 5px 14px rgba(198,40,40,.27)!important;
 }
 .k91back:active{transform:translateY(0)}
+
+/* 0.9.2.3 — exact selector for the existing disclosure control */
+.k91more > summary{
+  color:#c62828!important;
+  font-weight:900!important;
+  font-size:9px!important;
+  cursor:pointer!important;
+  padding:7px 0!important;
+  display:inline-block!important;
+  text-decoration:none!important;
+}
+.k91more > summary:hover{
+  color:#9d1d1d!important;
+  text-decoration:underline!important;
+}
+.k91more[open] > summary{margin-bottom:7px!important}
+
+/* 0.9.2.3 — stable, readable back button in RTL header */
+.k91navrow{
+  display:flex!important;
+  justify-content:flex-start!important;
+  align-items:center!important;
+  margin-bottom:12px!important;
+  min-height:38px!important;
+  overflow:visible!important;
+}
+.k91back{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  min-width:210px!important;
+  max-width:none!important;
+  min-height:36px!important;
+  height:auto!important;
+  line-height:1.4!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  padding:9px 16px!important;
+  margin:0!important;
+  border:1px solid #c62828!important;
+  border-radius:11px!important;
+  background:#c62828!important;
+  color:#fff!important;
+  font-family:inherit!important;
+  font-size:10px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
+  box-shadow:0 4px 12px rgba(198,40,40,.24)!important;
+}
+.k91back:hover{
+  background:#a91f1f!important;
+  border-color:#a91f1f!important;
+  color:#fff!important;
+  transform:translateY(-1px)!important;
+}
+.k91back:focus-visible{
+  outline:3px solid rgba(198,40,40,.22)!important;
+  outline-offset:2px!important;
+}
+@media(max-width:600px){
+  .k91back{width:100%!important;min-width:0!important}
+}
