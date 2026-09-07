@@ -131,9 +131,10 @@ async function openDocumentModal(documentId,q=''){
  document.body.appendChild(wrap);
  document.body.classList.add('k91-modal-open');
  try{
-   const d=await api('/api/v1/knowledge/document-bank/'+encodeURIComponent(documentId));
-   const x=d.item||{};
-   const body=String(x.text||'').trim();
+   const d=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(documentId)+'&detail=1');
+   const x=(d.items||[])[0]||{};
+   if(!x.id)throw Error('سند پیدا نشد یا دسترسی به آن مجاز نیست.');
+   const body=String(x.fullText||'').trim();
    const rendered=q?highlightText(body,q):esc(body);
    wrap.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true">
      <div class="k91modalhead">
