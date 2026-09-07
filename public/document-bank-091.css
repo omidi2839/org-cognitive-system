@@ -1,4 +1,4 @@
-/* Hotfix 0.9.2.1 — Persian normalization + bank navigation lifecycle */
+/* Hotfix 0.9.2.2 — stronger search expansion + back navigation CTA */
 .k76head>div>small:first-child{display:none!important}
 .k91-hidden-workspace{display:none!important}
 .k91bank-mode{position:relative}
@@ -46,3 +46,34 @@
 .k91hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 #k91renorm{border:1px solid #d9e6e1;background:#fff;color:#356a5b;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:8px;cursor:pointer}
 #k91renorm:hover{background:#eef8f3}#k91renorm:disabled{opacity:.6;cursor:wait}
+
+/* 0.9.2.2 — make secondary-match disclosure unmistakably interactive */
+.k91snippets details > summary{
+  color:#c62828!important;
+  font-weight:800!important;
+  cursor:pointer;
+  text-decoration:none;
+}
+.k91snippets details > summary:hover{
+  color:#9f1f1f!important;
+  text-decoration:underline;
+}
+.k91snippets details[open] > summary{margin-bottom:7px}
+
+/* 0.9.2.2 — prominent return CTA */
+.k91back{
+  background:#c62828!important;
+  border-color:#c62828!important;
+  color:#fff!important;
+  font-weight:800!important;
+  font-size:9px!important;
+  padding:8px 13px!important;
+  box-shadow:0 3px 10px rgba(198,40,40,.20)!important;
+}
+.k91back:hover{
+  background:#a91f1f!important;
+  border-color:#a91f1f!important;
+  transform:translateY(-1px);
+  box-shadow:0 5px 14px rgba(198,40,40,.27)!important;
+}
+.k91back:active{transform:translateY(0)}
