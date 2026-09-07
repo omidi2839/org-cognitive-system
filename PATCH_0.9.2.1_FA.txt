@@ -1,0 +1,30 @@
+# Hotfix 0.9.2.1 — دو تغییر در api/index.js و دو تغییر در public/index.html
+
+## A) api/index.js
+
+1) import فعلی:
+import { buildDocumentBankResponse } from './document-bank-core.js';
+
+به این تبدیل شود:
+import { buildDocumentBankResponse, renormalizeDocumentBank } from './document-bank-core.js';
+
+2) بلافاصله بعد از Route فعلی GET بانک اسناد:
+if(path==='/api/v1/knowledge/document-bank'&&req.method==='GET'){
+  return send(res,200,await buildDocumentBankResponse(req,repository));
+}
+
+این Route را اضافه کنید:
+if(path==='/api/v1/knowledge/document-bank'&&req.method==='POST'){
+  if(req.body?.action==='renormalize-persian'){
+    return send(res,200,await renormalizeDocumentBank(req,repository));
+  }
+  return send(res,400,{code:'DOCUMENT_BANK_ACTION_INVALID',message:'عملیات بانک اسناد نامعتبر است.'});
+}
+
+## B) public/index.html
+
+CSS:
+<link rel="stylesheet" href="./document-bank-091.css?v=0.9.2.1">
+
+JS:
+<script src="./document-bank-091.js?v=0.9.2.1"></script>
