@@ -1,15 +1,63 @@
 (()=>{
-const fa=n=>String(n??'').replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+const FA='۰۱۲۳۴۵۶۷۸۹';
+const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-const api=async p=>{const r=await fetch(p,{headers:{'x-org-id':'ORG:SYN-001'}});const d=await r.json();if(!r.ok)throw Error(d.message||'خطا');return d};
-const validity={active:'معتبر',draft:'پیش‌نویس',expired:'منقضی',revoked:'لغوشده',superseded:'جایگزین‌شده',unknown:'نیازمند احراز'};
-const cls={public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'};
-function persianize(root){if(!root)return;const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let n;while(n=w.nextNode()){if(/\d/.test(n.nodeValue))n.nodeValue=fa(n.nodeValue)}}
-new MutationObserver(()=>{persianize(document.getElementById('knowledge076'));persianize(document.getElementById('workspaceContext'))}).observe(document.body,{childList:true,subtree:true});
-function installCard(){const ctx=document.getElementById('workspaceContext');if(!ctx||!ctx.textContent.includes('دانش و اسناد سازمان')||ctx.querySelector('[data-document-bank]'))return;const stage=[...ctx.querySelectorAll('.cognitive-stage')].find(x=>x.textContent.includes('اسناد سازمان'));const items=stage?.querySelector('.stage-items');if(!items)return;const b=document.createElement('button');b.className='capability-card live';b.dataset.documentBank='1';b.innerHTML='<span class="capability-icon">✦</span><b>بانک اسناد</b><small>جستجو و بازیابی سازمانی</small>';b.onclick=openBank;items.appendChild(b)}
-new MutationObserver(installCard).observe(document.body,{childList:true,subtree:true});installCard();
-async function openBank(){let x=document.getElementById('knowledge076');if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main').prepend(x)}x.innerHTML='<div class="k76head"><div><h2>بانک اسناد سازمان</h2><p>جستجو، فیلتر و بازیابی اسناد قابل دسترس شما</p></div><button data-close-bank>×</button></div><div id="db91body"><div class="k76loading">در حال دریافت اسناد…</div></div>';x.querySelector('[data-close-bank]').onclick=()=>x.remove();try{const d=await api('/api/v1/knowledge/documents');render(d.items||[])}catch(e){document.getElementById('db91body').innerHTML='<div class="k76empty">'+esc(e.message)+'</div>'}}
-function render(all){const b=document.getElementById('db91body');b.innerHTML=`<div class="db91search"><input id="db91q" placeholder="جستجو در عنوان، موضوع، مرجع تصویب و مشخصات سند…"><button id="db91go">جستجو</button></div><div class="db91filters"><select id="db91class"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select><select id="db91valid"><option value="">همه وضعیت‌های اعتبار</option><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="unknown">نیازمند احراز</option></select><select id="db91sec"><option value="">همه سطوح دسترسی مجاز</option><option value="public">عمومی</option><option value="internal">داخلی</option><option value="confidential">محرمانه</option></select><input id="db91from" type="date" title="از تاریخ تصویب"><input id="db91to" type="date" title="تا تاریخ تصویب"></div><div class="db91hint">نتایج این بانک فقط از اسنادی ساخته می‌شود که کاربر مجاز به مشاهده آن‌هاست. جستجوی تمام‌متن در فاز اتصال شاخص متن فعال می‌شود.</div><div id="db91count"></div><div id="db91results"></div>`;
-const run=()=>{const q=document.getElementById('db91q').value.trim().toLowerCase(),c=document.getElementById('db91class').value,v=document.getElementById('db91valid').value,s=document.getElementById('db91sec').value,fr=document.getElementById('db91from').value,to=document.getElementById('db91to').value;const rows=all.filter(d=>(!c||d.documentClass===c)&&(!v||d.validityStatus===v)&&(!s||d.classification===s)&&(!fr||String(d.issuedAt||'')>=fr)&&(!to||String(d.issuedAt||'')<=to)&&(!q||[d.title,d.documentType,d.subjectArea,d.issuer,d.organizationalUnitName,d.sourceFileName].some(z=>String(z||'').toLowerCase().includes(q))));document.getElementById('db91count').innerHTML='<b>'+fa(rows.length)+'</b> سند قابل مشاهده';document.getElementById('db91results').innerHTML=rows.length?rows.map(row).join(''):'<div class="k76empty">سندی با این معیارها پیدا نشد.</div>';persianize(b)};['db91q','db91class','db91valid','db91sec','db91from','db91to'].forEach(id=>document.getElementById(id).addEventListener(id==='db91q'?'input':'change',run));document.getElementById('db91go').onclick=run;run()}
-function row(d){return `<article class="db91row"><div><span class="k76class ${esc(d.documentClass)}">${d.documentClass==='upstream'?'بالادستی':'عمومی'}</span><b>${esc(d.title)}</b><small>${esc(d.documentType||'—')} · ${esc(d.subjectArea||'بدون موضوع ثبت‌شده')}</small></div><div class="db91meta"><span>مرجع: ${esc(d.issuer||'—')}</span><span>تصویب/صدور: ${esc(d.issuedAt||'—')}</span><span>${esc(validity[d.validityStatus]||d.validityStatus||'—')}</span><span>${esc(cls[d.classification]||d.classification||'—')}</span><span>${esc(d.organizationalUnitName||d.organizationalLevel||'کل سازمان')}</span></div></article>`}
+const fmtDate=v=>{if(!v)return'—';try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v))}catch{return toFa(v)}};
+const api=async(p)=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001'}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت بانک اسناد');return d};
+
+function persianize(root){
+ if(!root)return;
+ const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+ nodes.forEach(n=>{if(n.parentElement?.closest('script,style,input,textarea'))return;n.nodeValue=toFa(n.nodeValue)});
+}
+function cleanBuildLabel(root){root?.querySelectorAll('.k76head small').forEach(x=>{if(/Build\s*0\.7\.6\.4/.test(x.textContent))x.remove()})}
+function enhanceExistingShell(root){
+ if(!root)return;cleanBuildLabel(root);
+ const tabs=root.querySelector('.k76tabs');
+ if(tabs&&!tabs.querySelector('[data-kbank]')){
+  const b=document.createElement('button');b.type='button';b.dataset.kbank='1';b.textContent='بانک اسناد';b.onclick=()=>openBank();tabs.appendChild(b);
+ }
+ persianize(root);
+}
+function injectWorkspaceCard(){
+ const ctx=document.getElementById('workspaceContext');if(!ctx||ctx.classList.contains('hidden'))return;
+ if(!ctx.textContent.includes('دانش و اسناد سازمان'))return;
+ const stages=ctx.querySelectorAll('.cognitive-stage');const target=stages[0]?.querySelector('.stage-items');if(!target||target.querySelector('[data-capability="بانک اسناد"]'))return;
+ const b=document.createElement('button');b.className='capability-card live';b.dataset.capability='بانک اسناد';b.innerHTML='<span class="capability-icon">✦</span><b>بانک اسناد</b><small>جستجو و بازیابی سازمانی</small>';target.appendChild(b);persianize(ctx);
+}
+function ensureShell(){
+ let x=document.getElementById('knowledge076');
+ if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
+ x.innerHTML=`<div class="k76head"><div><h2>بانک اسناد سازمان</h2><p>جستجو، فیلتر و بازیابی اسناد قابل دسترس بر اساس فراداده و متن استخراج‌شده</p></div><button data-kclose>×</button></div><div id="k76body"></div>`;
+ x.querySelector('[data-kclose]').onclick=()=>x.remove();return x;
+}
+function statusLabel(v){return({active:'معتبر',draft:'پیش‌نویس',expired:'منقضی',revoked:'لغوشده',superseded:'جایگزین‌شده',unknown:'نیازمند احراز'})[v]||v||'نیازمند احراز'}
+function classLabel(v){return({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]||v||'—'}
+function docClass(v){return v==='upstream'?'بالادستی':v==='general'?'عمومی':'سایر'}
+function resultRow(d){
+ const hit=d.matchSnippet?`<div class="k91snippet"><b>محل تطابق:</b> ${esc(d.matchSnippet)}</div>`:'';
+ return `<article class="k91result"><div class="k91result-main"><div class="k91badges"><span>${docClass(d.documentClass)}</span><span>${statusLabel(d.validityStatus)}</span><span>${classLabel(d.classification)}</span></div><h4>${esc(d.title||'بدون عنوان')}</h4><p>${esc(d.documentType||'—')} · ${esc(d.subjectArea||'بدون موضوع')} · ${esc(d.issuer||'مرجع نامشخص')}</p>${hit}</div><div class="k91dates"><span>تاریخ تصویب/صدور<b>${fmtDate(d.issuedAt||d.createdAt)}</b></span><span>پایان اعتبار<b>${fmtDate(d.validUntil)}</b></span><span>نسخه<b>${toFa(d.version||1)}</b></span></div></article>`;
+}
+async function runBankSearch(){
+ const form=document.getElementById('k91search'),out=document.getElementById('k91results'),count=document.getElementById('k91count');if(!form||!out)return;
+ const fd=new FormData(form),p=new URLSearchParams();for(const [k,v] of fd.entries())if(String(v).trim())p.set(k,String(v).trim());
+ out.innerHTML='<div class="k76loading">در حال جستجو در بانک اسناد…</div>';
+ try{const d=await api('/api/v1/knowledge/document-bank?'+p.toString());count.textContent=`${toFa(d.summary?.visible||0)} سند قابل مشاهده`;out.innerHTML=(d.items||[]).length?(d.items||[]).map(resultRow).join(''):'<div class="k76empty">سندی با این معیارها پیدا نشد.</div>';persianize(out)}catch(e){out.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
+}
+async function openBank(){
+ const x=ensureShell(),b=x.querySelector('#k76body');
+ b.innerHTML=`<div class="k91hero"><div><b>بانک اطلاعات اسناد سازمان</b><span>نتایج بر اساس سطح دسترسی کاربر و اسناد قابل مشاهده ساخته می‌شوند.</span></div><strong id="k91count">—</strong></div>
+ <form id="k91search" class="k91search"><label class="k91q">جستجو در عنوان، موضوع، مرجع و متن سند<input name="q" placeholder="مثلاً استقلال حوزه، بودجه فرهنگی، منابع انسانی…"></label><div class="k91filters">
+ <label>نوع سند<select name="documentClass"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select></label>
+ <label>وضعیت اعتبار<select name="validity"><option value="">همه وضعیت‌ها</option><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="revoked">لغوشده</option><option value="superseded">جایگزین‌شده</option><option value="unknown">نیازمند احراز</option></select></label>
+ <label>طبقه‌بندی<select name="classification"><option value="">همه سطوح مجاز</option><option value="public">عمومی</option><option value="internal">داخلی</option><option value="confidential">محرمانه</option><option value="secret">خیلی محرمانه</option></select></label>
+ <label>مرجع تصویب/صدور<input name="issuer"></label><label>موضوع<input name="subject"></label><label>از تاریخ<input type="date" name="from"></label><label>تا تاریخ<input type="date" name="to"></label>
+ </div><div class="k91actions"><button type="submit">جستجو</button><button type="reset" class="secondary">پاک‌کردن فیلترها</button></div></form>
+ <div class="k91note">جستجوی متنی روی متن نرمال‌شده سند انجام می‌شود. اعمال نهایی مجوز «سند خودم / واحد من / زیرمجموعه / کل سازمان» در Backend طراحی شده و با هویت و ساختار واقعی سازمان کامل می‌شود.</div><div id="k91results"></div>`;
+ const f=b.querySelector('#k91search');f.onsubmit=e=>{e.preventDefault();runBankSearch()};f.onreset=()=>setTimeout(runBankSearch,0);await runBankSearch();
+}
+document.addEventListener('click',e=>{const c=e.target.closest('[data-capability="بانک اسناد"]');if(c){e.preventDefault();e.stopImmediatePropagation();openBank()}},true);
+const obs=new MutationObserver(()=>{enhanceExistingShell(document.getElementById('knowledge076'));injectWorkspaceCard()});obs.observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+document.addEventListener('DOMContentLoaded',()=>{enhanceExistingShell(document.getElementById('knowledge076'));injectWorkspaceCard()});
 })();
