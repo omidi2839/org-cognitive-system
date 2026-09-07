@@ -1,0 +1,77 @@
+/* Feature 0.9.4.5 — collapsible history + larger typography + in-document amendment marks */
+
+/* Collapsible legal-history box */
+.k944relations .k945relhead{cursor:pointer;user-select:none}
+.k944relations .k945relhead:focus-visible{outline:2px solid #4b84aa;outline-offset:-2px}
+.k945relcontent[hidden]{display:none!important}
+.k945toggle{
+  width:31px;height:31px;flex:0 0 auto;
+  display:grid;place-items:center;
+  border:1px solid #bfd2df;border-radius:9px;
+  background:#fff;color:#315f80;
+  font:900 15px/1 inherit;cursor:pointer
+}
+
+/* Larger, easier-to-read type inside relation history */
+.k944relations .k944headcopy small{font-size:9px!important}
+.k944relations .k944headcopy b{font-size:15px!important;line-height:1.65!important}
+.k944relations .k944headcopy span{font-size:10px!important;line-height:1.7!important}
+.k944relations .k944relhead>strong{font-size:9.5px!important}
+.k944relations .k944type{font-size:9px!important;padding:5px 8px!important}
+.k944relations .k944relmain button{font-size:12px!important;line-height:1.9!important}
+.k944relations .k944relmain small{font-size:9px!important}
+.k944relations .k944changeview b{font-size:10px!important;line-height:1.8!important}
+.k944relations .k944changeview p{font-size:10px!important;line-height:2!important}
+.k944relations .k944note,.k944relations .k944empty{font-size:10px!important;line-height:2!important}
+
+/* Amendment markers inside original document text */
+.k91fulltext mark.k945docchange{
+  display:inline;
+  background:#fff0ad;
+  color:#604600;
+  border-bottom:2px solid #d9a51f;
+  border-radius:4px;
+  padding:1px 3px;
+  font-weight:900;
+  box-decoration-break:clone;
+  -webkit-box-decoration-break:clone;
+}
+.k91fulltext mark.k945docchange::after{
+  content:attr(data-change-label);
+  display:inline-block;
+  margin:0 5px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#dceefa;
+  color:#285f86;
+  font-size:8px;
+  font-weight:900;
+  vertical-align:middle
+}
+.k91fulltext mark.k945docchange[data-change-label="ملغی‌شده"]{
+  background:#ffdede;color:#8c3131;border-bottom-color:#c94848
+}
+.k91fulltext mark.k945docchange[data-change-label="ملغی‌شده"]::after{
+  background:#f9d7d7;color:#8c3131
+}
+.k91fulltext mark.k945docchange[data-change-label="دارای استفسار"]{
+  background:#eee5fb;color:#65488f;border-bottom-color:#8d6eb5
+}
+.k91fulltext mark.k945docchange[data-change-label="دارای استفسار"]::after{
+  background:#e9def8;color:#65488f
+}
+
+.k945legend{
+  display:grid;grid-template-columns:auto 1fr;column-gap:8px;row-gap:2px;
+  align-items:center;margin:0 10px 10px;padding:9px 10px;
+  border:1px dashed #cbdbe6;border-radius:9px;background:#f7fbfe
+}
+.k945legendmark{width:16px;height:10px;border-radius:3px;background:#fff0ad;border-bottom:2px solid #d9a51f}
+.k945legendmark.muted{background:#eef2f5;border-bottom-color:#aab7c0}
+.k945legend b{font-size:9px;color:#3d5d73}
+.k945legend small{grid-column:2;font-size:8px;color:#758796;line-height:1.8}
+
+@media(max-width:700px){
+ .k945toggle{width:29px;height:29px}
+ .k944relations .k944headcopy b{font-size:13px!important}
+}
