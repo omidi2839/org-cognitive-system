@@ -1,15 +1,21 @@
-.k93relations{margin:0 0 18px;border:1px solid #dfe7ef;border-radius:14px;overflow:hidden;background:#fbfcfe}
-.k93loading,.k93error{padding:12px 14px;font-size:8px;color:#718096}.k93error{color:#a12e2e;background:#fff1f1}
-.k93relhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;background:#eef4f8;border-bottom:1px solid #dfe7ef}
-.k93relhead b,.k93relhead span{display:block}.k93relhead b{font-size:11px;color:#263c55}.k93relhead span{font-size:8px;color:#718096;margin-top:3px}.k93relhead strong{font-size:8px;color:#53697f;background:#fff;border:1px solid #dce5ec;border-radius:999px;padding:5px 8px}
-.k93currentstatus{padding:8px 14px;background:#fff8e6;color:#765c20;font-size:8px;border-bottom:1px solid #f0e5c5}
-.k93group{padding:10px 12px}.k93group h5{margin:0 0 7px;font-size:9px;color:#4b6177}
-.k93relrow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 10px;background:#fff;border:1px solid #e5ebf0;border-radius:10px;margin-top:6px}
-.k93relmain{min-width:0;flex:1}.k93reltype{display:inline-block;font-size:7px;color:#8a5a13;background:#fff3d7;border-radius:999px;padding:3px 6px;margin-left:6px}
-.k93reldoc{border:0;background:transparent;padding:0;color:#244b73;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer}.k93relmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}.k93relmeta span{font-size:7px;color:#758496;background:#f5f7f9;border-radius:6px;padding:3px 5px}
-.k93relnote{font-size:8px;color:#65758a;line-height:1.8;margin-top:6px}.k93reldel{border:0;background:#fff0f0;color:#b42323;border-radius:7px;width:24px;height:24px;cursor:pointer}
-.k93empty{padding:14px;color:#8491a1;font-size:8px;text-align:center}.k93add{border-top:1px solid #dfe7ef}.k93add>summary{cursor:pointer;padding:10px 14px;color:#356a5b;font-size:9px;font-weight:900;background:#f4faf7}
-.k93relform{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px 14px;background:#f8fafc;border-top:1px solid #e4eaf0}
-.k93relform label{font-size:7px;color:#65758a}.k93relform input,.k93relform select{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid #dbe4eb;border-radius:8px;background:#fff;padding:7px 8px;font-family:inherit;font-size:8px}.k93relform .wide{grid-column:span 2}
-.k93formactions{display:flex;align-items:center;gap:8px}.k93formactions button{border:0;background:#397663;color:#fff;border-radius:8px;padding:8px 12px;font-family:inherit;cursor:pointer;font-size:8px;font-weight:800}.k93formstatus{font-size:8px;color:#65758a}
-@media(max-width:700px){.k93relform{grid-template-columns:1fr}.k93relform .wide{grid-column:span 1}}
+/* Feature 0.9.4.0 — workflow cleanup, upload-time relations, Jalali calendar */
+.k94relations{margin:0 0 16px;border:1px solid #dfe7ef;border-radius:13px;overflow:hidden;background:#fbfcfe}
+.k94relhead{display:flex;justify-content:space-between;gap:12px;padding:10px 13px;background:#eef4f8;border-bottom:1px solid #dfe7ef}
+.k94relhead b{font-size:10px;color:#263c55}.k94relhead span{font-size:8px;color:#718096}
+.k94relrow{display:flex;gap:7px;align-items:center;flex-wrap:wrap;padding:8px 11px;border-bottom:1px solid #edf1f4}
+.k94relrow:last-child{border-bottom:0}.k94relrow button{border:0;background:transparent;color:#24517d;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer}.k94relrow button:hover{text-decoration:underline}
+.k94reltype{font-size:7px;padding:3px 6px;border-radius:999px;background:#fff3d7;color:#835c13}.k94relrow small{font-size:7px;color:#758496;background:#f3f6f8;padding:3px 5px;border-radius:6px}
+.k94relempty,.k94relwait,.k94relerror{padding:11px 13px;font-size:8px;color:#7b8796}.k94relerror{background:#fff1f1;color:#a12e2e}
+
+.k94relationentry{margin:12px 0;border:1px solid #dbe5ec;border-radius:13px;background:#f8fafc;overflow:hidden}
+.k94relationtitle{padding:10px 12px;background:#eef4f8;border-bottom:1px solid #dbe5ec}.k94relationtitle b,.k94relationtitle span{display:block}.k94relationtitle b{font-size:10px;color:#2d465f}.k94relationtitle span{font-size:8px;color:#748396;margin-top:3px}
+.k94relationgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:11px 12px}.k94relationgrid label{font-size:8px;color:#66778c}.k94relationgrid input,.k94relationgrid select{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid #d9e3ea;border-radius:8px;background:#fff;padding:8px;font-family:inherit}.k94relationgrid .wide{grid-column:span 2}
+.k94relsaved{color:#2f775f}.k94relwarn{color:#a36b17}
+
+.k94metriclink{cursor:pointer!important;transition:.15s ease}.k94metriclink:hover{transform:translateY(-2px);box-shadow:0 5px 16px rgba(44,77,95,.12);border-color:#bdd8cd!important}.k94reposummary{margin:12px 0;padding:11px 12px;background:#f7fafc;border:1px dashed #d7e1e8;border-radius:10px;font-size:8px;color:#718096;text-align:center}
+
+.k94jalali{direction:ltr;text-align:center}
+.k94calendar{position:absolute;z-index:20000;width:270px;background:#fff;border:1px solid #d8e2ea;border-radius:13px;box-shadow:0 14px 38px rgba(25,45,65,.18);padding:10px;direction:rtl}
+.k94calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.k94calhead b{font-size:10px;color:#2e455d}.k94calhead button{border:0;background:#eef4f7;border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:16px}
+.k94week,.k94days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}.k94week b{text-align:center;font-size:7px;color:#8995a3;padding:4px}.k94days span{height:30px}.k94days button{height:30px;border:0;background:transparent;border-radius:7px;font-family:inherit;font-size:8px;cursor:pointer}.k94days button:hover{background:#eaf5f0;color:#2f6e5a}
+@media(max-width:700px){.k94relationgrid{grid-template-columns:1fr}.k94relationgrid .wide{grid-column:span 1}.k94calendar{width:250px}}
