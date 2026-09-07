@@ -1,16 +1,17 @@
-# Hotfix 0.9.1.2 — Document Bank UI Freeze Fix
+# Build 0.9.1.3 — Shared Runtime Repository Fix
 
-فقط فایل زیر را در Repository جایگزین کنید:
+علت ریشه‌ای:
+در Vercel، مسیر `/api/v1/knowledge/document-bank` به یک Serverless Function مستقل (`api/document-bank.js`) Rewrite شده بود.
+مخزن فعلی سامانه `ephemeral-memory` است. بنابراین Function بانک اسناد حافظه مستقل داشت و اسنادی را که از `api/index.js`
+وارد شده بودند نمی‌دید.
 
-`public/document-bank-091.js`
+راه‌حل صحیح:
+بانک اسناد باید تا زمان مهاجرت به PostgreSQL از همان `api/index.js` و همان Repository بوت‌شده استفاده کند.
 
-علت خطا:
-نسخه 0.9.1.1 روی `characterData` نیز MutationObserver داشت و تابع فارسی‌سازی خودش تغییر متن ایجاد می‌کرد. این وضعیت باعث حلقه متوالی Mutation و قفل شدن UI می‌شد.
+این بسته شامل:
+- `api/document-bank-core.js`
+- `api/document-bank.js`
+- `PATCH_API_INDEX.txt`
+- `vercel.json`
 
-اصلاح:
-- حذف مشاهده `characterData`
-- فارسی‌سازی فقط در صورت تغییر واقعی متن
-- تجمیع Mutationها با `requestAnimationFrame`
-- بدون تغییر API و Backend
-
-پس از Commit، Vercel باید خودکار Deploy شود.
+در PATCH_API_INDEX.txt تغییر دقیق `api/index.js` آمده است.

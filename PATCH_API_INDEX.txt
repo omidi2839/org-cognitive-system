@@ -1,0 +1,15 @@
+در api/index.js:
+
+1) کنار importهای ابتدای فایل اضافه شود:
+import { buildDocumentBankResponse } from './document-bank-core.js';
+
+2) داخل handler اصلی، پس از bootApplication و قبل از routeهای عمومی، برای GET این مسیر:
+`/api/v1/knowledge/document-bank`
+این پاسخ داده شود:
+
+if(req.method==='GET' && path==='/api/v1/knowledge/document-bank'){
+  const data=await buildDocumentBankResponse(req,app.repository);
+  return send(res,200,data);
+}
+
+نکته: نام متغیر app/path باید مطابق handler فعلی همان فایل استفاده شود.
