@@ -2,6 +2,7 @@ import { createRepository, repositoryMode } from '../src/infrastructure/reposito
 import { MockAIGateway } from '../src/ai/mockGateway.js';
 import { KnowledgeCognitiveService } from '../src/application/knowledgeService0764.js';
 import { createArtifactStorage, storageMode } from '../src/infrastructure/storage/storageFactory.js';
+import { buildDocumentBankResponse } from './document-bank-core.js';
 
 const send=(res,status,data)=>{
   res.statusCode=status;
@@ -87,7 +88,6 @@ export default async function handler(req,res){
   const requestUrl=new URL(req.url,'https://local');
   const path=requestUrl.pathname;
 
-  // These two routes require ZERO application imports.
   if(path==='/api/v1/health'&&req.method==='GET'){
     return send(res,200,{status:'ok',version:'0.9.0.9',phase:'static-dependency-graph'});
   }
@@ -111,6 +111,10 @@ export default async function handler(req,res){
     const {service,repository,getCognitiveService,repositoryMode,storageMode}=app;
     const actor=service.actor(headersToObject(req));
     const decodedPath=decodeURIComponent(path);
+
+    if(path==='/api/v1/knowledge/document-bank'&&req.method==='GET'){
+      return send(res,200,await buildDocumentBankResponse(req,repository));
+    }
 
     if(path==='/api/v1/health/ready'&&req.method==='GET'){
       const dbOk=typeof repository.health==='function'?await repository.health():true;
