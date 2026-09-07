@@ -1,0 +1,13 @@
+// Apply these two changes to api/index.js
+
+// 1) Replace import:
+import { buildDocumentBankResponse } from './document-bank-core.js';
+
+// with:
+import { buildDocumentBankResponse, buildDocumentBankDetail } from './document-bank-core.js';
+
+// 2) Immediately after the existing document-bank GET route, add:
+const dbDetailMatch=decodedPath.match(/^\/api\/v1\/knowledge\/document-bank\/(DOC:[^/]+)$/);
+if(dbDetailMatch&&req.method==='GET'){
+  return send(res,200,await buildDocumentBankDetail(req,repository,dbDetailMatch[1]));
+}
