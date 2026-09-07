@@ -1,5 +1,23 @@
-const norm=s=>String(s||'').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
-const clip=(text,q)=>{const t=String(text||'').replace(/\s+/g,' ').trim(),n=norm(t),needle=norm(q);if(!needle)return null;const i=n.indexOf(needle);if(i<0)return null;return `${i>70?'…':''}${t.slice(Math.max(0,i-70),Math.min(t.length,i+needle.length+110))}${i+needle.length+110<t.length?'…':''}`};
+const compact=s=>String(s||'').replace(/[\u200c\u200d\s]+/g,' ').trim();
+const norm=s=>compact(s).replace(/[يى]/g,'ی').replace(/ك/g,'ک').toLowerCase();
+
+const matchInfo=(text,q,limit=12)=>{
+ const t=compact(text),n=norm(t),needle=norm(q);
+ if(!needle)return {count:0,snippets:[]};
+ const positions=[];
+ let from=0;
+ while(from<=n.length-needle.length){
+   const i=n.indexOf(needle,from);
+   if(i<0)break;
+   positions.push(i);
+   from=i+Math.max(needle.length,1);
+ }
+ const snippets=positions.slice(0,limit).map(i=>{
+   const start=Math.max(0,i-90),end=Math.min(t.length,i+needle.length+140);
+   return `${start>0?'…':''}${t.slice(start,end)}${end<t.length?'…':''}`;
+ });
+ return {count:positions.length,snippets};
+};
 
 function canSee(doc,req){
  const requested=String(req.headers['x-document-scope']||'organization');
@@ -22,7 +40,8 @@ export async function buildDocumentBankResponse(req,repository){
  issuer=u.searchParams.get('issuer')||'',
  subject=u.searchParams.get('subject')||'',
  from=u.searchParams.get('from')||'',
- to=u.searchParams.get('to')||'';
+ to=u.searchParams.get('to')||'',
+ snippetLimit=Math.min(20,Math.max(1,Number(u.searchParams.get('snippetLimit')||12)||12));
 
  const org=String(req.headers['x-org-id']||'ORG:SYN-001');
  const db=await repository.all();
@@ -48,15 +67,34 @@ export async function buildDocumentBankResponse(req,repository){
      if(!hay.includes(norm(q)))return false;
    }
    return true;
- }).map(d=>({
-   id:d.id,title:d.title,documentClass:d.documentClass,documentType:d.documentType||null,
-   issuer:d.issuer||null,subjectArea:d.subjectArea||null,issuedAt:d.issuedAt||null,
-   validUntil:d.validUntil||null,validityStatus:d.validityStatus||'unknown',
-   classification:d.classification||'internal',organizationalUnitRef:d.organizationalUnitRef||null,
-   organizationalUnitName:d.organizationalUnitName||null,version:d.version||1,
-   createdAt:d.createdAt||null,matchSnippet:q?clip(textByDoc.get(d.id),q):null
- }));
- filtered.sort((a,b)=>String(b.issuedAt||b.createdAt||'').localeCompare(String(a.issuedAt||a.createdAt||'')));
- return {summary:{total:all.length,authorized:authorized.length,visible:filtered.length},
-   filters:{q,documentClass,validity,classification,issuer,subject,from,to},items:filtered};
+ }).map(d=>{
+   const mi=q?matchInfo(textByDoc.get(d.id),q,snippetLimit):{count:0,snippets:[]};
+   const metadataMatch=q&&[
+     d.title,d.documentType,d.subjectArea,d.issuer,d.organizationalUnitName,d.sourceFileName
+   ].some(v=>norm(v).includes(norm(q)));
+   return {
+     id:d.id,title:d.title,documentClass:d.documentClass,documentType:d.documentType||null,
+     issuer:d.issuer||null,subjectArea:d.subjectArea||null,issuedAt:d.issuedAt||null,
+     validUntil:d.validUntil||null,validityStatus:d.validityStatus||'unknown',
+     classification:d.classification||'internal',organizationalUnitRef:d.organizationalUnitRef||null,
+     organizationalUnitName:d.organizationalUnitName||null,version:d.version||1,
+     createdAt:d.createdAt||null,
+     matchCount:mi.count,
+     matchSnippets:mi.snippets,
+     matchSnippet:mi.snippets[0]||null,
+     metadataMatch:Boolean(metadataMatch),
+     returnedSnippetCount:mi.snippets.length
+   };
+ });
+ filtered.sort((a,b)=>{
+   if(q&&b.matchCount!==a.matchCount)return b.matchCount-a.matchCount;
+   return String(b.issuedAt||b.createdAt||'').localeCompare(String(a.issuedAt||a.createdAt||''));
+ });
+ const totalOccurrences=q?filtered.reduce((sum,d)=>sum+(d.matchCount||0),0):0;
+ const metadataMatches=q?filtered.filter(d=>d.metadataMatch).length:0;
+ return {
+   summary:{total:all.length,authorized:authorized.length,visible:filtered.length,totalOccurrences,metadataMatches},
+   filters:{q,documentClass,validity,classification,issuer,subject,from,to,snippetLimit},
+   items:filtered
+ };
 }
