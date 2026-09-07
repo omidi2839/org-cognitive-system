@@ -1,0 +1,35 @@
+# Feature 0.9.3.0 — Patch Instructions
+
+## 1) api/index.js
+
+### import
+این خط فعلی:
+import { buildDocumentBankResponse } from './document-bank-core.js';
+
+به این تبدیل شود:
+import { buildDocumentBankResponse, handleDocumentBankAction } from './document-bank-core.js';
+
+### POST route
+بلافاصله بعد از GET فعلی بانک اسناد:
+
+if(path==='/api/v1/knowledge/document-bank'&&req.method==='GET'){
+  return send(res,200,await buildDocumentBankResponse(req,repository));
+}
+
+این Route اضافه شود:
+
+if(path==='/api/v1/knowledge/document-bank'&&req.method==='POST'){
+  return send(res,200,await handleDocumentBankAction(req,repository));
+}
+
+این POST هم عملیات قبلی `renormalize-persian` و هم عملیات شبکه اصلاحات را پشتیبانی می‌کند.
+
+## 2) public/index.html
+
+بعد از CSS بانک اسناد:
+<link rel="stylesheet" href="./document-amendments-093.css?v=0.9.3.0">
+
+و بعد از JS بانک اسناد:
+<script src="./document-amendments-093.js?v=0.9.3.0"></script>
+
+فایل‌های قبلی document-bank-091.js/css بدون تغییر باقی می‌مانند.
