@@ -1,4 +1,4 @@
-/* Hotfix 0.9.1.9 — same-route document preview + persistence guidance */
+/* Hotfix 0.9.2.1 — Persian normalization + bank navigation lifecycle */
 .k76head>div>small:first-child{display:none!important}
 .k91-hidden-workspace{display:none!important}
 .k91bank-mode{position:relative}
@@ -42,3 +42,7 @@
 .k91modalbody{overflow:auto;padding:18px 20px 24px}
 .k91fulltext{white-space:pre-wrap;line-height:2.15;font-size:11px;color:#33465d;text-align:right}
 @media(max-width:700px){.k91modalbackdrop{padding:8px}.k91modal{width:98vw;max-height:92vh}.k91modalmeta{grid-template-columns:1fr}.k91dates{padding:0 14px 14px}.k91result-main{padding-bottom:0}}
+
+.k91hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#k91renorm{border:1px solid #d9e6e1;background:#fff;color:#356a5b;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:8px;cursor:pointer}
+#k91renorm:hover{background:#eef8f3}#k91renorm:disabled{opacity:.6;cursor:wait}

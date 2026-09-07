@@ -1,4 +1,5 @@
 (()=>{
+window.__DOCUMENT_BANK_BUILD__='0.9.2.1';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -27,7 +28,7 @@ const highlightText=(text,q)=>{
  return out+esc(raw.slice(last));
 };
 const fmtDate=v=>{if(!v)return'—';try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v))}catch{return toFa(v)}};
-const api=async(p)=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001'}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت بانک اسناد');return d};
+const api=async(p,opts={})=>{const r=await fetch(p,{...opts,headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001',...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت بانک اسناد');return d};
 let lastSearchQuery='';
 async function persistenceStatus(){
  try{return await api('/api/v1/health/ready')}catch{return null}
@@ -90,6 +91,12 @@ function closeBank(){
    ctx.scrollIntoView({behavior:'smooth',block:'start'});
    setTimeout(()=>injectWorkspaceCard(),50);
  }
+}
+
+function exitBankForNavigation(){
+ closeDocumentModal();
+ document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace');
+ document.getElementById('knowledge076')?.remove();
 }
 
 function ensureShell(){
@@ -238,7 +245,7 @@ async function openBank(){
  const ctx=document.getElementById('workspaceContext');
  if(ctx)ctx.classList.add('k91-hidden-workspace');
  const x=ensureShell(),b=x.querySelector('#k76body');
- b.innerHTML=`<div id="k91persist"></div><div class="k91hero"><div><b>بانک اطلاعات اسناد سازمان</b><span>هر سند یک نتیجه است و تعداد همه تطابق‌های متنی داخل همان سند جداگانه نمایش داده می‌شود.</span></div><strong id="k91count">—</strong></div>
+ b.innerHTML=`<div id="k91persist"></div><div class="k91hero"><div><b>بانک اطلاعات اسناد سازمان</b><span>هر سند یک نتیجه است و تعداد همه تطابق‌های متنی داخل همان سند جداگانه نمایش داده می‌شود.</span></div><div class="k91hero-actions"><button type="button" id="k91renorm">بازپردازش متن فارسی</button><strong id="k91count">—</strong></div></div>
  <form id="k91search" class="k91search"><label class="k91q">جستجو در عنوان، موضوع، مرجع و متن سند<input name="q" placeholder="مثلاً استقلال حوزه، بودجه فرهنگی، منابع انسانی…"></label><div class="k91filters">
  <label>نوع سند<select name="documentClass"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select></label>
  <label>وضعیت اعتبار<select name="validity"><option value="">همه وضعیت‌ها</option><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="revoked">لغوشده</option><option value="superseded">جایگزین‌شده</option><option value="unknown">نیازمند احراز</option></select></label>
@@ -259,8 +266,26 @@ async function openBank(){
      ?'<div class="k91persist-ok">ذخیره‌سازی پایدار فعال است · PostgreSQL</div>'
      :'<div class="k91persist-warn"><b>هشدار:</b> این محیط روی حافظه موقت اجرا می‌شود و با Deploy یا Cold Start ممکن است اسناد از بین بروند. DATABASE_URL باید برای همین Environment در Vercel تنظیم شود.</div>';
  }
+ const rb=document.getElementById('k91renorm');
+ if(rb)rb.onclick=async()=>{
+   const old=rb.textContent; rb.disabled=true; rb.textContent='در حال بازپردازش…';
+   try{
+     const r=await api('/api/v1/knowledge/document-bank',{method:'POST',body:JSON.stringify({action:'renormalize-persian'})});
+     rb.textContent=`اصلاح شد: ${toFa(r.changed||0)} از ${toFa(r.total||0)}`;
+     await runBankSearch();
+     setTimeout(()=>{rb.textContent=old;rb.disabled=false},2500);
+   }catch(e){rb.textContent='خطا در بازپردازش';setTimeout(()=>{rb.textContent=old;rb.disabled=false},2500)}
+ };
  await runBankSearch();
 }
+
+
+document.addEventListener('click',e=>{
+ const nav=e.target.closest('[data-workspace]');
+ if(nav&&document.getElementById('knowledge076')){
+   exitBankForNavigation();
+ }
+},true);
 
 document.addEventListener('click',e=>{
  const preview=e.target.closest('[data-doc-preview]');
