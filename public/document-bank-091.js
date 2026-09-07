@@ -2,6 +2,30 @@
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const regexEsc=s=>String(s??'').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+const highlightPattern=q=>{
+ const chars=[...String(q??'').trim()];
+ if(!chars.length)return null;
+ let p='';
+ for(const ch of chars){
+   if(/[یيى]/.test(ch))p+='[یيى]';
+   else if(/[کك]/.test(ch))p+='[کك]';
+   else if(/[\s\u200c\u200d]/.test(ch))p+='[\\s\\u200c\\u200d]+';
+   else p+=regexEsc(ch);
+ }
+ try{return new RegExp(`(${p})`,'giu')}catch{return null}
+};
+const highlightText=(text,q)=>{
+ const raw=String(text??''),rx=highlightPattern(q);
+ if(!rx)return esc(raw);
+ let out='',last=0,m;
+ while((m=rx.exec(raw))){
+   out+=esc(raw.slice(last,m.index))+`<mark class="k91highlight">${esc(m[0])}</mark>`;
+   last=m.index+m[0].length;
+   if(m[0].length===0)rx.lastIndex++;
+ }
+ return out+esc(raw.slice(last));
+};
 const fmtDate=v=>{if(!v)return'—';try{return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(v))}catch{return toFa(v)}};
 const api=async(p)=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001'}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت بانک اسناد');return d};
 
@@ -71,9 +95,12 @@ function ensureShell(){
  x.className='knowledge076 k91bank-mode';
  document.querySelector('.main')?.prepend(x);
  x.innerHTML=`<div class="k76head k91stickyhead">
-   <div class="k91headcopy">
+   <div class="k91navrow">
      <button type="button" class="k91back" data-kback>← بازگشت به دانش و اسناد سازمان</button>
-     <div><h2>بانک اسناد سازمان</h2><p>جستجو، فیلتر و بازیابی اسناد قابل دسترس بر اساس فراداده و متن استخراج‌شده</p></div>
+   </div>
+   <div class="k91titleRow">
+     <h2>بانک اسناد سازمان</h2>
+     <p>جستجو، فیلتر و بازیابی اسناد قابل دسترس بر اساس فراداده و متن استخراج‌شده</p>
    </div>
  </div><div id="k76body"></div>`;
  x.querySelector('[data-kback]').onclick=closeBank;
@@ -84,28 +111,28 @@ function statusLabel(v){return({active:'معتبر',draft:'پیش‌نویس',ex
 function classLabel(v){return({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]||v||'—'}
 function docClass(v){return v==='upstream'?'بالادستی':v==='general'?'عمومی':'سایر'}
 
-function snippetsBlock(d){
+function snippetsBlock(d,q){
  const snippets=Array.isArray(d.matchSnippets)?d.matchSnippets.filter(Boolean):[];
  if(!snippets.length){
    if(d.metadataMatch)return '<div class="k91snippet k91meta-hit"><b>تطابق در فراداده سند</b></div>';
    return '';
  }
- const shown=snippets.slice(0,3).map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+1)}:</b> ${esc(s)}</div>`).join('');
+ const shown=snippets.slice(0,3).map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+1)}:</b> ${highlightText(s,q)}</div>`).join('');
  const rest=snippets.slice(3);
- const details=rest.length?`<details class="k91more"><summary>نمایش ${toFa(rest.length)} محل تطابق دیگر</summary>${rest.map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+4)}:</b> ${esc(s)}</div>`).join('')}</details>`:'';
+ const details=rest.length?`<details class="k91more"><summary>نمایش ${toFa(rest.length)} محل تطابق دیگر</summary>${rest.map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+4)}:</b> ${highlightText(s,q)}</div>`).join('')}</details>`:'';
  const hiddenCount=Math.max(0,(d.matchCount||0)-snippets.length);
  const note=hiddenCount?`<div class="k91match-note">این سند ${toFa(d.matchCount)} تطابق دارد؛ ${toFa(hiddenCount)} مورد دیگر برای سبک ماندن پاسخ نمایش داده نشده است.</div>`:'';
  return shown+details+note;
 }
 
-function resultRow(d){
+function resultRow(d,q){
  const matchBadge=d.matchCount?`<span class="k91matchbadge">${toFa(d.matchCount)} تطابق در متن</span>`:(d.metadataMatch?'<span class="k91matchbadge">تطابق در فراداده</span>':'');
  return `<article class="k91result">
    <div class="k91result-main">
      <div class="k91badges"><span>${docClass(d.documentClass)}</span><span>${statusLabel(d.validityStatus)}</span><span>${classLabel(d.classification)}</span>${matchBadge}</div>
      <h4>${esc(d.title||'بدون عنوان')}</h4>
      <p>${esc(d.documentType||'—')} · ${esc(d.subjectArea||'بدون موضوع')} · ${esc(d.issuer||'مرجع نامشخص')}</p>
-     ${snippetsBlock(d)}
+     ${snippetsBlock(d,q)}
    </div>
    <div class="k91dates">
      <span>تاریخ تصویب/صدور<b>${fmtDate(d.issuedAt||d.createdAt)}</b></span>
@@ -132,7 +159,7 @@ async function runBankSearch(){
        ?`${toFa(d.summary?.visible||0)} سند · ${toFa(d.summary?.totalOccurrences||0)} تطابق متنی`
        :`${toFa(d.summary?.visible||0)} سند قابل مشاهده`;
    }
-   out.innerHTML=(d.items||[]).length?(d.items||[]).map(resultRow).join(''):'<div class="k76empty">سندی با این معیارها پیدا نشد.</div>';
+   out.innerHTML=(d.items||[]).length?(d.items||[]).map(item=>resultRow(item,q)).join(''):'<div class="k76empty">سندی با این معیارها پیدا نشد.</div>';
    persianize(out);
  }catch(e){
    out.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`;
