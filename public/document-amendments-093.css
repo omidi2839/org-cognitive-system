@@ -1,19 +1,15 @@
-/* Feature 0.9.3.0 — Document Version & Amendment Graph */
 .k93relations{margin:0 0 18px;border:1px solid #dfe7ef;border-radius:14px;overflow:hidden;background:#fbfcfe}
+.k93loading,.k93error{padding:12px 14px;font-size:8px;color:#718096}.k93error{color:#a12e2e;background:#fff1f1}
 .k93relhead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;background:#eef4f8;border-bottom:1px solid #dfe7ef}
 .k93relhead b,.k93relhead span{display:block}.k93relhead b{font-size:11px;color:#263c55}.k93relhead span{font-size:8px;color:#718096;margin-top:3px}.k93relhead strong{font-size:8px;color:#53697f;background:#fff;border:1px solid #dce5ec;border-radius:999px;padding:5px 8px}
 .k93currentstatus{padding:8px 14px;background:#fff8e6;color:#765c20;font-size:8px;border-bottom:1px solid #f0e5c5}
-.k93group{padding:10px 12px}.k93group h5{margin:0 0 7px;font-size:9px;color:#4b6177}.k93group+.k93group{border-top:1px solid #e8edf2}
+.k93group{padding:10px 12px}.k93group h5{margin:0 0 7px;font-size:9px;color:#4b6177}
 .k93relrow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 10px;background:#fff;border:1px solid #e5ebf0;border-radius:10px;margin-top:6px}
 .k93relmain{min-width:0;flex:1}.k93reltype{display:inline-block;font-size:7px;color:#8a5a13;background:#fff3d7;border-radius:999px;padding:3px 6px;margin-left:6px}
-.k93reldoc{border:0;background:transparent;padding:0;color:#244b73;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer;text-align:right}.k93reldoc:hover{text-decoration:underline}
-.k93relmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}.k93relmeta span{font-size:7px;color:#758496;background:#f5f7f9;border-radius:6px;padding:3px 5px}
-.k93relnote{font-size:8px;color:#65758a;line-height:1.8;margin-top:6px}
-.k93reldel{border:0;background:#fff0f0;color:#b42323;border-radius:7px;width:24px;height:24px;cursor:pointer;font-size:14px}.k93reldel:hover{background:#ffdede}
-.k93empty{padding:14px;color:#8491a1;font-size:8px;text-align:center}
-.k93add{border-top:1px solid #dfe7ef;background:#fff}.k93add>summary{cursor:pointer;padding:10px 14px;color:#356a5b;font-size:9px;font-weight:800}.k93add>summary:hover{background:#f3faf7}
+.k93reldoc{border:0;background:transparent;padding:0;color:#244b73;font-family:inherit;font-size:9px;font-weight:800;cursor:pointer}.k93relmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:5px}.k93relmeta span{font-size:7px;color:#758496;background:#f5f7f9;border-radius:6px;padding:3px 5px}
+.k93relnote{font-size:8px;color:#65758a;line-height:1.8;margin-top:6px}.k93reldel{border:0;background:#fff0f0;color:#b42323;border-radius:7px;width:24px;height:24px;cursor:pointer}
+.k93empty{padding:14px;color:#8491a1;font-size:8px;text-align:center}.k93add{border-top:1px solid #dfe7ef}.k93add>summary{cursor:pointer;padding:10px 14px;color:#356a5b;font-size:9px;font-weight:900;background:#f4faf7}
 .k93relform{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 14px 14px;background:#f8fafc;border-top:1px solid #e4eaf0}
 .k93relform label{font-size:7px;color:#65758a}.k93relform input,.k93relform select{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid #dbe4eb;border-radius:8px;background:#fff;padding:7px 8px;font-family:inherit;font-size:8px}.k93relform .wide{grid-column:span 2}
-.k93formactions{display:flex;align-items:center;gap:8px}.k93formactions button{border:0;background:#397663;color:#fff;border-radius:8px;padding:8px 12px;font-family:inherit;cursor:pointer;font-size:8px}.k93formstatus{font-size:8px;color:#65758a}
-.k93error{margin-bottom:12px;padding:9px 11px;background:#fff1f1;border:1px solid #f0caca;border-radius:9px;color:#a12e2e;font-size:8px}
-@media(max-width:700px){.k93relform{grid-template-columns:1fr}.k93relform .wide{grid-column:span 1}.k93relhead{align-items:flex-start;flex-direction:column}}
+.k93formactions{display:flex;align-items:center;gap:8px}.k93formactions button{border:0;background:#397663;color:#fff;border-radius:8px;padding:8px 12px;font-family:inherit;cursor:pointer;font-size:8px;font-weight:800}.k93formstatus{font-size:8px;color:#65758a}
+@media(max-width:700px){.k93relform{grid-template-columns:1fr}.k93relform .wide{grid-column:span 1}}
