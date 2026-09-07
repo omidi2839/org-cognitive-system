@@ -1,17 +1,16 @@
-# Build 0.9.1.3 — Shared Runtime Repository Fix
+# Hotfix 0.9.1.4 — Document Bank Route Registration
 
-علت ریشه‌ای:
-در Vercel، مسیر `/api/v1/knowledge/document-bank` به یک Serverless Function مستقل (`api/document-bank.js`) Rewrite شده بود.
-مخزن فعلی سامانه `ephemeral-memory` است. بنابراین Function بانک اسناد حافظه مستقل داشت و اسنادی را که از `api/index.js`
-وارد شده بودند نمی‌دید.
+علت خطا:
+`vercel.json` درخواست بانک اسناد را به `api/index.js` می‌فرستاد اما `api/index.js`
+هنوز Route مربوط به `/api/v1/knowledge/document-bank` را نداشت و پاسخ «مسیر پیدا نشد» می‌داد.
 
-راه‌حل صحیح:
-بانک اسناد باید تا زمان مهاجرت به PostgreSQL از همان `api/index.js` و همان Repository بوت‌شده استفاده کند.
+اصلاح:
+- افزودن import هسته بانک اسناد به `api/index.js`
+- ثبت مستقیم Route بانک اسناد در همان Runtime اصلی
+- استفاده از همان Repository مشترک با مخزن اسناد
+- حفظ `vercel.json` عمومی و جلوگیری از Serverless Function جداگانه
 
-این بسته شامل:
-- `api/document-bank-core.js`
-- `api/document-bank.js`
-- `PATCH_API_INDEX.txt`
-- `vercel.json`
-
-در PATCH_API_INDEX.txt تغییر دقیق `api/index.js` آمده است.
+پس از Deploy باید:
+1. بانک اسناد بدون 404 باز شود.
+2. اسناد موجود در مخزن را نشان دهد.
+3. جستجو و فیلترها کار کنند.
