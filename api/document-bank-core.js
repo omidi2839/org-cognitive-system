@@ -1,3 +1,4 @@
+import { normalizePersianText } from '../src/processing/parser.js';
 const compact=s=>String(s||'').replace(/[\u200c\u200d\s]+/g,' ').trim();
 const norm=s=>compact(s).replace(/[يى]/g,'ی').replace(/ك/g,'ک').toLowerCase();
 
@@ -51,7 +52,7 @@ export async function buildDocumentBankResponse(req,repository){
  const textByDoc=new Map();
  for(const n of normalized.filter(x=>x.organizationId===org)){
    const id=n.documentRef||n.documentId;
-   if(id&&!textByDoc.has(id))textByDoc.set(id,n.text||'');
+   if(id&&!textByDoc.has(id))textByDoc.set(id,normalizePersianText(n.text||''));
  }
  const all=(db.documents||[]).filter(d=>
    d.organizationId===org &&
@@ -104,4 +105,25 @@ export async function buildDocumentBankResponse(req,repository){
    filters:{q,documentClass,validity,classification,issuer,subject,from,to,documentId,detail,snippetLimit},
    items:filtered
  };
+}
+
+
+export async function renormalizeDocumentBank(req,repository){
+ const org=String(req.headers['x-org-id']||'ORG:SYN-001');
+ let changed=0,total=0;
+ await repository.mutate(db=>{
+   const rows=Array.isArray(db.normalizedDocuments)?db.normalizedDocuments:[];
+   for(const n of rows.filter(x=>x.organizationId===org)){
+     total++;
+     const before=String(n.text||'');
+     const after=normalizePersianText(before);
+     if(after!==before){n.text=after;changed++;}
+     if(Array.isArray(n.units)){
+       n.units=n.units.map(u=>({...u,text:normalizePersianText(u.text||'')})).filter(u=>u.text);
+     }
+     n.normalizationProfile='fa-v1';
+     n.renormalizedAt=new Date().toISOString();
+   }
+ });
+ return {ok:true,total,changed,profile:'fa-v1'};
 }
