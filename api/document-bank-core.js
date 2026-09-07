@@ -41,6 +41,8 @@ export async function buildDocumentBankResponse(req,repository){
  subject=u.searchParams.get('subject')||'',
  from=u.searchParams.get('from')||'',
  to=u.searchParams.get('to')||'',
+ documentId=u.searchParams.get('documentId')||'',
+ detail=u.searchParams.get('detail')==='1',
  snippetLimit=Math.min(20,Math.max(1,Number(u.searchParams.get('snippetLimit')||12)||12));
 
  const org=String(req.headers['x-org-id']||'ORG:SYN-001');
@@ -51,7 +53,11 @@ export async function buildDocumentBankResponse(req,repository){
    const id=n.documentRef||n.documentId;
    if(id&&!textByDoc.has(id))textByDoc.set(id,n.text||'');
  }
- const all=(db.documents||[]).filter(d=>d.organizationId===org&&['upstream','general'].includes(d.documentClass));
+ const all=(db.documents||[]).filter(d=>
+   d.organizationId===org &&
+   ['upstream','general'].includes(d.documentClass) &&
+   (!documentId || d.id===documentId)
+ );
  const authorized=all.filter(d=>canSee(d,req));
  const filtered=authorized.filter(d=>{
    if(documentClass&&d.documentClass!==documentClass)return false;
@@ -83,7 +89,8 @@ export async function buildDocumentBankResponse(req,repository){
      matchSnippets:mi.snippets,
      matchSnippet:mi.snippets[0]||null,
      metadataMatch:Boolean(metadataMatch),
-     returnedSnippetCount:mi.snippets.length
+     returnedSnippetCount:mi.snippets.length,
+     fullText:detail?String(textByDoc.get(d.id)||d.content||''):undefined
    };
  });
  filtered.sort((a,b)=>{
@@ -94,51 +101,7 @@ export async function buildDocumentBankResponse(req,repository){
  const metadataMatches=q?filtered.filter(d=>d.metadataMatch).length:0;
  return {
    summary:{total:all.length,authorized:authorized.length,visible:filtered.length,totalOccurrences,metadataMatches},
-   filters:{q,documentClass,validity,classification,issuer,subject,from,to,snippetLimit},
+   filters:{q,documentClass,validity,classification,issuer,subject,from,to,documentId,detail,snippetLimit},
    items:filtered
- };
-}
-
-
-export async function buildDocumentBankDetail(req,repository,documentId){
- const org=String(req.headers['x-org-id']||'ORG:SYN-001');
- const db=await repository.all();
- const doc=(db.documents||[]).find(d=>d.id===documentId&&d.organizationId===org);
- if(!doc){
-   const e=new Error('سند پیدا نشد.');
-   e.code='DOC_NOT_FOUND';
-   throw e;
- }
- if(!canSee(doc,req)){
-   const e=new Error('دسترسی به این سند مجاز نیست.');
-   e.code='DOC_ACCESS_DENIED';
-   throw e;
- }
- const normalized=(db.normalizedDocuments||[])
-   .filter(n=>n.organizationId===org&&(n.documentRef||n.documentId)===doc.id)
-   .sort((a,b)=>(Number(b.sourceVersion||0)-Number(a.sourceVersion||0)) || String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
- const latest=normalized[0]||null;
- return {
-   item:{
-     id:doc.id,
-     title:doc.title,
-     documentClass:doc.documentClass||null,
-     documentType:doc.documentType||null,
-     issuer:doc.issuer||null,
-     subjectArea:doc.subjectArea||null,
-     issuedAt:doc.issuedAt||null,
-     validUntil:doc.validUntil||null,
-     validityStatus:doc.validityStatus||'unknown',
-     classification:doc.classification||'internal',
-     organizationalUnitRef:doc.organizationalUnitRef||null,
-     organizationalUnitName:doc.organizationalUnitName||null,
-     version:doc.version||1,
-     sourceFileName:doc.sourceFileName||null,
-     createdAt:doc.createdAt||null,
-     text:latest?.text||doc.content||'',
-     language:latest?.language||null,
-     structure:latest?.structure||null,
-     normalizedRef:latest?.id||null
-   }
  };
 }
