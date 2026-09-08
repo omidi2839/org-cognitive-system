@@ -1,3 +1,3 @@
 ORG Cognitive System Hotfix
-Version: 0.9.5.8.8
-Fix: Document Bank self-contained styling restored
+Version: 0.9.5.8.9
+Fix: Document Bank synthetic request headers preserved
