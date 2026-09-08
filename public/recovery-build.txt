@@ -1,4 +1,5 @@
 ORG Cognitive System Recovery Build
-Version: 0.9.5.8.4
-Mode: SAFE — no build-time deletion
+Version: 0.9.5.8.5
+Mode: SOURCE-LEVEL CLEANUP
 Node target: 22.x
+Legacy API compatibility files must be deleted from repository.
