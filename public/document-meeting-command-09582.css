@@ -101,3 +101,47 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
  .k91modalhead .k950tools{max-width:none;width:100%;margin:4px 0 0!important}
  .k91modalhead .k950tools button{font-size:8.5px!important;padding:4px 7px!important}
 }
+
+
+/* 0.9.6.1 — amendment text is part of the original document flow, not a card */
+.k960inline-amendment{display:none!important}
+.k961inline-change{
+  margin:4px 0 10px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  direction:rtl;
+  text-align:inherit;
+}
+.k961inline-change-text{color:#16704b!important}
+.k961inline-change-text p{
+  margin:0 0 7px!important;
+  padding:0!important;
+  color:#16704b!important;
+  font:inherit!important;
+  line-height:2.15!important;
+  white-space:pre-wrap;
+}
+.k961inline-source{
+  display:inline!important;
+  margin:0 4px 4px 0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#4f8b73!important;
+  font-family:inherit!important;
+  font-size:8px!important;
+  font-weight:700!important;
+  text-decoration:underline;
+  cursor:pointer;
+}
+.k961num{
+  direction:ltr!important;
+  unicode-bidi:isolate-override!important;
+  display:inline-block!important;
+  white-space:nowrap!important;
+  font-variant-numeric:tabular-nums;
+  text-align:left!important;
+}
