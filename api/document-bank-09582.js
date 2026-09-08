@@ -46,7 +46,11 @@ export default async function handler(req,res){
   if(hasRelations==='no')items=items.filter(x=>!x.hasRelations);
 
   // Build facets from all authorized documents, independent of the current search/filter.
-  const facetReq={...req,url:'/api/v1/knowledge/document-bank?snippetLimit=1'};
+  const facetReq={
+    url:'/api/v1/knowledge/document-bank?snippetLimit=1',
+    headers:req.headers||{},
+    method:'GET'
+  };
   const allBase=await buildDocumentBankResponse(facetReq,repo);
   const allItems=(allBase.items||[]).map(enrich);
 
