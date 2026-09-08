@@ -39,32 +39,54 @@ function rankedScore({title,headings,body},t){
 }
 
 const GENERIC_TITLE_WORDS=new Set(['سند','آیین‌نامه','آیین نامه','دستورالعمل','بخشنامه','مصوبه','صورتجلسه','گزارش','قانون','ضوابط']);
+const GENERIC_HEADING_PHRASES=new Set([
+ 'متن مصوبه','متن تصویب نامه','متن تصویب‌نامه','متن آیین نامه','متن آیین‌نامه',
+ 'مقدمه','کلیات','فصل اول','فصل دوم','تعاریف','موضوع','متن سند'
+].map(norm));
 function cleanTopicCandidate(s){
  let x=normalizePersianText(String(s||'')).replace(/\s+/g,' ').trim();
  x=x.replace(/^[\s\-–—:؛،.]+|[\s\-–—:؛،.]+$/g,'');
  return x;
 }
-function usableDynamicTopic(s){
- const x=cleanTopicCandidate(s),words=x.split(/\s+/).filter(Boolean);
- if(!x||words.length<2||words.length>12||x.length>90)return false;
+function usableDynamicTopic(s,{allowLong=false}={}){
+ const x=cleanTopicCandidate(s),words=x.split(/\s+/).filter(Boolean),n=norm(x);
+ if(!x||words.length<2)return false;
+ if(GENERIC_HEADING_PHRASES.has(n))return false;
  if(words.length<=2&&words.every(w=>GENERIC_TITLE_WORDS.has(w)))return false;
+ if(!allowLong&&(words.length>14||x.length>110))return false;
+ if(allowLong&&(words.length>24||x.length>180))return false;
  return true;
 }
-function dynamicCandidates(title,blocks){
+function documentHeadingCandidates(parsed,blocks){
+ const out=[];
+ const paragraphs=(blocks||[]).filter(x=>x.type==='paragraph').map(x=>cleanTopicCandidate(x.text)).filter(Boolean);
+ // First meaningful visible paragraph is treated as the title written inside the document.
+ const first=paragraphs.find(x=>usableDynamicTopic(x,{allowLong:true}))||
+   String(parsed?.text||'').split(/\r?\n/).map(cleanTopicCandidate).find(x=>usableDynamicTopic(x,{allowLong:true}))||'';
+ if(first)out.push({label:first,source:'document_title',score:1200});
+ for(const p of paragraphs.slice(0,18)){
+   if(norm(p)===norm(first)||!usableDynamicTopic(p))continue;
+   const words=p.split(/\s+/).length;
+   // Short early paragraphs are likely subtitles/headings. Generic labels such as «متن مصوبه» are rejected.
+   if(words<=12&&p.length<=100)out.push({label:p,source:'heading',score:760-out.length*18});
+   if(out.length>=7)break;
+ }
+ return out;
+}
+function dynamicCandidates(formTitle,parsed,blocks){
  const out=[],seen=new Set(),push=(label,source,score)=>{
    const clean=cleanTopicCandidate(label),n=norm(clean);
-   if(!usableDynamicTopic(clean)||seen.has(n))return;
-   seen.add(n);out.push({label:clean,score,confidence:source==='title'?'high':'medium',matchedKeywords:[],signals:{title:source==='title'?score:0,headings:source==='heading'?score:0,body:0},source});
+   if(!usableDynamicTopic(clean,{allowLong:source==='document_title'})||seen.has(n))return;
+   seen.add(n);out.push({
+     label:clean,score,
+     confidence:['document_title','form_title'].includes(source)?'high':'medium',
+     matchedKeywords:[],
+     signals:{title:['document_title','form_title'].includes(source)?score:0,headings:source==='heading'?score:0,body:0},
+     source
+   });
  };
- push(title,'title',1000);
- const paras=(blocks||[]).filter(x=>x.type==='paragraph').slice(0,14);
- for(let i=0;i<paras.length;i++){
-   const text=cleanTopicCandidate(paras[i].text);
-   if(!usableDynamicTopic(text))continue;
-   // Favor short, heading-like early lines; avoid copying long body sentences.
-   const words=text.split(/\s+/).length;
-   if(words<=10&&text.length<=75)push(text,'heading',700-i*15);
- }
+ for(const x of documentHeadingCandidates(parsed,blocks))push(x.label,x.source,x.score);
+ push(formTitle,'form_title',1000);
  return out;
 }
 
@@ -91,7 +113,7 @@ export default async function handler(req,res){
   const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t),source:'taxonomy'})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
   const repo=createRepository(),db=await repo.all(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
   const existing=canonicalExisting(db,org);
-  const dynamic=dynamicCandidates(b.title||'',blocks);
+  const dynamic=dynamicCandidates(b.title||'',parsed,blocks);
   const combined=[],seen=new Set();
   for(const x of [...dynamic,...ranked]){
     const n=norm(x.label);if(!n||seen.has(n))continue;seen.add(n);combined.push(x);
@@ -105,6 +127,6 @@ export default async function handler(req,res){
     matchedKeywords:(x.hits||x.matchedKeywords||[]).slice(0,6),
     signals:x.signals||{},source:x.source||'taxonomy'
   }));
-  return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',priorityOrder:['title','heading','taxonomy','body']}});
+  return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',priorityOrder:['document_title','form_title','heading','taxonomy','body']}});
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}
 }
