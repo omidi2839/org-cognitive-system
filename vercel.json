@@ -19,7 +19,7 @@
     },
     {
       "source": "/api/v1/knowledge/topic-suggestions",
-      "destination": "/api/topic-suggestions.js"
+      "destination": "/api/topic-suggestions-09582.js"
     },
     {
       "source": "/api/v1/knowledge/document-structure",
@@ -35,7 +35,7 @@
     },
     {
       "source": "/api/v1/knowledge/document-bank",
-      "destination": "/api/document-bank-0958.js"
+      "destination": "/api/document-bank-09582.js"
     },
     {
       "source": "/api/(.*)",
