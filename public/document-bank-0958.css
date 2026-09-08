@@ -1,0 +1,16 @@
+
+/* 0.9.5.8 — Document Bank metadata/filter refinement */
+#k91persist{display:none!important}
+.k958filters{grid-template-columns:repeat(5,minmax(145px,1fr))!important}
+.k958filters label{min-width:0}
+.k958filters input,.k958filters select{width:100%;box-sizing:border-box}
+.k958actions{display:flex;gap:8px;align-items:center;margin-top:10px}
+.k958actions>button:not(.k76primary){border:1px solid #d6e2e9;background:#fff;border-radius:10px;padding:9px 14px;font-family:inherit;cursor:pointer}
+.k958metainfo{display:flex;flex-wrap:wrap;gap:7px 16px;margin:7px 0 3px;font-size:11px;color:#536b7b}
+.k958metainfo span{display:inline-flex;gap:4px;align-items:center}
+.k958metainfo b{color:#263f50;font-weight:900}
+.k958relbadge{background:#eef7f2!important;color:#376b51!important}
+.k958dates span{min-width:112px}
+.k958hero #k91count{white-space:nowrap}
+@media(max-width:1100px){.k958filters{grid-template-columns:repeat(3,minmax(150px,1fr))!important}}
+@media(max-width:720px){.k958filters{grid-template-columns:1fr!important}.k958metainfo{display:grid;grid-template-columns:1fr}.k958actions{flex-wrap:wrap}}
