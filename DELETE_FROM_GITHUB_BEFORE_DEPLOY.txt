@@ -1,0 +1,15 @@
+حذف این ۵ فایل از شاخه main قبل از Deploy الزامی است:
+
+api/document-bank-0958.js
+api/document-bank.js
+api/test-reset.js
+api/topic-suggestions-0958.js
+api/topic-suggestions.js
+
+دلیل:
+Vercel هر فایل سطح بالای api/*.js را به عنوان Function جداگانه شناسایی می‌کند.
+این پنج فایل منسوخ/سازگاری هستند و endpointهای فعال به نسخه‌های 09582 اشاره می‌کنند.
+
+پس از حذف، فایل‌های همین ZIP را روی repository جایگزین/آپلود کنید و فقط یک Deploy انجام دهید.
+
+این حذف هیچ ارتباطی با PostgreSQL یا داده‌های اسناد ندارد.
