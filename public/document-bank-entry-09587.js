@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_ENTRY_BUILD__='0.9.5.8.7';
+window.__DOCUMENT_BANK_ENTRY_BUILD__='0.9.5.8.8';
 
 let scheduled=false;
 let inserting=false;
