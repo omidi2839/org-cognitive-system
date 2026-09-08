@@ -43,27 +43,6 @@ function docxAlignment(fragment){
  return m?m[1]:null;
 }
 function docxInlineParts(fragment){
- const raw=String(fragment||''),parts=[];
- // Preserve Office Math fractions as a fraction object instead of flattening them.
- let pos=0;
- for(const fm of raw.matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)){
-   const before=raw.slice(pos,fm.index);
-   const beforeText=xmlText(before).trim();
-   if(beforeText)parts.push({type:'text',text:beforeText});
-   const num=(fm[0].match(/<m:num\b[\s\S]*?<\/m:num>/)||[])[0]||'';
-   const den=(fm[0].match(/<m:den\b[\s\S]*?<\/m:den>/)||[])[0]||'';
-   parts.push({type:'fraction',numerator:xmlText(num).trim(),denominator:xmlText(den).trim()});
-   pos=fm.index+fm[0].length;
- }
- const tail=xmlText(raw.slice(pos)).trim();
- if(tail)parts.push({type:'text',text:tail});
- return parts.length?parts:null;
-}
-function docxAlignment(fragment){
- const m=String(fragment||'').match(/<w:jc\b[^>]*w:val="([^"]+)"/);
- return m?m[1]:null;
-}
-function docxInlineParts(fragment){
  const raw=String(fragment||''),parts=[];let pos=0;
  for(const fm of raw.matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)){
    const before=raw.slice(pos,fm.index),beforeText=xmlText(before).trim();
