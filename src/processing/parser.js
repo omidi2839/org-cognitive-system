@@ -1,7 +1,7 @@
 import {unzipEntries,xmlText} from './officeZip.js';
 const textMime=['text/plain','text/markdown','text/csv'];
 
-const PERSIAN_LETTER='[\u0621-\u063A\u0641-\u064A\u067E\u0686\u0698\u06A9\u06AF\u06CC]';
+const PERSIAN_LETTER='[\\u0621-\\u063A\\u0641-\\u064A\\u067E\\u0686\\u0698\\u06A9\\u06AF\\u06CC]';
 
 export function normalizePersianText(input){
  let s=String(input??'').normalize('NFC');
@@ -15,13 +15,10 @@ export function normalizePersianText(input){
   .replace(/[ \t\f\v]+/g,' ')
   .replace(/ *\n */g,'\n');
 
- // Repair a common PDF extraction defect where Persian ی is emitted as a detached glyph/token.
- // Conservative by design: only isolated ی is re-attached, not conjunctions such as «و».
  s=s.replace(new RegExp(`(${PERSIAN_LETTER}+)\\s+ی\\s+(${PERSIAN_LETTER}+)`,'gu'),'$1ی$2');
  s=s.replace(new RegExp(`(${PERSIAN_LETTER}+)\\s+ی(?=\\s|[،؛:,.!?؟]|$)`,'gu'),'$1ی');
  s=s.replace(new RegExp(`(^|\\s)ی\\s+(${PERSIAN_LETTER}{2,})`,'gu'),'$1ی$2');
 
- // Normalize spacing around punctuation while keeping paragraph boundaries.
  s=s.replace(/\s+([،؛:,.!?؟])/g,'$1')
     .replace(/([،؛:!?؟])(?=[^\s\n])/g,'$1 ')
     .replace(/ {2,}/g,' ')
@@ -41,6 +38,30 @@ function pdfLite(buf){
 
 const paras=(text,kind='text')=>String(text).split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,i)=>({text,locationPointer:{kind,index:i+1}}));
 
+function parseDocxStructure(raw){
+ const body=(String(raw).match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/)||[])[1]||String(raw);
+ const blocks=[];let paragraphNo=0,tableNo=0;
+ for(const m of body.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/g)){
+   if(m[1]==='p'){
+     const text=xmlText(m[0]).trim();
+     if(text){paragraphNo++;blocks.push({type:'paragraph',paragraph:paragraphNo,text})}
+   }else{
+     tableNo++;const rows=[];let rowNo=0;
+     for(const rm of m[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)){
+       rowNo++;const row=[];let colNo=0;
+       for(const cm of rm[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)){
+         colNo++;
+         const ps=[...cm[0].matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(x=>xmlText(x[0]).trim()).filter(Boolean);
+         row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps});
+       }
+       if(row.length)rows.push(row);
+     }
+     blocks.push({type:'table',table:tableNo,rows});
+   }
+ }
+ return{blocks,paragraphCount:paragraphNo,tableCount:tableNo}
+}
+
 export async function parseArtifact({buffer,mimeType,fileName}){
  const lower=fileName.toLowerCase();let text='',structure={kind:'unknown'},units=[];
  if(textMime.includes(mimeType)||/\.(txt|md|csv)$/.test(lower)){
@@ -49,9 +70,20 @@ export async function parseArtifact({buffer,mimeType,fileName}){
  else if(lower.endsWith('.docx')){
    const z=unzipEntries(buffer),xml=z.get('word/document.xml');
    if(!xml)throw new Error('DOCX_DOCUMENT_XML_MISSING');
-   const raw=String(xml);
-   const ps=[...raw.matchAll(/<w:p\b[^>]*>(.*?)<\/w:p>/gs)].map((m,i)=>({text:xmlText(m[1]),locationPointer:{kind:'docx_paragraph',paragraph:i+1}})).filter(x=>x.text);
-   units=ps;text=ps.map(x=>x.text).join('\n')||xmlText(xml);structure={kind:'docx',paragraphCount:ps.length}
+   const parsed=parseDocxStructure(String(xml)),parts=[];
+   for(const b of parsed.blocks){
+     if(b.type==='paragraph'){
+       parts.push(b.text);
+       units.push({text:b.text,locationPointer:{kind:'docx_paragraph',paragraph:b.paragraph}});
+     }else{
+       for(const row of b.rows){
+         parts.push(row.map(c=>c.text).join('\t'));
+         for(const c of row)if(c.text)units.push({text:c.text,locationPointer:{kind:'docx_table_cell',table:b.table,row:c.row,column:c.column}});
+       }
+     }
+   }
+   text=parts.join('\n')||xmlText(xml);
+   structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks}
  }
  else if(lower.endsWith('.pptx')){
    const z=unzipEntries(buffer);
@@ -83,5 +115,10 @@ export async function parseArtifact({buffer,mimeType,fileName}){
 
  text=normalizePersianText(text);
  units=(units||[]).map(u=>({...u,text:normalizePersianText(u.text)})).filter(u=>u.text);
+ if(structure?.kind==='docx'&&Array.isArray(structure.blocks)){
+   structure.blocks=structure.blocks.map(b=>b.type==='paragraph'
+     ?{...b,text:normalizePersianText(b.text)}
+     :{...b,rows:(b.rows||[]).map(row=>row.map(c=>({...c,text:normalizePersianText(c.text),paragraphs:(c.paragraphs||[]).map(normalizePersianText)})))});
+ }
  return{text,units,structure,language:/[\u0600-\u06FF]/.test(text)?'fa':'unknown'};
 }
