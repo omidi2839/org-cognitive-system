@@ -18,6 +18,10 @@
       "destination": "/api/test-data-reset.js"
     },
     {
+      "source": "/api/v1/knowledge/topic-suggestions",
+      "destination": "/api/topic-suggestions.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     }
