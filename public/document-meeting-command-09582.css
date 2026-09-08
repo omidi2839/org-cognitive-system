@@ -48,3 +48,56 @@
 button.k76primary:disabled{opacity:.72;cursor:wait}
 
 .k958detected{margin-bottom:6px;padding:6px 8px;background:#f4f8fa;border-radius:8px;color:#405766}
+
+
+/* 0.9.6.0 — compact modal tools, inline amendments, bidi-safe numbers */
+.k91modalhead{gap:10px!important;align-items:flex-start!important}
+.k91modalhead .k950tools{
+  margin:0 0 0 auto!important;
+  gap:5px!important;
+  flex-wrap:wrap!important;
+  max-width:330px;
+  justify-content:flex-start;
+  align-content:flex-start;
+}
+.k91modalhead .k950tools button{
+  min-height:28px!important;
+  padding:4px 8px!important;
+  border-radius:8px!important;
+  font-size:9px!important;
+  line-height:1.35!important;
+  white-space:nowrap!important;
+  font-weight:800!important;
+}
+.k91modalhead .k91modalclose{
+  width:30px!important;height:30px!important;min-width:30px!important;font-size:16px!important
+}
+.k960num{direction:ltr!important;unicode-bidi:isolate!important;display:inline!important;font-variant-numeric:tabular-nums}
+.k960inline-amendment{
+  margin:12px 0 16px;
+  padding:12px 13px;
+  border:1px solid #b9d7c8;
+  border-right:4px solid #3d8a68;
+  border-radius:11px;
+  background:#f0faf5;
+  color:#244b3d;
+  direction:rtl;
+  text-align:right;
+  box-shadow:0 3px 12px rgba(45,103,78,.07);
+}
+.k960amend-head{display:flex;gap:9px;align-items:flex-start;margin-bottom:7px}
+.k960amend-head>div{min-width:0}
+.k960amend-head b{display:block;font-size:12px;color:#245c46}
+.k960amend-head small{display:block;margin-top:2px;font-size:9px;color:#65877a}
+.k960amend-badge{flex:0 0 auto;background:#3d8a68;color:#fff;border-radius:999px;padding:4px 8px;font-size:9px;font-weight:900}
+.k960amend-text{font-size:12px;line-height:2;color:#2d4f42;white-space:pre-wrap}
+.k960amend-source{
+  margin-top:8px;border:0;background:transparent;color:#236b50;padding:0;
+  font-family:inherit;font-size:10px;font-weight:900;cursor:pointer;text-decoration:underline
+}
+.k960amend-source:hover{color:#174936}
+@media(max-width:760px){
+ .k91modalhead{flex-wrap:wrap!important}
+ .k91modalhead .k950tools{max-width:none;width:100%;margin:4px 0 0!important}
+ .k91modalhead .k950tools button{font-size:8.5px!important;padding:4px 7px!important}
+}

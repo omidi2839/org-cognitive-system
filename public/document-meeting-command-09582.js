@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.5.8.9';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.6.0';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -303,6 +303,127 @@ function k956NormalizeDisplayedDigits(root){
  nodes.forEach(n=>{n.nodeValue=k956FaDigits(n.nodeValue)});
  root.dataset.k956Digits='1';
 }
+
+/* ---------- 0.9.6.0 — Effective inline amendment view + bidi-safe numbers ---------- */
+const k960NormDigits=s=>String(s??'')
+ .replace(/[٠-٩]/g,d=>'۰۱۲۳۴۵۶۷۸۹'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)])
+ .replace(/[0-9]/g,d=>'۰۱۲۳۴۵۶۷۸۹'[Number(d)]);
+
+function k960FaNumberToEn(s){
+ return String(s??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+}
+
+function k960ProtectNumbers(root){
+ if(!root||root.dataset.k960Numbers==='1')return;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+   acceptNode:n=>{
+     if(!n.nodeValue||!/[۰-۹٠-٩0-9]/.test(n.nodeValue))return NodeFilter.FILTER_REJECT;
+     if(n.parentElement?.closest('script,style,bdi,.k960num'))return NodeFilter.FILTER_REJECT;
+     return NodeFilter.FILTER_ACCEPT;
+   }
+ });
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ const rx=/[۰-۹٠-٩0-9]+(?:[\s\u200c]*(?:[\/٫.,:؛\-–—])[\s\u200c]*[۰-۹٠-٩0-9]+)*/g;
+ for(const n of nodes){
+   const text=n.nodeValue;let last=0,m,changed=false;const frag=document.createDocumentFragment();
+   while((m=rx.exec(text))){
+     changed=true;
+     if(m.index>last)frag.appendChild(document.createTextNode(text.slice(last,m.index)));
+     const b=document.createElement('bdi');b.className='k960num';b.dir='ltr';b.textContent=k960NormDigits(m[0]);
+     frag.appendChild(b);last=m.index+m[0].length;
+     if(!m[0].length)rx.lastIndex++;
+   }
+   if(changed){
+     if(last<text.length)frag.appendChild(document.createTextNode(text.slice(last)));
+     n.replaceWith(frag);
+   }
+ }
+ root.dataset.k960Numbers='1';
+}
+
+function k960ArticleNoFromText(text){
+ const m=k960FaNumberToEn(String(text||'')).match(/(?:^|[\s«»()\-–—:؛،])ماده\s*[-–—:]?\s*([0-9]{1,4})(?:\s|$|[.:؛،\-–—])/);
+ return m?String(Number(m[1])):'';
+}
+
+function k960BlockArticleNo(el){
+ if(!el)return'';
+ return k960ArticleNoFromText((el.textContent||'').replace(/\s+/g,' ').trim());
+}
+
+function k960FindArticleInsertionPoint(full,article){
+ const target=String(Number(k960FaNumberToEn(article||'')));
+ if(!target||target==='NaN')return null;
+ const blocks=[...full.children];
+ let start=-1;
+ for(let i=0;i<blocks.length;i++){
+   if(k960BlockArticleNo(blocks[i])===target){start=i;break}
+ }
+ if(start<0){
+   // fallback: article heading may be nested in a wrapper/table block
+   for(let i=0;i<blocks.length;i++){
+     const t=k960FaNumberToEn(blocks[i].textContent||'');
+     if(new RegExp(`ماده\\s*[-–—:]?\\s*${target}(?:\\D|$)`).test(t)){start=i;break}
+   }
+ }
+ if(start<0)return null;
+ for(let i=start+1;i<blocks.length;i++){
+   const n=k960BlockArticleNo(blocks[i]);
+   if(n&&n!==target)return blocks[i];
+ }
+ return null; // append at end of document if this is the last article
+}
+
+function k960AmendmentCard(rel,item){
+ const rd=rel.relatedDocument||{},title=rd.title||'سند اصلاحی';
+ const type=String(rel.changeType||'اصلاح').trim()||'اصلاح';
+ const article=item?.article||rel.targetArticle||'';
+ const clause=item?.clause||rel.targetClause||'';
+ const desc=String(item?.description||rel.note||'').trim();
+ const loc=[article?`ماده ${k960NormDigits(article)}`:'',clause?k960NormDigits(clause):''].filter(Boolean).join(' · ');
+ const card=document.createElement('aside');
+ card.className='k960inline-amendment';
+ card.dataset.relationId=rel.id||'';
+ card.innerHTML=`<div class="k960amend-head">
+   <span class="k960amend-badge">${k955Esc(type)}</span>
+   <div><b>${loc?k955Esc(loc):'اصلاح مرتبط با این بخش'}</b><small>نمایش تلفیقی بر اساس سند اصلاحی</small></div>
+ </div>
+ <div class="k960amend-text">${desc?k955Esc(k960NormDigits(desc)):'جزئیات این تغییر در سند اصلاحی ثبت شده است.'}</div>
+ <button type="button" class="k960amend-source" data-amend-source="${k955Esc(rd.id||'')}">↗ منبع: ${k955Esc(title)}</button>`;
+ return card;
+}
+
+async function k960ApplyInlineAmendments(full,id){
+ if(!full||!id||full.dataset.k960Amendments==='loading'||full.dataset.k960Amendments==='1')return;
+ full.dataset.k960Amendments='loading';
+ try{
+   const d=await api('/api/v1/knowledge/document-relations?documentId='+encodeURIComponent(id));
+   const incoming=(d.items||[]).filter(r=>['amended_by','superseded_by','extended_by','clarified_by'].includes(r.perspectiveType));
+   if(!incoming.length){full.dataset.k960Amendments='1';return}
+   for(const rel of incoming){
+     const items=Array.isArray(rel.changeItems)&&rel.changeItems.length?rel.changeItems:[{article:rel.targetArticle,clause:rel.targetClause,description:rel.note}];
+     for(const item of items){
+       const article=item?.article||rel.targetArticle||'';
+       if(!article)continue;
+       const card=k960AmendmentCard(rel,item);
+       const before=k960FindArticleInsertionPoint(full,article);
+       if(before)full.insertBefore(card,before);else full.appendChild(card);
+     }
+   }
+   full.querySelectorAll('[data-amend-source]').forEach(btn=>{
+     btn.addEventListener('click',e=>{
+       e.preventDefault();e.stopPropagation();
+       const docId=btn.dataset.amendSource;
+       if(docId&&typeof openDocumentModal==='function')openDocumentModal(docId,'');
+     });
+   });
+   full.dataset.k960Amendments='1';
+ }catch(e){
+   console.warn('INLINE_AMENDMENT_VIEW_ERROR',e);
+   full.dataset.k960Amendments='0';
+ }
+}
+
 async function k955RenderStructuredDoc(){
  const modal=document.getElementById('k91docmodal'),full=modal?.querySelector('.k91fulltext'),id=window.__K951_ACTIVE_DOC_ID||window.__K950_ACTIVE_DOC_ID||'';
  if(!modal||!full||!id||full.dataset.k955Structured)return;
@@ -313,13 +434,17 @@ async function k955RenderStructuredDoc(){
   if(html){full.innerHTML=html;full.classList.add('k955structured')}
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k960ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
   full.dataset.k955Structured='1';
+  await k960ApplyInlineAmendments(full,id);
  }catch{
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k960ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
-  full.dataset.k955Structured='0'
+  full.dataset.k955Structured='0';
+  await k960ApplyInlineAmendments(full,id);
  }
 }
 
