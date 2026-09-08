@@ -59,17 +59,53 @@ function docxInlineParts(fragment){
  if(tail)parts.push({type:'text',text:tail});
  return parts.length?parts:null;
 }
+function docxAlignment(fragment){
+ const m=String(fragment||'').match(/<w:jc\b[^>]*w:val="([^"]+)"/);
+ return m?m[1]:null;
+}
+function docxInlineParts(fragment){
+ const raw=String(fragment||''),parts=[];let pos=0;
+ for(const fm of raw.matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)){
+   const before=raw.slice(pos,fm.index),beforeText=xmlText(before).trim();
+   if(beforeText)parts.push({type:'text',text:beforeText});
+   const num=(fm[0].match(/<m:num\b[\s\S]*?<\/m:num>/)||[])[0]||'';
+   const den=(fm[0].match(/<m:den\b[\s\S]*?<\/m:den>/)||[])[0]||'';
+   parts.push({type:'fraction',numerator:xmlText(num).trim(),denominator:xmlText(den).trim()});
+   pos=fm.index+fm[0].length;
+ }
+ const tail=xmlText(raw.slice(pos)).trim();if(tail)parts.push({type:'text',text:tail});
+ return parts.length?parts:null;
+}
+function docxCellMeta(fragment){
+ const gs=String(fragment).match(/<w:gridSpan\b[^>]*w:val="(\d+)"/);
+ const vm=String(fragment).match(/<w:vMerge\b([^>]*)\/?>/);
+ let vMerge=null;
+ if(vm){
+   const val=(vm[1]||'').match(/w:val="([^"]+)"/)?.[1];
+   vMerge=val==='restart'?'restart':'continue';
+ }
+ return{colspan:gs?Math.max(1,Number(gs[1])):1,vMerge}
+}
 function parseDocxStructure(raw){
  const body=(String(raw).match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/)||[])[1]||String(raw);
  const blocks=[];let paragraphNo=0,tableNo=0;
  for(const m of body.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/g)){
    if(m[1]==='p'){
      const text=xmlText(m[0]).trim();
-     if(text){
-       paragraphNo++;
-       blocks.push({type:'paragraph',paragraph:paragraphNo,text,alignment:docxAlignment(m[0]),inlineParts:docxInlineParts(m[0])});
-     }
+     if(text){paragraphNo++;blocks.push({type:'paragraph',paragraph:paragraphNo,text,alignment:docxAlignment(m[0]),inlineParts:docxInlineParts(m[0])})}
    }else{
+     // Word sometimes wraps a fraction/equation in a layout table. Treat math-only tables as math, not business tables.
+     const fractions=[...m[0].matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)];
+     const allText=xmlText(m[0]).trim();
+     if(fractions.length===1){
+       const fm=fractions[0][0],num=(fm.match(/<m:num\b[\s\S]*?<\/m:num>/)||[])[0]||'',den=(fm.match(/<m:den\b[\s\S]*?<\/m:den>/)||[])[0]||'';
+       const n=xmlText(num).trim(),d=xmlText(den).trim();
+       const fracText=(n+d).replace(/\s+/g,'');
+       if(fracText&&allText.replace(/\s+/g,'')===fracText){
+         blocks.push({type:'mathFraction',numerator:n,denominator:d,alignment:docxAlignment(m[0])});
+         continue;
+       }
+     }
      tableNo++;const rows=[];let rowNo=0;
      for(const rm of m[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)){
        rowNo++;const row=[];let colNo=0;
@@ -77,7 +113,7 @@ function parseDocxStructure(raw){
          colNo++;
          const ps=[...cm[0].matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(x=>xmlText(x[0]).trim()).filter(Boolean);
          const firstP=(cm[0].match(/<w:p\b[\s\S]*?<\/w:p>/)||[])[0]||'';
-         row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps,alignment:docxAlignment(firstP)});
+         row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps,alignment:docxAlignment(firstP),...docxCellMeta(cm[0])});
        }
        if(row.length)rows.push(row);
      }
@@ -141,9 +177,12 @@ export async function parseArtifact({buffer,mimeType,fileName}){
  text=normalizePersianText(text);
  units=(units||[]).map(u=>({...u,text:normalizePersianText(u.text)})).filter(u=>u.text);
  if(structure?.kind==='docx'&&Array.isArray(structure.blocks)){
-   structure.blocks=structure.blocks.map(b=>b.type==='paragraph'
-     ?{...b,text:normalizePersianText(b.text),inlineParts:Array.isArray(b.inlineParts)?b.inlineParts.map(p=>p.type==='fraction'?{...p,numerator:normalizePersianText(p.numerator),denominator:normalizePersianText(p.denominator)}:{...p,text:normalizePersianText(p.text)}):b.inlineParts}
-     :{...b,rows:(b.rows||[]).map(row=>row.map(c=>({...c,text:normalizePersianText(c.text),paragraphs:(c.paragraphs||[]).map(normalizePersianText)})))});
+   structure.blocks=structure.blocks.map(b=>{
+     if(b.type==='paragraph')return {...b,text:normalizePersianText(b.text),inlineParts:Array.isArray(b.inlineParts)?b.inlineParts.map(p=>p.type==='fraction'?{...p,numerator:normalizePersianText(p.numerator),denominator:normalizePersianText(p.denominator)}:{...p,text:normalizePersianText(p.text)}):b.inlineParts};
+     if(b.type==='mathFraction')return {...b,numerator:normalizePersianText(b.numerator),denominator:normalizePersianText(b.denominator)};
+     if(b.type==='table')return {...b,rows:(b.rows||[]).map(row=>row.map(c=>({...c,text:normalizePersianText(c.text),paragraphs:(c.paragraphs||[]).map(normalizePersianText)})))};
+     return b;
+   });
  }
  return{text,units,structure,language:/[\u0600-\u06FF]/.test(text)?'fa':'unknown'};
 }
