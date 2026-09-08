@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.6.1';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.6.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -350,6 +350,54 @@ function k961ProtectNumbers(root){
  }
 }
 
+
+function k962ReverseDigits(s){return String(s||'').split('').reverse().join('')}
+
+function k962ArticleHeadingInfo(el){
+ const raw=String(el?.textContent||'').replace(/\s+/g,' ').trim();
+ const en=k961FaToEn(raw);
+ const m=en.match(/^([«»()\[\]\s\-–—]*ماده\s*[-–—:]?\s*)([0-9]{1,4})(?![0-9])/);
+ if(!m)return null;
+ return {el,prefix:m[1],digits:m[2],value:Number(m[2]),revValue:Number(k962ReverseDigits(m[2]))};
+}
+
+function k962FixArticleNumberOrder(full){
+ if(!full||full.dataset.k962ArticleOrder==='1')return;
+ const entries=[...full.children].map(k962ArticleHeadingInfo).filter(Boolean);
+ if(entries.length<3){full.dataset.k962ArticleOrder='1';return}
+
+ const score=vals=>{
+   let s=0;
+   for(let i=1;i<vals.length;i++){
+     const d=vals[i]-vals[i-1];
+     s+=Math.abs(d-1);
+     if(d<=0)s+=25;
+     if(Math.abs(d)>5)s+=8;
+   }
+   return s;
+ };
+ const rawVals=entries.map(x=>x.value);
+ const revVals=entries.map(x=>x.revValue);
+ const useReverse=score(revVals)+1<score(rawVals);
+ if(!useReverse){full.dataset.k962ArticleOrder='1';return}
+
+ for(const x of entries){
+   if(x.digits.length<2)continue;
+   const want=k962ReverseDigits(x.digits);
+   const walker=document.createTreeWalker(x.el,NodeFilter.SHOW_TEXT);
+   const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+   const rx=new RegExp(`(ماده\\s*[-–—:]?\\s*)${x.digits}(?![0-9])`);
+   for(const n of nodes){
+     const en=k961FaToEn(n.nodeValue||'');
+     if(!rx.test(en))continue;
+     const faWant=k961NormDigits(want);
+     n.nodeValue=(n.nodeValue||'').replace(/[۰-۹٠-٩0-9]{2,4}/,faWant);
+     break;
+   }
+ }
+ full.dataset.k962ArticleOrder='1';
+}
+
 function k961ArticleHeadingNumber(el){
  const t=k961FaToEn(String(el?.textContent||'').replace(/\s+/g,' ').trim());
  // Strong heading test: article designation must be at/near the beginning of the block.
@@ -357,9 +405,14 @@ function k961ArticleHeadingNumber(el){
  return m?String(Number(m[1])):'';
 }
 
+function k962ArticleTargetNumber(article){
+ const en=k961FaToEn(String(article||''));
+ const m=en.match(/[0-9]{1,4}/);
+ return m?String(Number(m[0])):'';
+}
 function k961FindArticleInsertionPoint(full,article){
- const target=String(Number(k961FaToEn(article||'')));
- if(!target||target==='NaN')return null;
+ const target=k962ArticleTargetNumber(article);
+ if(!target)return null;
  const blocks=[...full.children];
  let start=-1;
 
@@ -425,36 +478,42 @@ function k961LooksBoundary(t){
 function k961PickExactAmendmentLines(lines,item,rel){
  if(!lines.length)return[];
  const keys=k961Keywords(item,rel);
- const phrase=keys.join(' ');
  let best=-1,bestScore=-1;
+
  for(let i=0;i<lines.length;i++){
    const t=lines[i],low=t.toLowerCase();
    let score=0;
-   for(const k of keys)if(low.includes(k.toLowerCase()))score+=3;
-   if(phrase&&low.includes(phrase.toLowerCase()))score+=12;
-   if(/فوق\s*العاده|سختی\s*شرایط/.test(t))score+=2;
+   for(const k of keys)if(low.includes(k.toLowerCase()))score+=4;
+   if(/فوق\s*العاده/.test(t))score+=3;
+   if(/سختی\s*(?:شرایط\s*)?(?:کار)?/.test(t))score+=4;
+   if(k961IsDirectiveLine(t))score-=4;
    if(score>bestScore){bestScore=score;best=i}
  }
  if(best<0||bestScore<=0)return[];
 
+ // Prefer the actual inserted heading/provision, never the administrative sentence that says "add a clause".
  let start=best;
- // If the best match is the legal instruction sentence, move to the actual inserted provision below it.
  if(k961IsDirectiveLine(lines[start])){
-   let candidate=-1;
-   for(let j=start+1;j<Math.min(lines.length,start+6);j++){
-     const hit=keys.some(k=>lines[j].includes(k));
-     if(hit&&!k961IsDirectiveLine(lines[j])){candidate=j;break}
-     if(candidate<0&&!k961IsDirectiveLine(lines[j])&&!k961LooksBoundary(lines[j]))candidate=j;
+   let found=-1;
+   for(let j=start+1;j<Math.min(lines.length,start+10);j++){
+     const keyHit=keys.some(k=>lines[j].includes(k));
+     if(keyHit&&!k961IsDirectiveLine(lines[j])){found=j;break}
    }
-   if(candidate>=0)start=candidate;
+   if(found<0){
+     for(let j=start+1;j<Math.min(lines.length,start+10);j++){
+       if(!k961IsDirectiveLine(lines[j])&&!k961LooksBoundary(lines[j])){found=j;break}
+     }
+   }
+   if(found>=0)start=found;
  }
 
  const picked=[];
- for(let j=start;j<Math.min(lines.length,start+6);j++){
+ for(let j=start;j<Math.min(lines.length,start+12);j++){
    const t=lines[j];
    if(j>start&&k961LooksBoundary(t))break;
-   // Do not copy a subsequent administrative amendment instruction.
    if(j>start&&k961IsDirectiveLine(t))break;
+   // Stop on signature/admin closing lines.
+   if(j>start&&/^(?:رئیس|دبیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(t))break;
    picked.push(t);
  }
  return picked.filter(Boolean);
@@ -537,6 +596,7 @@ async function k961ApplyInlineAmendments(full,id){
        if(docId&&typeof openDocumentModal==='function')openDocumentModal(docId,'');
      });
    });
+   k962FixArticleNumberOrder(full);
    k961ProtectNumbers(full);
    full.dataset.k961Amendments='1';
  }catch(e){
@@ -555,6 +615,7 @@ async function k955RenderStructuredDoc(){
   if(html){full.innerHTML=html;full.classList.add('k955structured')}
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k962FixArticleNumberOrder(full);
   k961ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
   full.dataset.k955Structured='1';
@@ -562,6 +623,7 @@ async function k955RenderStructuredDoc(){
  }catch{
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k962FixArticleNumberOrder(full);
   k961ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
   full.dataset.k955Structured='0';

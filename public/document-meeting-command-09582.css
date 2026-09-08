@@ -145,3 +145,32 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
   font-variant-numeric:tabular-nums;
   text-align:left!important;
 }
+
+
+/* 0.9.6.2 — numeric order and truly inline amendments */
+.k961num{
+  direction:ltr!important;
+  unicode-bidi:isolate!important;
+  display:inline-block!important;
+  white-space:nowrap!important;
+  letter-spacing:0!important;
+  word-spacing:0!important;
+}
+.k961inline-change{
+  border-right:2px solid #2d8b64!important;
+  padding-right:9px!important;
+  margin-top:2px!important;
+  margin-bottom:9px!important;
+}
+.k961inline-change-text,
+.k961inline-change-text p{
+  color:#1f7a56!important;
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.k961inline-source{
+  font-size:7px!important;
+  opacity:.72;
+  text-decoration:none!important;
+}
