@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.5.8.3';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.5.8.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));

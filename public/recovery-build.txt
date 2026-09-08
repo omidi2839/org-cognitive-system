@@ -1,3 +1,4 @@
 ORG Cognitive System Recovery Build
-Version: 0.9.5.8.3
+Version: 0.9.5.8.4
+Mode: SAFE — no build-time deletion
 Node target: 22.x
