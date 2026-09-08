@@ -25,10 +25,17 @@ const TAXONOMY=[
  {label:'پشتیبانی و خدمات سازمانی',keywords:['پشتیبانی','تدارکات','اموال','خدمات','ساختمان','تجهیزات','خرید']}
 ];
 
-function score(text,t){
+function keywordScore(text,t,weight=1){
  let score=0,hits=[];
- for(const k of t.keywords){const n=norm(k);if(text.includes(n)){const count=Math.min(5,text.split(n).length-1);score+=count*(n.includes(' ')?4:2);hits.push(k)}}
+ for(const k of t.keywords){
+   const n=norm(k);
+   if(text.includes(n)){const count=Math.min(5,text.split(n).length-1);score+=count*(n.includes(' ')?4:2)*weight;hits.push(k)}
+ }
  return{score,hits}
+}
+function rankedScore({title,headings,body},t){
+ const a=keywordScore(title,t,12),b=keywordScore(headings,t,5),c=keywordScore(body,t,1);
+ return{score:a.score+b.score+c.score,hits:[...new Set([...a.hits,...b.hits,...c.hits])],signals:{title:a.score,headings:b.score,body:c.score}}
 }
 function canonicalExisting(db,org){
  const set=new Map();
@@ -46,11 +53,14 @@ export default async function handler(req,res){
   const b=typeof req.body==='object'?req.body:JSON.parse(req.body||'{}');
   if(!b.contentBase64||!b.fileName)return send(res,400,{message:'فایل برای تحلیل موضوعی ارسال نشده است.'});
   const parsed=await parseArtifact({buffer:Buffer.from(b.contentBase64,'base64'),mimeType:b.mimeType||'application/octet-stream',fileName:b.fileName});
-  const text=norm(parsed.text);
-  const ranked=TAXONOMY.map(t=>({label:t.label,...score(text,t)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  const body=norm(parsed.text),title=norm(b.title||'');
+  const blocks=parsed.structure?.kind==='docx'&&Array.isArray(parsed.structure.blocks)?parsed.structure.blocks:[];
+  const headingTexts=blocks.filter(x=>x.type==='paragraph').slice(0,12).map(x=>x.text).filter(Boolean);
+  const headings=norm(headingTexts.join(' '));
+  const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
   const repo=createRepository(),db=await repo.all(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
   const catalog=canonicalExisting(db,org);
-  const recommended=ranked.slice(0,3).map((x,i)=>({label:x.label,score:x.score,confidence:i===0&&x.score>=12?'high':x.score>=6?'medium':'low',matchedKeywords:x.hits.slice(0,6)}));
+  const recommended=ranked.slice(0,3).map((x,i)=>({label:x.label,score:x.score,confidence:i===0&&x.score>=12?'high':x.score>=6?'medium':'low',matchedKeywords:x.hits.slice(0,6),signals:x.signals}));
   return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown'}});
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}
 }
