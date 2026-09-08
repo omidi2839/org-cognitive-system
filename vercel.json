@@ -26,6 +26,14 @@
       "destination": "/api/document-structure.js"
     },
     {
+      "source": "/api/v1/knowledge/documents",
+      "destination": "/api/knowledge-documents.js"
+    },
+    {
+      "source": "/api/v1/diagnostics/document-repository",
+      "destination": "/api/document-repository-diagnostic.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     }
