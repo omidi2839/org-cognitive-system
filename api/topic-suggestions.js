@@ -37,6 +37,37 @@ function rankedScore({title,headings,body},t){
  const a=keywordScore(title,t,12),b=keywordScore(headings,t,5),c=keywordScore(body,t,1);
  return{score:a.score+b.score+c.score,hits:[...new Set([...a.hits,...b.hits,...c.hits])],signals:{title:a.score,headings:b.score,body:c.score}}
 }
+
+const GENERIC_TITLE_WORDS=new Set(['سند','آیین‌نامه','آیین نامه','دستورالعمل','بخشنامه','مصوبه','صورتجلسه','گزارش','قانون','ضوابط']);
+function cleanTopicCandidate(s){
+ let x=normalizePersianText(String(s||'')).replace(/\s+/g,' ').trim();
+ x=x.replace(/^[\s\-–—:؛،.]+|[\s\-–—:؛،.]+$/g,'');
+ return x;
+}
+function usableDynamicTopic(s){
+ const x=cleanTopicCandidate(s),words=x.split(/\s+/).filter(Boolean);
+ if(!x||words.length<2||words.length>12||x.length>90)return false;
+ if(words.length<=2&&words.every(w=>GENERIC_TITLE_WORDS.has(w)))return false;
+ return true;
+}
+function dynamicCandidates(title,blocks){
+ const out=[],seen=new Set(),push=(label,source,score)=>{
+   const clean=cleanTopicCandidate(label),n=norm(clean);
+   if(!usableDynamicTopic(clean)||seen.has(n))return;
+   seen.add(n);out.push({label:clean,score,confidence:source==='title'?'high':'medium',matchedKeywords:[],signals:{title:source==='title'?score:0,headings:source==='heading'?score:0,body:0},source});
+ };
+ push(title,'title',1000);
+ const paras=(blocks||[]).filter(x=>x.type==='paragraph').slice(0,14);
+ for(let i=0;i<paras.length;i++){
+   const text=cleanTopicCandidate(paras[i].text);
+   if(!usableDynamicTopic(text))continue;
+   // Favor short, heading-like early lines; avoid copying long body sentences.
+   const words=text.split(/\s+/).length;
+   if(words<=10&&text.length<=75)push(text,'heading',700-i*15);
+ }
+ return out;
+}
+
 function canonicalExisting(db,org){
  const set=new Map();
  for(const x of TAXONOMY)set.set(norm(x.label),x.label);
@@ -57,10 +88,23 @@ export default async function handler(req,res){
   const blocks=parsed.structure?.kind==='docx'&&Array.isArray(parsed.structure.blocks)?parsed.structure.blocks:[];
   const headingTexts=blocks.filter(x=>x.type==='paragraph').slice(0,12).map(x=>x.text).filter(Boolean);
   const headings=norm(headingTexts.join(' '));
-  const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+  const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t),source:'taxonomy'})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
   const repo=createRepository(),db=await repo.all(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
-  const catalog=canonicalExisting(db,org);
-  const recommended=ranked.slice(0,3).map((x,i)=>({label:x.label,score:x.score,confidence:i===0&&x.score>=12?'high':x.score>=6?'medium':'low',matchedKeywords:x.hits.slice(0,6),signals:x.signals}));
-  return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown'}});
+  const existing=canonicalExisting(db,org);
+  const dynamic=dynamicCandidates(b.title||'',blocks);
+  const combined=[],seen=new Set();
+  for(const x of [...dynamic,...ranked]){
+    const n=norm(x.label);if(!n||seen.has(n))continue;seen.add(n);combined.push(x);
+  }
+  const catalogMap=new Map();
+  for(const x of [...dynamic.map(x=>x.label),...existing])catalogMap.set(norm(x),x);
+  const catalog=[...catalogMap.values()];
+  const recommended=combined.slice(0,5).map((x,i)=>({
+    label:x.label,score:x.score,
+    confidence:x.confidence||(i===0&&x.score>=12?'high':x.score>=6?'medium':'low'),
+    matchedKeywords:(x.hits||x.matchedKeywords||[]).slice(0,6),
+    signals:x.signals||{},source:x.source||'taxonomy'
+  }));
+  return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',priorityOrder:['title','heading','taxonomy','body']}});
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}
 }
