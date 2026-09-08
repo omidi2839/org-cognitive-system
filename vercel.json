@@ -1,6 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "node scripts/recovery-clean-build.js",
   "rewrites": [
     {
       "source": "/diag/ping",

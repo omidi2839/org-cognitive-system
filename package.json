@@ -1,6 +1,6 @@
 {
-  "name": "org-cognitive-build-0.9.5.8.3-recovery",
-  "version": "0.9.5.8-3",
+  "name": "org-cognitive-build-0.9.5.8.4-recovery",
+  "version": "0.9.5.8-4",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
@@ -8,7 +8,7 @@
     "check": "node --check api/index.js && node --check local-server.js && node --check src/infrastructure/postgresRepository.js && node --check src/infrastructure/storage/vercelBlobStorage.js && node --test tests/*.test.js",
     "migrate": "node scripts/migrate.js",
     "start": "node server.js",
-    "vercel-build": "node scripts/recovery-clean-build.js"
+    "vercel-build": "node scripts/recovery-safe-build.js"
   },
   "engines": {
     "node": "22.x"
