@@ -57,19 +57,44 @@ function usableDynamicTopic(s,{allowLong=false}={}){
  if(allowLong&&(words.length>24||x.length>180))return false;
  return true;
 }
+function documentVisibleLines(parsed,blocks){
+ const lines=[];
+ const push=s=>{
+   const x=cleanTopicCandidate(s);
+   if(!x)return;
+   // Split accidental multi-line cell/paragraph content into visible lines.
+   for(const part of x.split(/\r?\n/).map(cleanTopicCandidate).filter(Boolean))lines.push(part);
+ };
+ for(const b of (blocks||[])){
+   if(b.type==='paragraph')push(b.text);
+   else if(b.type==='table'){
+     for(const row of (b.rows||[])){
+       for(const c of (row||[]))push(c.text);
+     }
+   }else if(b.type==='mathFraction')continue;
+   if(lines.length>=40)break;
+ }
+ if(!lines.length){
+   for(const x of String(parsed?.text||'').split(/\r?\n/))push(x);
+ }
+ return lines;
+}
 function documentHeadingCandidates(parsed,blocks){
  const out=[];
- const paragraphs=(blocks||[]).filter(x=>x.type==='paragraph').map(x=>cleanTopicCandidate(x.text)).filter(Boolean);
- // First meaningful visible paragraph is treated as the title written inside the document.
- const first=paragraphs.find(x=>usableDynamicTopic(x,{allowLong:true}))||
-   String(parsed?.text||'').split(/\r?\n/).map(cleanTopicCandidate).find(x=>usableDynamicTopic(x,{allowLong:true}))||'';
- if(first)out.push({label:first,source:'document_title',score:1200});
- for(const p of paragraphs.slice(0,18)){
+ const lines=documentVisibleLines(parsed,blocks);
+ // The first meaningful visible line, including content inside a Word table,
+ // is the strongest document-title candidate.
+ const first=lines.find(x=>usableDynamicTopic(x,{allowLong:true}))||'';
+ if(first)out.push({label:first,source:'document_title',score:1400});
+ let rank=0;
+ for(const p of lines.slice(0,24)){
    if(norm(p)===norm(first)||!usableDynamicTopic(p))continue;
    const words=p.split(/\s+/).length;
-   // Short early paragraphs are likely subtitles/headings. Generic labels such as «متن مصوبه» are rejected.
-   if(words<=12&&p.length<=100)out.push({label:p,source:'heading',score:760-out.length*18});
-   if(out.length>=7)break;
+   if(words<=12&&p.length<=100){
+     out.push({label:p,source:'heading',score:780-rank*18});
+     rank++;
+   }
+   if(out.length>=8)break;
  }
  return out;
 }
