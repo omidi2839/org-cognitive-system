@@ -123,7 +123,10 @@ export async function parseArtifact({buffer,mimeType,fileName}){
      }
    }
    text=parts.join('\n')||xmlText(xml);
-   structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks}
+   const readingOrderLines=[...String(xml).matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
+     .map(m=>normalizePersianText(xmlText(m[0])).replace(/\s+/g,' ').trim())
+     .filter(Boolean);
+   structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks,readingOrderLines}
  }
  else if(lower.endsWith('.pptx')){
    const z=unzipEntries(buffer);
