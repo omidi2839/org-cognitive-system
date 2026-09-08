@@ -38,13 +38,37 @@ function pdfLite(buf){
 
 const paras=(text,kind='text')=>String(text).split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,i)=>({text,locationPointer:{kind,index:i+1}}));
 
+function docxAlignment(fragment){
+ const m=String(fragment||'').match(/<w:jc\b[^>]*w:val="([^"]+)"/);
+ return m?m[1]:null;
+}
+function docxInlineParts(fragment){
+ const raw=String(fragment||''),parts=[];
+ // Preserve Office Math fractions as a fraction object instead of flattening them.
+ let pos=0;
+ for(const fm of raw.matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)){
+   const before=raw.slice(pos,fm.index);
+   const beforeText=xmlText(before).trim();
+   if(beforeText)parts.push({type:'text',text:beforeText});
+   const num=(fm[0].match(/<m:num\b[\s\S]*?<\/m:num>/)||[])[0]||'';
+   const den=(fm[0].match(/<m:den\b[\s\S]*?<\/m:den>/)||[])[0]||'';
+   parts.push({type:'fraction',numerator:xmlText(num).trim(),denominator:xmlText(den).trim()});
+   pos=fm.index+fm[0].length;
+ }
+ const tail=xmlText(raw.slice(pos)).trim();
+ if(tail)parts.push({type:'text',text:tail});
+ return parts.length?parts:null;
+}
 function parseDocxStructure(raw){
  const body=(String(raw).match(/<w:body\b[^>]*>([\s\S]*?)<\/w:body>/)||[])[1]||String(raw);
  const blocks=[];let paragraphNo=0,tableNo=0;
  for(const m of body.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/g)){
    if(m[1]==='p'){
      const text=xmlText(m[0]).trim();
-     if(text){paragraphNo++;blocks.push({type:'paragraph',paragraph:paragraphNo,text})}
+     if(text){
+       paragraphNo++;
+       blocks.push({type:'paragraph',paragraph:paragraphNo,text,alignment:docxAlignment(m[0]),inlineParts:docxInlineParts(m[0])});
+     }
    }else{
      tableNo++;const rows=[];let rowNo=0;
      for(const rm of m[0].matchAll(/<w:tr\b[\s\S]*?<\/w:tr>/g)){
@@ -52,7 +76,8 @@ function parseDocxStructure(raw){
        for(const cm of rm[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)){
          colNo++;
          const ps=[...cm[0].matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(x=>xmlText(x[0]).trim()).filter(Boolean);
-         row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps});
+         const firstP=(cm[0].match(/<w:p\b[\s\S]*?<\/w:p>/)||[])[0]||'';
+         row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps,alignment:docxAlignment(firstP)});
        }
        if(row.length)rows.push(row);
      }
@@ -117,7 +142,7 @@ export async function parseArtifact({buffer,mimeType,fileName}){
  units=(units||[]).map(u=>({...u,text:normalizePersianText(u.text)})).filter(u=>u.text);
  if(structure?.kind==='docx'&&Array.isArray(structure.blocks)){
    structure.blocks=structure.blocks.map(b=>b.type==='paragraph'
-     ?{...b,text:normalizePersianText(b.text)}
+     ?{...b,text:normalizePersianText(b.text),inlineParts:Array.isArray(b.inlineParts)?b.inlineParts.map(p=>p.type==='fraction'?{...p,numerator:normalizePersianText(p.numerator),denominator:normalizePersianText(p.denominator)}:{...p,text:normalizePersianText(p.text)}):b.inlineParts}
      :{...b,rows:(b.rows||[]).map(row=>row.map(c=>({...c,text:normalizePersianText(c.text),paragraphs:(c.paragraphs||[]).map(normalizePersianText)})))});
  }
  return{text,units,structure,language:/[\u0600-\u06FF]/.test(text)?'fa':'unknown'};
