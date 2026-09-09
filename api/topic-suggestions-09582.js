@@ -6,24 +6,81 @@ const norm=s=>normalizePersianText(String(s??'')).toLowerCase().replace(/\s+/g,'
 
 const TAXONOMY=[
  {label:'راهبرد و برنامه‌ریزی',keywords:['راهبرد','استراتژی','چشم انداز','چشم‌انداز','ماموریت','مأموریت','برنامه','هدف کلان','سیاست کلان']},
- {label:'آموزش و تربیت',keywords:['آموزش','تربیت','تحصیل','طلبه','طلاب','فراگیر','استاد','درس','مهارت آموزشی']},
- {label:'پژوهش و تولید علم',keywords:['پژوهش','تحقیق','مقاله','علمی','دانش','تولید علم','کرسی','نشریه']},
- {label:'فرهنگ و تبلیغ',keywords:['فرهنگ','تبلیغ','تبلیغی','دینی','معارف','رسانه دینی','مبلغ','مبلغه']},
- {label:'منابع انسانی',keywords:['منابع انسانی','کارکنان','نیروی انسانی','استخدام','انتصاب','ارزیابی کارکنان','شایستگی']},
- {label:'مالی و بودجه',keywords:['بودجه','مالی','اعتبار','هزینه','درآمد','ذیحساب','تخصیص','مصرف اعتبار']},
- {label:'حقوقی و مقررات',keywords:['قانون','حقوقی','مقررات','آیین نامه','آیین‌نامه','ضابطه','الزام','ماده','تبصره']},
- {label:'ساختار و تشکیلات',keywords:['ساختار','تشکیلات','سازماندهی','واحد سازمانی','پست سازمانی','شرح وظایف','تفویض اختیار']},
- {label:'فرآیندها و عملیات',keywords:['فرآیند','فرایند','عملیات','روش اجرایی','دستورالعمل','گردش کار','خدمت']},
- {label:'فناوری اطلاعات و تحول دیجیتال',keywords:['فناوری','اطلاعات','سامانه','دیجیتال','هوش مصنوعی','داده','نرم افزار','نرم‌افزار','امنیت اطلاعات']},
+ {label:'منابع انسانی',keywords:['منابع انسانی','کارکنان','نیروی انسانی','استخدام','انتصاب','حقوق','مزایا','دستمزد','رفاه','شغل','شایستگی']},
+ {label:'مالی و بودجه',keywords:['بودجه','مالی','اعتبار','هزینه','درآمد','ذیحساب','تخصیص','حسابداری','خزانه']},
+ {label:'فناوری و زیرساخت',keywords:['فناوری','اطلاعات','سامانه','دیجیتال','هوش مصنوعی','داده','نرم افزار','نرم‌افزار','امنیت اطلاعات','شبکه','زیرساخت']},
+ {label:'آموزش',keywords:['آموزش','تربیت','تحصیل','دوره','فراگیر','استاد','درس','مهارت','یادگیری']},
+ {label:'پژوهش و نوآوری',keywords:['پژوهش','تحقیق','مقاله','علمی','دانش','تولید علم','نوآوری','مالکیت فکری','نشریه']},
+ {label:'فروش و بازاریابی',keywords:['فروش','بازاریابی','بازار','تبلیغات تجاری','قیمت گذاری','قیمت‌گذاری','کانال فروش','برند']},
+ {label:'مشتریان و ذی‌نفعان',keywords:['مشتری','مشتریان','ذی نفع','ذی‌نفع','رضایت','تجربه مشتری','خدمت گیرنده','خدمت‌گیرنده']},
+ {label:'عملیات و فرآیندها',keywords:['فرآیند','فرایند','عملیات','روش اجرایی','دستورالعمل','گردش کار','بهره وری','بهره‌وری']},
+ {label:'حقوقی و مقررات',keywords:['قانون','حقوقی','مقررات','آیین نامه','آیین‌نامه','ضابطه','الزام','ماده','تبصره','قرارداد']},
+ {label:'ساختار و حاکمیت سازمانی',keywords:['ساختار','تشکیلات','سازماندهی','واحد سازمانی','پست سازمانی','شرح وظایف','تفویض اختیار','حاکمیت']},
  {label:'نظارت، ارزیابی و عملکرد',keywords:['نظارت','ارزیابی','عملکرد','شاخص','پایش','بازرسی','کنترل','گزارش عملکرد']},
- {label:'مدیریت جلسات و تصمیمات',keywords:['جلسه','صورتجلسه','مصوبه','تصمیم','شورا','کمیسیون','کارگروه']},
+ {label:'ریسک، ایمنی و امنیت',keywords:['ریسک','خطر','ایمنی','امنیت','بحران','تداوم کسب و کار','حفاظت']},
  {label:'ارتباطات و رسانه',keywords:['ارتباطات','رسانه','خبر','اطلاع رسانی','اطلاع‌رسانی','روابط عمومی','انتشار']},
- {label:'امور بین‌الملل',keywords:['بین الملل','بین‌الملل','بین المللی','بین‌المللی','کشورهای','جهانی','خارجی']},
- {label:'امور اجتماعی و خانواده',keywords:['اجتماعی','خانواده','زن','زنان','خواهران','بانوان','جمعیت','سبک زندگی']},
- {label:'امور حوزوی',keywords:['حوزه','حوزوی','طلبه','طلاب','مدرسه علمیه','مدارس علمیه','روحانیت']},
- {label:'امور دانش‌آموختگان و شبکه نخبگانی',keywords:['دانش آموخته','دانش‌آموخته','فارغ التحصیل','فارغ‌التحصیل','نخبگان','شبکه نخبگانی']},
- {label:'پشتیبانی و خدمات سازمانی',keywords:['پشتیبانی','تدارکات','اموال','خدمات','ساختمان','تجهیزات','خرید']}
+ {label:'تدارکات، خرید و زنجیره تأمین',keywords:['خرید','تدارکات','تامین','تأمین','زنجیره تامین','زنجیره تأمین','انبار','تامین کننده','تأمین‌کننده']},
+ {label:'دارایی‌ها، اموال و پشتیبانی',keywords:['اموال','دارایی','ساختمان','تجهیزات','خودرو','پشتیبانی','خدمات سازمانی','نگهداری']},
+ {label:'محصول و خدمت',keywords:['محصول','خدمت','خدمات','طراحی محصول','توسعه محصول','سبد محصول','کیفیت خدمت']},
+ {label:'کیفیت و بهبود',keywords:['کیفیت','بهبود','استاندارد','ممیزی','اصلاح فرآیند','اصلاح فرایند','بهره وری','بهره‌وری']},
+ {label:'پروژه‌ها و برنامه‌های اجرایی',keywords:['پروژه','طرح','برنامه اجرایی','زمان بندی','زمان‌بندی','تحویل','پیشرفت پروژه']},
+ {label:'امور فرهنگی و اجتماعی',keywords:['فرهنگ','اجتماعی','خانواده','بانوان','خواهران','سبک زندگی','تبلیغ دینی','معارف']},
+ {label:'امور تخصصی حوزه فعالیت سازمان',keywords:['حوزوی','طلبه','طلاب','مدرسه علمیه','مدارس علمیه','روحانیت','تخصصی']},
+ {label:'امور بین‌الملل',keywords:['بین الملل','بین‌الملل','بین المللی','بین‌المللی','خارجی','جهانی','کشورها']}
 ];
+
+const SUBTOPIC_RULES={
+ 'منابع انسانی':[
+  {label:'حقوق و دستمزد و مزایا',keywords:['حقوق','دستمزد','مزایا','فوق العاده','فوق‌العاده','حق شغل','رفاه']},
+  {label:'استخدام و جذب',keywords:['استخدام','جذب','آزمون استخدامی','گزینش']},
+  {label:'انتصاب و ارتقا',keywords:['انتصاب','ارتقا','ارتقاء','پست مدیریتی']},
+  {label:'ارزیابی عملکرد کارکنان',keywords:['ارزیابی کارکنان','عملکرد کارکنان','ارزشیابی']},
+  {label:'آموزش و توسعه کارکنان',keywords:['آموزش کارکنان','توسعه کارکنان','توانمندسازی']},
+  {label:'طبقه‌بندی مشاغل و شایستگی',keywords:['طبقه بندی مشاغل','طبقه‌بندی مشاغل','شایستگی','شرح شغل']}
+ ],
+ 'فناوری و زیرساخت':[
+  {label:'زیرساخت و شبکه',keywords:['شبکه','سرور','زیرساخت','مرکز داده','دیتاسنتر']},
+  {label:'سامانه‌ها و نرم‌افزار',keywords:['سامانه','نرم افزار','نرم‌افزار','اپلیکیشن']},
+  {label:'داده و هوش مصنوعی',keywords:['داده','هوش مصنوعی','تحلیل داده','یادگیری ماشین']},
+  {label:'امنیت اطلاعات و سایبری',keywords:['امنیت اطلاعات','امنیت سایبری','دسترسی','حفاظت داده']}
+ ],
+ 'آموزش':[
+  {label:'برنامه و محتوای آموزشی',keywords:['برنامه آموزشی','محتوای آموزشی','سرفصل','درس']},
+  {label:'پذیرش و امور فراگیران',keywords:['پذیرش','دانشجو','طلبه','فراگیر']},
+  {label:'اساتید و مدرسان',keywords:['استاد','مدرس','هیئت علمی','هیأت علمی']},
+  {label:'ارزیابی و کیفیت آموزشی',keywords:['ارزیابی آموزشی','آزمون','کیفیت آموزشی']}
+ ],
+ 'پژوهش و نوآوری':[
+  {label:'طرح‌ها و پروژه‌های پژوهشی',keywords:['طرح پژوهشی','پروژه پژوهشی','تحقیق']},
+  {label:'انتشارات و مقالات علمی',keywords:['مقاله','نشریه','کتاب','انتشار علمی']},
+  {label:'نوآوری و مالکیت فکری',keywords:['نوآوری','اختراع','مالکیت فکری','ثبت اختراع']}
+ ],
+ 'مالی و بودجه':[
+  {label:'بودجه‌ریزی و تخصیص',keywords:['بودجه','تخصیص','اعتبار']},
+  {label:'حسابداری و گزارشگری مالی',keywords:['حسابداری','صورت مالی','گزارش مالی']},
+  {label:'هزینه‌ها و پرداخت‌ها',keywords:['هزینه','پرداخت','پرداختی','کارانه']}
+ ],
+ 'فروش و بازاریابی':[
+  {label:'فروش و کانال‌های فروش',keywords:['فروش','کانال فروش','نمایندگی']},
+  {label:'بازاریابی و برند',keywords:['بازاریابی','برند','کمپین']},
+  {label:'قیمت‌گذاری',keywords:['قیمت گذاری','قیمت‌گذاری','تعرفه']}
+ ],
+ 'مشتریان و ذی‌نفعان':[
+  {label:'رضایت و تجربه مشتری',keywords:['رضایت','تجربه مشتری','نظرسنجی']},
+  {label:'خدمات و پشتیبانی مشتری',keywords:['پشتیبانی مشتری','خدمات مشتری','شکایت']},
+  {label:'مدیریت ذی‌نفعان',keywords:['ذی نفع','ذی‌نفع','ذینفع']}
+ ],
+ 'حقوقی و مقررات':[
+  {label:'آیین‌نامه‌ها و دستورالعمل‌ها',keywords:['آیین نامه','آیین‌نامه','دستورالعمل','ضوابط']},
+  {label:'قراردادها و تعهدات حقوقی',keywords:['قرارداد','تعهد','توافقنامه']},
+  {label:'مصوبات و اصلاحیه‌ها',keywords:['مصوبه','اصلاحیه','الحاق','لغو','جایگزینی']}
+ ],
+ 'عملیات و فرآیندها':[
+  {label:'فرآیندها و گردش کار',keywords:['فرآیند','فرایند','گردش کار']},
+  {label:'روش‌های اجرایی و دستورالعمل عملیات',keywords:['روش اجرایی','عملیات','دستورالعمل']},
+  {label:'بهره‌وری و بهبود عملیات',keywords:['بهره وری','بهره‌وری','بهبود عملیات']}
+ ]
+};
 
 function keywordScore(text,t,weight=1){
  let score=0,hits=[];
@@ -122,6 +179,24 @@ function canonicalExisting(db,org){
  return [...set.values()].sort((a,b)=>a.localeCompare(b,'fa'));
 }
 
+
+function rankSubtopics(parent,text){
+ const rules=SUBTOPIC_RULES[parent]||[];
+ return rules.map(r=>{
+   let score=0,hits=[];
+   for(const k of r.keywords){
+     const n=norm(k),count=text.includes(n)?Math.min(5,text.split(n).length-1):0;
+     if(count){score+=count*(n.includes(' ')?5:3);hits.push(k)}
+   }
+   return{label:r.label,score,hits};
+ }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
+}
+function fallbackSubtopic(detTitle,parent){
+ const x=cleanTopicCandidate(detTitle||'');
+ if(!x||isGenericHeading(x))return null;
+ // Strip common document-type boilerplate but keep the semantic title.
+ return x.replace(/^(آیین[\s‌-]*نامه|دستورالعمل|بخشنامه|مصوبه|شیوه[\s‌-]*نامه|ضوابط)\s+/,'').trim()||null;
+}
 export default async function handler(req,res){
  try{
   if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
@@ -132,23 +207,36 @@ export default async function handler(req,res){
   const blocks=parsed.structure?.kind==='docx'&&Array.isArray(parsed.structure.blocks)?parsed.structure.blocks:[];
   const headingTexts=blocks.filter(x=>x.type==='paragraph').slice(0,12).map(x=>x.text).filter(Boolean);
   const headings=norm(headingTexts.join(' '));
-  const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t),source:'taxonomy'})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
-  const repo=createRepository(),db=await repo.all(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
-  const existing=canonicalExisting(db,org);
-  const dyn=dynamicCandidates(b.title||'',parsed,blocks),dynamic=dyn.items;
-  const combined=[],seen=new Set();
-  for(const x of [...dynamic,...ranked]){
-    const n=norm(x.label);if(!n||seen.has(n))continue;seen.add(n);combined.push(x);
-  }
-  const catalogMap=new Map();
-  for(const x of [...dynamic.map(x=>x.label),...existing])catalogMap.set(norm(x),x);
-  const catalog=[...catalogMap.values()];
-  const recommended=combined.slice(0,5).map((x,i)=>({
-    label:x.label,score:x.score,
-    confidence:x.confidence||(i===0&&x.score>=12?'high':x.score>=6?'medium':'low'),
-    matchedKeywords:(x.hits||x.matchedKeywords||[]).slice(0,6),
-    signals:x.signals||{},source:x.source||'taxonomy'
+  const ranked=TAXONOMY.map(t=>({label:t.label,...rankedScore({title,headings,body},t),source:'taxonomy'})).sort((a,b)=>b.score-a.score);
+  const repo=createRepository(),db=await repo.all(),org=String((req.headers||{})['x-org-id']||'ORG:SYN-001');
+  const dyn=dynamicCandidates(b.title||'',parsed,blocks);
+
+  const primaryCatalog=TAXONOMY.map(x=>x.label);
+  const primaryRecommended=ranked.filter(x=>x.score>0).slice(0,5).map((x,i)=>({
+    label:x.label,score:x.score,confidence:i===0&&x.score>=12?'high':x.score>=6?'medium':'low',
+    matchedKeywords:(x.hits||[]).slice(0,6),signals:x.signals||{}
   }));
-  return send(res,200,{catalog,recommended,analysis:{characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',priorityOrder:['document_title','form_title','heading','taxonomy','body'],detectedTitle:dyn.detectedTitle,firstLines:dyn.firstLines}});
+
+  const primary=String(b.primaryTopic||primaryRecommended?.[0]?.label||'').trim();
+  const subRank=rankSubtopics(primary,`${title} ${headings} ${body}`);
+  const fallback=fallbackSubtopic(dyn.detectedTitle,primary);
+  const subtopics=[];
+  const seenSub=new Set();
+  for(const x of [...subRank.map(x=>({label:x.label,score:x.score,source:'rule'})),...(fallback?[{label:fallback,score:1,source:'document_title'}]:[])]){
+    const n=norm(x.label);if(!n||seenSub.has(n))continue;seenSub.add(n);subtopics.push(x);
+  }
+
+  return send(res,200,{
+    catalog:primaryCatalog,
+    recommended:primaryRecommended,
+    primaryCatalog,
+    primaryRecommended,
+    subtopics:subtopics.slice(0,8),
+    analysis:{
+      characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',
+      priorityOrder:['primary_taxonomy','subtopic_rules','document_title'],
+      detectedTitle:dyn.detectedTitle,firstLines:dyn.firstLines
+    }
+  });
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}
 }

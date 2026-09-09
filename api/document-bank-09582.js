@@ -18,6 +18,8 @@ export default async function handler(req,res){
   const u=new URL(req.url,'https://local');
   const meetingType=String(u.searchParams.get('meetingType')||'').trim();
   const meetingNumber=String(u.searchParams.get('meetingNumber')||'').trim();
+  const documentNumber=String(u.searchParams.get('documentNumber')||'').trim();
+  const subjectCategory=String(u.searchParams.get('subjectCategory')||'').trim();
   const hasRelations=String(u.searchParams.get('hasRelations')||'').trim();
 
   const base=await buildDocumentBankResponse(req,repo);
@@ -33,6 +35,8 @@ export default async function handler(req,res){
       promulgationDate:d.promulgationDate||null,
       meetingType:d.meetingType||null,
       meetingNumber:d.meetingNumber||null,
+      documentNumber:d.documentNumber||null,
+      subjectCategory:d.subjectCategory||null,
       meetingDate:d.meetingDate||null,
       relationCount,
       hasRelations:relationCount>0
@@ -42,6 +46,8 @@ export default async function handler(req,res){
   let items=(base.items||[]).map(enrich);
   if(meetingType)items=items.filter(x=>norm(x.meetingType)===norm(meetingType));
   if(meetingNumber)items=items.filter(x=>norm(x.meetingNumber).includes(norm(meetingNumber)));
+  if(documentNumber)items=items.filter(x=>norm(x.documentNumber).includes(norm(documentNumber)));
+  if(subjectCategory)items=items.filter(x=>norm(x.subjectCategory)===norm(subjectCategory));
   if(hasRelations==='yes')items=items.filter(x=>x.hasRelations);
   if(hasRelations==='no')items=items.filter(x=>!x.hasRelations);
 
@@ -62,9 +68,9 @@ export default async function handler(req,res){
       totalOccurrences:items.reduce((s,x)=>s+Number(x.matchCount||0),0),
       metadataMatches:items.filter(x=>x.metadataMatch).length
     },
-    filters:{...(base.filters||{}),meetingType,meetingNumber,hasRelations},
+    filters:{...(base.filters||{}),meetingType,meetingNumber,documentNumber,subjectCategory,hasRelations},
     facets:{
-      subjects:uniq(allItems.map(x=>x.subjectArea)),
+      subjects:uniq(allItems.map(x=>x.subjectCategory||x.subjectArea)),
       meetingTypes:uniq(allItems.map(x=>x.meetingType)),
       issuers:uniq(allItems.map(x=>x.issuer))
     },
