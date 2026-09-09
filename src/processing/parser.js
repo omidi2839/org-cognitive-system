@@ -38,6 +38,22 @@ function pdfLite(buf){
 
 const paras=(text,kind='text')=>String(text).split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,i)=>({text,locationPointer:{kind,index:i+1}}));
 
+function decodeXmlEntities(s){
+ return String(s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+function docxText(fragment){
+ const raw=String(fragment||'');
+ let out='',pos=0;
+ const rx=/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\s*\/?>|<w:br\s*\/?>/g;
+ for(const m of raw.matchAll(rx)){
+   if(m[0].startsWith('<w:tab'))out+='\t';
+   else if(m[0].startsWith('<w:br'))out+='\n';
+   else out+=decodeXmlEntities(m[1]||'');
+   pos=(m.index||0)+m[0].length;
+ }
+ return out.trim();
+}
+
 function docxAlignment(fragment){
  const m=String(fragment||'').match(/<w:jc\b[^>]*w:val="([^"]+)"/);
  return m?m[1]:null;
@@ -70,15 +86,15 @@ function parseDocxStructure(raw){
  const blocks=[];let paragraphNo=0,tableNo=0;
  for(const m of body.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/g)){
    if(m[1]==='p'){
-     const text=xmlText(m[0]).trim();
+     const text=docxText(m[0]).trim();
      if(text){paragraphNo++;blocks.push({type:'paragraph',paragraph:paragraphNo,text,alignment:docxAlignment(m[0]),inlineParts:docxInlineParts(m[0])})}
    }else{
      // Word sometimes wraps a fraction/equation in a layout table. Treat math-only tables as math, not business tables.
      const fractions=[...m[0].matchAll(/<m:f\b[\s\S]*?<\/m:f>/g)];
-     const allText=xmlText(m[0]).trim();
+     const allText=docxText(m[0]).trim();
      if(fractions.length===1){
        const fm=fractions[0][0],num=(fm.match(/<m:num\b[\s\S]*?<\/m:num>/)||[])[0]||'',den=(fm.match(/<m:den\b[\s\S]*?<\/m:den>/)||[])[0]||'';
-       const n=xmlText(num).trim(),d=xmlText(den).trim();
+       const n=docxText(num).trim(),d=docxText(den).trim();
        const fracText=(n+d).replace(/\s+/g,'');
        if(fracText&&allText.replace(/\s+/g,'')===fracText){
          blocks.push({type:'mathFraction',numerator:n,denominator:d,alignment:docxAlignment(m[0])});
@@ -90,7 +106,7 @@ function parseDocxStructure(raw){
        rowNo++;const row=[];let colNo=0;
        for(const cm of rm[0].matchAll(/<w:tc\b[\s\S]*?<\/w:tc>/g)){
          colNo++;
-         const ps=[...cm[0].matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(x=>xmlText(x[0]).trim()).filter(Boolean);
+         const ps=[...cm[0].matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)].map(x=>docxText(x[0]).trim()).filter(Boolean);
          const firstP=(cm[0].match(/<w:p\b[\s\S]*?<\/w:p>/)||[])[0]||'';
          row.push({row:rowNo,column:colNo,text:ps.join('\n'),paragraphs:ps,alignment:docxAlignment(firstP),...docxCellMeta(cm[0])});
        }
@@ -124,7 +140,7 @@ export async function parseArtifact({buffer,mimeType,fileName}){
    }
    text=parts.join('\n')||xmlText(xml);
    const readingOrderLines=[...String(xml).matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
-     .map(m=>normalizePersianText(xmlText(m[0])).replace(/\s+/g,' ').trim())
+     .map(m=>normalizePersianText(docxText(m[0])).replace(/\s+/g,' ').trim())
      .filter(Boolean);
    structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks,readingOrderLines}
  }
