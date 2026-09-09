@@ -1,4 +1,6 @@
-ORG Cognitive System Consolidated Test Release
-Version: 0.9.8.0
-Preserves 0.9.7.5 amendment semantics.
-Adds document edit governance, repository counters, upstream-only cognitive analysis, reference-only general documents, collaborative expert analysis V1.
+ORG Cognitive System Deployment-Safe Consolidated Release
+Version: 0.9.8.1
+Base: 0.9.7.5 legal amendment/consolidation semantics retained.
+0.9.8.0 knowledge governance features retained.
+IMPORTANT: no new top-level /api serverless function was added.
+document-governance and collaborative-analysis are multiplexed through existing api/knowledge-documents.js.
