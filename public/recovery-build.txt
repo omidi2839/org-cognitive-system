@@ -1,10 +1,7 @@
 ORG Cognitive System Focused Release
-Version: 0.9.7.2
+Version: 0.9.7.3
 Scope:
-- document number moved beside meeting type/number
-- 3 semantic fields in one row
-- compact 4-box document header
-- stable print/selection/favorite actions
-- parent vs amendment relation-history presentation
-- DOCX legal-number run repair
-- inline amendment target recognition for old stored documents
+- amendment source link opens related document
+- amendment source link more visible
+- signature/name/title excluded from amendment extracted text
+- DOCX drawing/textbox signature and page decoration excluded from body parsing

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.3';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -553,12 +553,22 @@ function k961PickExactAmendmentLines(lines,item,rel){
      }
    }
  }
+ const isRole=t=>/^(?:رئیس|رییس|دبیر|نایب رئیس|نائب رئیس|معاون|مدیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(String(t||'').trim());
+ const isProbableSigner=(idx)=>{
+   const cur=String(lines[idx]||'').trim(),next=String(lines[idx+1]||'').trim();
+   if(!cur||cur.length>70)return false;
+   if(isRole(cur))return true;
+   // Common DOCX signature layout: personal name is a short line immediately before the role/title.
+   return !!next&&isRole(next)&&!/^(?:ماده|تبصره|بند|جزء)/.test(cur);
+ };
  const picked=[];
- for(let j=start;j<Math.min(lines.length,start+10);j++){
+ for(let j=start;j<Math.min(lines.length,start+12);j++){
    const t=String(lines[j]||'').trim();
    if(!t)continue;
    if(j>start&&(/^(?:ماده|تبصره)\s*[۰-۹٠-٩0-9]+/.test(t)||k961IsDirectiveLine(t)))break;
-   if(j>start&&/^(?:رئیس|دبیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(t))break;
+   if(j>start&&(isRole(t)||isProbableSigner(j)))break;
+   // Ignore page/header artefacts that are only a short numeric token.
+   if(j>start&&/^[۰-۹٠-٩0-9\s\/.-]{1,24}$/.test(t))continue;
    picked.push(t);
  }
  return picked;
@@ -634,11 +644,16 @@ async function k961ApplyInlineAmendments(full,id){
    }
 
    full.querySelectorAll('[data-amend-source]').forEach(btn=>{
+     if(btn.dataset.k973Bound)return;btn.dataset.k973Bound='1';
      btn.addEventListener('click',e=>{
-       e.preventDefault();e.stopPropagation();
+       e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
        const docId=btn.dataset.amendSource;
-       if(docId&&typeof openDocumentModal==='function')openDocumentModal(docId,'');
-     });
+       if(docId&&typeof window.__ORG_OPEN_DOCUMENT__==='function'){
+         window.__ORG_OPEN_DOCUMENT__(docId,'');
+       }else{
+         console.warn('AMENDMENT_SOURCE_NAVIGATION_UNAVAILABLE',{docId});
+       }
+     },true);
    });
    k972RepairLegalNumberRuns(full);
    k962FixArticleNumberOrder(full);

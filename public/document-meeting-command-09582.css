@@ -278,3 +278,25 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
  #k91docmodal .k91modalhead .k950tools{grid-column:1/-1!important;grid-row:2!important;grid-template-columns:repeat(3,1fr)!important}
  #k91docmodal .k91modalclose{grid-column:2!important}
 }
+
+
+/* 0.9.7.3 — amendment provenance link & clean signature extraction */
+#k91docmodal .k961inline-source{
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+  margin-top:6px!important;
+  padding:3px 5px!important;
+  font-size:10.5px!important;
+  line-height:1.6!important;
+  font-weight:850!important;
+  color:#286f56!important;
+  opacity:.92!important;
+  text-decoration:underline!important;
+  text-underline-offset:2px!important;
+  cursor:pointer!important;
+}
+#k91docmodal .k961inline-source:hover{
+  color:#174f3c!important;
+  opacity:1!important;
+}
