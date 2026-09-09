@@ -168,10 +168,11 @@ async function handleCollaborative(req,res,repo,actor,u){
           stage:c.stage,
           expertRef:input.expertRef||actor.personRef,
           expertName:input.expertName||actor.name,
-          groupLabel:input.groupLabel||null,
+          groupLabel:input.groupLabel||'گروه خبرگان تحلیل اسناد بالادستی',
           concept:String(input.concept||'').trim(),
           analysis:String(input.analysis||'').trim(),
           evidence:String(input.evidence||'').trim(),
+          audioDataUrl:String(input.audioDataUrl||'').slice(0,2200000),
           createdAt:new Date().toISOString()
         });
       }else if(input.action==='advance'){
