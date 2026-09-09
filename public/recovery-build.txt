@@ -1,7 +1,7 @@
 ORG Cognitive System Focused Release
-Version: 0.9.7.3
+Version: 0.9.7.4
 Scope:
-- amendment source link opens related document
-- amendment source link more visible
-- signature/name/title excluded from amendment extracted text
-- DOCX drawing/textbox signature and page decoration excluded from body parsing
+- amendment extraction is restricted to resolution body
+- preamble/introduction text can no longer be injected into parent document
+- legal target markers (article/clause/proviso) get priority
+- administrative directive is used only as locator, not as final amendment content
