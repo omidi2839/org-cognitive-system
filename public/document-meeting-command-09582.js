@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.5';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.6';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -13,25 +13,46 @@ function enhanceUploadForm(form){
  grid.insertAdjacentElement('afterend',w);
 }
 const nativeFetch=window.fetch.bind(window);
+async function k986DirectBlobRef(file,role='attachment'){
+ if(!file)throw Object.assign(new Error('فایل برای آپلود مستقیم انتخاب نشده است.'),{code:'DIRECT_UPLOAD_FAILED'});
+ const pre=await nativeFetch('/api/v1/knowledge/blob-upload-url',{
+   method:'POST',headers:{'content-type':'application/json','x-org-id':ORG},
+   body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})
+ });
+ const p=await pre.json().catch(()=>({}));
+ if(!pre.ok)throw Object.assign(new Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.'),{code:p.code||'DIRECT_UPLOAD_FAILED'});
+ const put=await nativeFetch(p.presignedUrl,{method:'PUT',headers:{'content-type':file.type||'application/octet-stream'},body:file});
+ if(!put.ok)throw Object.assign(new Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`),{code:'DIRECT_UPLOAD_FAILED'});
+ return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
+}
+async function k986DirectBlobRefs(files,role='attachment'){
+ const out=[];for(const file of [...(files||[])])out.push(await k986DirectBlobRef(file,role));return out;
+}
+
 window.fetch=async function(input,init={}){
- try{
-  const url=typeof input==='string'?input:(input?.url||'');
-  if(url.includes('/api/v1/documents/upload')&&init?.method==='POST'&&typeof init.body==='string'){
-   const form=document.querySelector('#k76form');
-   if(form){
-    const meetingNumber=form.querySelector('[data-meeting-number]')?.value?.trim()||'';
-    const meetingDate=form.querySelector('[data-meeting-date]')?.value?.trim()||'';
-    const documentNumber=form.querySelector('[data-document-number]')?.value?.trim()||'';
-    const b=JSON.parse(init.body);
-    if(meetingNumber||meetingDate||documentNumber){
-      b.metadata={...(b.metadata||{}),documentNumber:documentNumber||null,meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};
-    }
-    const attachmentInput=form.querySelector('[data-k985-attachments]');
-    if(attachmentInput?.files?.length)b.attachments=await k985FilesPayload(attachmentInput.files);
-    init={...init,body:JSON.stringify(b)}
+ const url=typeof input==='string'?input:(input?.url||'');
+ if(url.includes('/api/v1/documents/upload')&&init?.method==='POST'&&typeof init.body==='string'){
+  const form=document.querySelector('#k76form');
+  if(form){
+   const b=JSON.parse(init.body);
+   const meetingNumber=form.querySelector('[data-meeting-number]')?.value?.trim()||'';
+   const meetingDate=form.querySelector('[data-meeting-date]')?.value?.trim()||'';
+   const documentNumber=form.querySelector('[data-document-number]')?.value?.trim()||'';
+   if(meetingNumber||meetingDate||documentNumber){
+    b.metadata={...(b.metadata||{}),documentNumber:documentNumber||null,meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};
    }
+
+   // Primary file goes browser -> private Vercel Blob. Do not send its Base64 through the Function.
+   const primary=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
+   if(primary){
+    const ref=await k986DirectBlobRef(primary,'primary');
+    Object.assign(b,ref);delete b.contentBase64;
+   }
+   const attachmentInput=form.querySelector('[data-k985-attachments]');
+   if(attachmentInput?.files?.length)b.attachments=await k986DirectBlobRefs(attachmentInput.files,'attachment');
+   init={...init,body:JSON.stringify(b)};
   }
- }catch{}
+ }
  return nativeFetch(input,init);
 };
 
@@ -1210,14 +1231,7 @@ function k985EnhanceAttachments(form){
  const input=box.querySelector('[data-k985-attachments]'),list=box.querySelector('[data-k985-files]');
  input.addEventListener('change',()=>{const files=[...(input.files||[])];list.innerHTML=files.length?files.map((f,i)=>`<span>${toFa(i+1)}. ${esc(f.name)}</span>`).join(''):'پیوستی انتخاب نشده است.'});
 }
-async function k985FilesPayload(files){
- const out=[];
- for(const file of [...(files||[])]){
-   const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
-   out.push({fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64});
- }
- return out;
-}
+async function k985FilesPayload(files){return k986DirectBlobRefs(files,'attachment')}
 function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k985EnhanceAttachments(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}
 new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});enhance();
 document.addEventListener('k958:document-preview',()=>setTimeout(()=>{try{k955RenderStructuredDoc()}catch{}},30));

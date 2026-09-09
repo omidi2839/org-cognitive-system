@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.5';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.6';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -272,13 +272,16 @@ async function k984InitRelationEditor(root,currentId){
  await load();
 }
 
-async function k985BankFilesPayload(files){
- const out=[];
- for(const file of [...(files||[])]){
-   const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
-   out.push({fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64});
- }
- return out;
+async function k986BankDirectBlobRef(file,role='attachment'){
+ const pre=await fetch('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
+ const p=await pre.json().catch(()=>({}));
+ if(!pre.ok)throw Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.');
+ const put=await fetch(p.presignedUrl,{method:'PUT',headers:{'content-type':file.type||'application/octet-stream'},body:file});
+ if(!put.ok)throw Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`);
+ return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
+}
+async function k985BankFilesPayload(files,role='attachment'){
+ const out=[];for(const file of [...(files||[])])out.push(await k986BankDirectBlobRef(file,role));return out;
 }
 async function k982OpenEdit(documentId){
  let existing=document.getElementById('k982editmodal');if(existing)existing.remove();
@@ -367,7 +370,7 @@ async function k982OpenEdit(documentId){
     const attFiles=w.querySelector('[data-k985-edit-attachments]')?.files||[];
     const attachments=attFiles.length?await k985BankFilesPayload(attFiles):[];
     if(primary){
-      const primaryPayload=(await k985BankFilesPayload([primary]))[0];
+      const primaryPayload=(await k985BankFilesPayload([primary],'primary'))[0];
       await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
         replaceDocumentId:documentId,...primaryPayload,attachments
       })});
