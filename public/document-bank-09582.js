@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.4';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.5';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -271,6 +271,15 @@ async function k984InitRelationEditor(root,currentId){
  };
  await load();
 }
+
+async function k985BankFilesPayload(files){
+ const out=[];
+ for(const file of [...(files||[])]){
+   const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
+   out.push({fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64});
+ }
+ return out;
+}
 async function k982OpenEdit(documentId){
  let existing=document.getElementById('k982editmodal');if(existing)existing.remove();
  const w=document.createElement('div');w.id='k982editmodal';w.className='k91modalbackdrop k982editbackdrop';
@@ -279,7 +288,7 @@ async function k982OpenEdit(documentId){
  try{
   const g=await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId));
   if(!g.permissions?.documentEdit)throw Error('شما مجوز ویرایش سند را ندارید.');
-  const d=g.document||{},up=d.documentClass==='upstream',types=up?K983_UP_TYPES:K983_GENERAL_TYPES;
+  const d=g.document||{},filesInfo=g.files||{},up=d.documentClass==='upstream',types=up?K983_UP_TYPES:K983_GENERAL_TYPES;
   w.innerHTML=`<div class="k983editdialog">
    <div class="k983edithead"><div><small>همان شناسنامه ثبت سند</small><b>ویرایش سند</b><span>${up?'سند بالادستی':'سند عمومی'} · تغییرات در ممیزی ثبت می‌شود</span></div><button type="button" data-close>×</button></div>
    <form id="k983editform">
@@ -289,7 +298,7 @@ async function k982OpenEdit(documentId){
      <label>مرجع صادرکننده<input name="issuer" value="${k983Val(d.issuer)}"></label>
      <label>نسخه<input name="versionLabel" value="${k983Val(d.versionLabel)}"></label>
      ${k983DateField('issuedAt','تاریخ صدور',d.issuedAt)}
-     ${k983DateField('validUntil','تاریخ پایان / قطع اعتبار',d.validUntil)}
+     <div data-k985-validuntil>${k983DateField('validUntil','تاریخ پایان / قطع اعتبار',d.validUntil)}</div>
      <label>وضعیت اعتبار<select name="validityStatus">
       <option value="active"${d.validityStatus==='active'?' selected':''}>معتبر</option>
       <option value="draft"${d.validityStatus==='draft'?' selected':''}>پیش‌نویس</option>
@@ -319,7 +328,16 @@ async function k982OpenEdit(documentId){
      <label>زیرموضوع سند<input name="subjectArea" required value="${k983Val(d.subjectArea)}" placeholder="مثلاً حقوق و دستمزد و مزایا"></label>
     </div><small class="k983editnote">در ویرایش، فایل اصلی سند تغییر نمی‌کند؛ این فرم شناسنامه و طبقه‌بندی ثبت‌شده را اصلاح می‌کند.</small></section>
 
-    ${k984RelationEditorMarkup()}
+    <section class="k983editcard k985fileedit"><header><div><b>فایل اصلی و پیوست‌ها</b><small>فایل اصلی نسخه جاری قابل جایگزینی است و می‌توانید چند پیوست Word/PDF جدید اضافه کنید.</small></div><span>۰۴</span></header>
+     <div class="k985currentfile"><b>فایل اصلی فعلی</b><span>${esc(filesInfo.primary?.fileName||d.sourceFileName||'نام فایل ثبت نشده')}</span></div>
+     <div class="k985fileeditgrid">
+      <label>جایگزینی فایل اصلی<input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-replace-primary><small>با انتخاب فایل جدید، فایل قبلی از نسخه جاری خارج می‌شود و سابقه آن برای ممیزی حفظ خواهد شد.</small></label>
+      <label>افزودن پیوست‌های جدید<input type="file" multiple accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-edit-attachments><small>امکان انتخاب هم‌زمان چند فایل</small></label>
+     </div>
+     <div class="k985existingattachments"><b>پیوست‌های فعلی</b>${(filesInfo.attachments||[]).length?`<div>${filesInfo.attachments.map((a,i)=>`<span>${toFa(i+1)}. ${esc(a.fileName)}</span>`).join('')}</div>`:'<small>پیوستی ثبت نشده است.</small>'}</div>
+    </section>
+
+    ${k984RelationEditorMarkup().replace('<span>۰۴</span>','<span>۰۵</span>')}
 
     <div class="k983editactions"><button type="button" data-cancel>انصراف</button><button class="k76primary" type="submit">ذخیره تغییرات سند</button></div>
     <span data-status class="k983editstatus"></span>
@@ -332,6 +350,9 @@ async function k982OpenEdit(documentId){
   await k984InitRelationEditor(w,documentId);
   const syncScope=()=>{const show=scope.value==='unit';unitWrap.hidden=!show;if(!show)unitSel.value=''};
   scope.onchange=syncScope;syncScope();
+  const validity=w.querySelector('select[name="validityStatus"]'),validWrap=w.querySelector('[data-k985-validuntil]');
+  const syncValidity=()=>{const show=validity?.value!=='active';if(validWrap)validWrap.hidden=!show;if(!show){const vi=validWrap?.querySelector('input[name="validUntil"]');if(vi)vi.value=''}};
+  if(validity)validity.onchange=syncValidity;syncValidity();
 
   w.querySelector('#k983editform').onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(e.currentTarget),patch={};
@@ -342,8 +363,19 @@ async function k982OpenEdit(documentId){
    const st=w.querySelector('[data-status]');st.textContent='در حال ذخیره تغییرات…';
    try{
     await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId),{method:'PATCH',body:JSON.stringify(patch)});
-    st.textContent='✓ تغییرات سند ذخیره و در سابقه ممیزی ثبت شد.';
-    setTimeout(async()=>{w.remove();await runBankSearch()},600);
+    const primary=w.querySelector('[data-k985-replace-primary]')?.files?.[0]||null;
+    const attFiles=w.querySelector('[data-k985-edit-attachments]')?.files||[];
+    const attachments=attFiles.length?await k985BankFilesPayload(attFiles):[];
+    if(primary){
+      const primaryPayload=(await k985BankFilesPayload([primary]))[0];
+      await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
+        replaceDocumentId:documentId,...primaryPayload,attachments
+      })});
+    }else if(attachments.length){
+      await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({attachToDocumentId:documentId,attachments})});
+    }
+    st.textContent=primary?'✓ اطلاعات و فایل اصلی جدید ذخیره شد.':attachments.length?'✓ اطلاعات و پیوست‌های جدید ذخیره شد.':'✓ تغییرات سند ذخیره و در سابقه ممیزی ثبت شد.';
+    setTimeout(async()=>{w.remove();await runBankSearch()},750);
    }catch(err){st.textContent=err.message}
   };
  }catch(e){

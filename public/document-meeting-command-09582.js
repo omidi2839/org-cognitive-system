@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.4';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.5';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -22,11 +22,13 @@ window.fetch=async function(input,init={}){
     const meetingNumber=form.querySelector('[data-meeting-number]')?.value?.trim()||'';
     const meetingDate=form.querySelector('[data-meeting-date]')?.value?.trim()||'';
     const documentNumber=form.querySelector('[data-document-number]')?.value?.trim()||'';
+    const b=JSON.parse(init.body);
     if(meetingNumber||meetingDate||documentNumber){
-      const b=JSON.parse(init.body);
       b.metadata={...(b.metadata||{}),documentNumber:documentNumber||null,meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};
-      init={...init,body:JSON.stringify(b)}
     }
+    const attachmentInput=form.querySelector('[data-k985-attachments]');
+    if(attachmentInput?.files?.length)b.attachments=await k985FilesPayload(attachmentInput.files);
+    init={...init,body:JSON.stringify(b)}
    }
   }
  }catch{}
@@ -628,6 +630,28 @@ function k983SubstantiveScore(t,targetArticle=''){
 }
 
 
+
+function k985IsTargetLocatorDirective(text,targetArticle=''){
+ const x=k983CanonAdmin(text),en=k975En(x);
+ const hasTarget=!targetArticle||new RegExp(`^ماده\\s*${targetArticle}(?![0-9])`).test(en);
+ return hasTarget && (
+   /مصوبه\s*(?:شماره)?/i.test(x) ||
+   /(?:الحاق|اضافه|اصلاح|جایگزین).*(?:می\s*شود|می\s*گردد|گردید|گردد|شود)/.test(x) ||
+   /به\s+شرح\s+(?:ذیل|زیر)/.test(x)
+ );
+}
+function k985NextPayloadIndex(body,from){
+ for(let i=from+1;i<body.length;i++){
+   const x=body[i];
+   if(k983IsAdminHeading(x)||k975IsIntro(x))continue;
+   if(k975IsRole(x)||k975IsProbableSigner(body,i))return-1;
+   // The line that merely says "در خصوص..." or another locator is still not substantive.
+   if(/^(?:در\s+خصوص|در\s+مورد)\b/.test(k983CanonAdmin(x)))continue;
+   if(k961IsDirectiveLine(x)&&!k975LegalMarker(x))continue;
+   return i;
+ }
+ return-1;
+}
 function k975ExtractAmendmentRange(lines,item,rel){
  const raw=(lines||[]).map(k983CanonAdmin).filter(Boolean);
  const targetArticle=k962ArticleTargetNumber(item?.article||rel?.targetArticle||'');
@@ -656,7 +680,10 @@ function k975ExtractAmendmentRange(lines,item,rel){
  if(targetArticle){
    for(let i=0;i<body.length;i++){
      const m=k975LegalMarker(body[i]);
-     if(m?.kind==='article'&&m.no===targetArticle){start=i;break}
+     if(m?.kind==='article'&&m.no===targetArticle){
+       start=k985IsTargetLocatorDirective(body[i],targetArticle)?k985NextPayloadIndex(body,i):i;
+       break;
+     }
    }
  }
 
@@ -714,6 +741,10 @@ function k975ExtractAmendmentRange(lines,item,rel){
    let text=body[i];
    if(k975IsRole(text)||k975IsProbableSigner(body,i))break;
    if(k983IsAdminHeading(text)||k975IsIntro(text))continue;
+   if(k985IsTargetLocatorDirective(text,targetArticle)){
+     if(!picked.length)continue;
+     break;
+   }
    if(/^[۰-۹٠-٩0-9\s\/.\-]{1,24}$/.test(text))continue;
 
    const marker=k975LegalMarker(text);
@@ -1166,7 +1197,28 @@ async function k972RenderRelationPerspective(modal,id){
  }catch(e){console.warn('RELATION_PERSPECTIVE_RENDER_ERROR',e)}
 }
 
-function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}
+
+function k985EnhanceAttachments(form){
+ if(!form||form.dataset.k985Attachments)return;form.dataset.k985Attachments='1';
+ const file=form.querySelector('.k76file');
+ if(!file)return;
+ const box=document.createElement('section');box.className='k985attachments';
+ box.innerHTML=`<div><b>پیوست‌های سند</b><small>در صورت وجود، چند فایل Word یا PDF را هم‌زمان انتخاب کنید. فایل اصلی سند همچنان در بخش بالا انتخاب می‌شود.</small></div>
+ <label>افزودن پیوست‌ها<input type="file" multiple accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-attachments></label>
+ <div data-k985-files class="k985filelist">پیوستی انتخاب نشده است.</div>`;
+ file.insertAdjacentElement('afterend',box);
+ const input=box.querySelector('[data-k985-attachments]'),list=box.querySelector('[data-k985-files]');
+ input.addEventListener('change',()=>{const files=[...(input.files||[])];list.innerHTML=files.length?files.map((f,i)=>`<span>${toFa(i+1)}. ${esc(f.name)}</span>`).join(''):'پیوستی انتخاب نشده است.'});
+}
+async function k985FilesPayload(files){
+ const out=[];
+ for(const file of [...(files||[])]){
+   const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
+   out.push({fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64});
+ }
+ return out;
+}
+function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k985EnhanceAttachments(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}
 new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});enhance();
 document.addEventListener('k958:document-preview',()=>setTimeout(()=>{try{k955RenderStructuredDoc()}catch{}},30));
 /* ---------- 0.9.7.0 — Persian digits in repository/workspace surfaces ---------- */

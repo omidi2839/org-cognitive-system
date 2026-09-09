@@ -1,10 +1,10 @@
-ORG Cognitive System Focused Stabilization Release
-Version: 0.9.8.4
+ORG Cognitive System Document File & Amendment Stabilization
+Version: 0.9.8.5
 Deployment-safe; no new top-level API function.
-Fixes:
-- expert-analysis Unicode HTTP-header failure
-- logged-in expert name is percent-encoded client-side and decoded server-side
-- legal relation management added to document edit form
-- existing legal relations can be reviewed, edited and deleted
-- a new article whose number is after the current last article is appended to the consolidated mother document
-- 0.9.7.5/0.9.8.3 amendment extraction and article/proviso/clause semantics retained
+- Article locator directives such as "ماده ۲۷ مصوبه ... به شرح ذیل..." are no longer treated as amendment body text.
+- Actual substantive text after the locator is extracted and appended for a newly-created article.
+- Edit form supports primary file replacement while keeping audit history.
+- Edit form supports multiple new Word/PDF attachments.
+- Registration form supports multiple Word/PDF attachments.
+- Conditional edit fields mirror registration behavior: unit only for unit scope; end date only when not active.
+- Primary normalized text remains isolated from attachment text in document view/structure.
