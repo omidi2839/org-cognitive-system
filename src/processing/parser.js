@@ -54,6 +54,12 @@ function docxText(fragment){
  return out.trim();
 }
 
+
+function docxIsDrawingParagraph(fragment){
+ const raw=String(fragment||'');
+ return /<w:drawing\b|<w:pict\b|<wps:txbx\b|<w:txbxContent\b/.test(raw);
+}
+
 function docxAlignment(fragment){
  const m=String(fragment||'').match(/<w:jc\b[^>]*w:val="([^"]+)"/);
  return m?m[1]:null;
@@ -86,6 +92,9 @@ function parseDocxStructure(raw){
  const blocks=[];let paragraphNo=0,tableNo=0;
  for(const m of body.matchAll(/<w:(p|tbl)\b[\s\S]*?<\/w:\1>/g)){
    if(m[1]==='p'){
+     // Text boxes/drawings are layout artefacts in council resolutions (signature blocks,
+     // page metadata, logos). They are intentionally excluded from the legal body text.
+     if(docxIsDrawingParagraph(m[0]))continue;
      const text=docxText(m[0]).trim();
      if(text){paragraphNo++;blocks.push({type:'paragraph',paragraph:paragraphNo,text,alignment:docxAlignment(m[0]),inlineParts:docxInlineParts(m[0])})}
    }else{
@@ -140,6 +149,7 @@ export async function parseArtifact({buffer,mimeType,fileName}){
    }
    text=parts.join('\n')||xmlText(xml);
    const readingOrderLines=[...String(xml).matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
+     .filter(m=>!docxIsDrawingParagraph(m[0]))
      .map(m=>normalizePersianText(docxText(m[0])).replace(/\s+/g,' ').trim())
      .filter(Boolean);
    structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks,readingOrderLines}
