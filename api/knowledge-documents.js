@@ -1,4 +1,5 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
+import { PostgresRepository } from '../src/infrastructure/postgresRepository.js';
 
 const ORG='ORG:SYN-001';
 const send=(res,status,data)=>{
@@ -49,6 +50,37 @@ const summary=rs=>({
   complementary:rs.filter(x=>x.stage==='complementary_review').length,
   final:rs.filter(x=>x.stage==='final_synthesis').length
 });
+
+
+const migrationAuthorized=req=>{
+  const expected=String(process.env.MIGRATION_ADMIN_SECRET||'');
+  const actual=String((req.headers||{})['x-migration-secret']||'');
+  return Boolean(expected)&&actual===expected;
+};
+async function handleDatabaseMigration(req,res,repo){
+  if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
+  if(!migrationAuthorized(req)) return send(res,403,{message:'دسترسی مهاجرت مجاز نیست.',code:'MIGRATION_FORBIDDEN'});
+  const targetUrl=String(process.env.MIGRATION_TARGET_DATABASE_URL||'');
+  if(!targetUrl) return send(res,503,{message:'MIGRATION_TARGET_DATABASE_URL تنظیم نشده است.',code:'MIGRATION_TARGET_URL_REQUIRED'});
+  const input=bodyOf(req),action=String(input.action||'probe');
+  const target=new PostgresRepository(targetUrl);
+  try{
+    if(action==='probe'){
+      const sourceStats=await repo.stats();
+      const targetStats=await target.stats();
+      return send(res,200,{ok:true,source:sourceStats,target:targetStats});
+    }
+    if(action!=='copy') return send(res,400,{message:'عملیات مهاجرت نامعتبر است.',code:'MIGRATION_ACTION_INVALID'});
+    const snapshot=await repo.exportSnapshot();
+    const result=await target.importSnapshot(snapshot,{requireEmpty:true});
+    const verify=await target.exportSnapshot();
+    const same=JSON.stringify(snapshot.counts)===JSON.stringify(verify.counts);
+    if(!same) return send(res,500,{message:'صحت‌سنجی شمارشی مهاجرت ناموفق بود.',code:'MIGRATION_VERIFY_FAILED',source:snapshot.counts,target:verify.counts});
+    return send(res,200,{ok:true,migrated:true,source:snapshot.counts,target:verify.counts,compressedBytes:result.compressedBytes});
+  }finally{
+    await target.close().catch(()=>{});
+  }
+}
 
 async function handleGovernance(req,res,repo,actor,u){
   const id=String(u.searchParams.get('documentId')||'');
@@ -313,6 +345,9 @@ export default async function handler(req,res){
     const actor=actorOf(req);
     const repo=createRepository();
 
+    if(pathname.endsWith('/database-migration')){
+      return handleDatabaseMigration(req,res,repo);
+    }
     if(pathname.endsWith('/blob-upload-url')){
       return handleBlobUploadUrl(req,res,actor);
     }
