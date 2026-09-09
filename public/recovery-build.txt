@@ -1,7 +1,10 @@
-ORG Cognitive System Consolidated Release
-Version: 0.9.7.1
-Changes:
-- issuer filter is closed registered-data list
-- duplicate public badge removed
-- two-level topic tree: mandatory primary topic + editable suggested subtopic
-- primary topic stored separately from subtopic
+ORG Cognitive System Focused Release
+Version: 0.9.7.2
+Scope:
+- document number moved beside meeting type/number
+- 3 semantic fields in one row
+- compact 4-box document header
+- stable print/selection/favorite actions
+- parent vs amendment relation-history presentation
+- DOCX legal-number run repair
+- inline amendment target recognition for old stored documents

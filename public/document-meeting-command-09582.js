@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.1';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -185,13 +185,6 @@ const K953_MEETING_TYPES=['شورای سیاست‌گذاری','شورای مد�
 function k953EnhanceMetadata(form){
  if(!form||form.dataset.k953Meta)return;form.dataset.k953Meta='1';
 
- const baseGrid=form.querySelector('.k76grid');
- if(baseGrid&&!form.querySelector('[data-document-number]')){
-   const label=document.createElement('label');
-   label.className='k970docnumber';
-   label.innerHTML='شماره مصوبه / تصمیم / سند<input name="documentNumber" data-document-number placeholder="مثلاً ۲۱۵"><small>شماره رسمی سند برای جستجو و ارجاع</small>';
-   baseGrid.appendChild(label);
- }
 
  const issued=form.querySelector('input[name="issuedAt"]');
  if(issued)k954CreateCalendarField(issued,'تاریخ صدور');
@@ -219,8 +212,13 @@ function k953EnhanceMetadata(form){
    oldBlock.appendChild(meetingTypeLabel);
 
    const meetingNumLabel=document.createElement('label');
-   meetingNumLabel.innerHTML=`شماره جلسه<input name="meetingNumber" data-meeting-number placeholder="مثلاً ۲۱۵"><small>شماره رسمی جلسه در صورت وجود</small>`;
+   meetingNumLabel.innerHTML=`شماره جلسه<input name="meetingNumber" data-meeting-number placeholder="مثلاً ۱۵"><small>شماره رسمی جلسه در صورت وجود</small>`;
    oldBlock.appendChild(meetingNumLabel);
+
+   const documentNumLabel=document.createElement('label');
+   documentNumLabel.className='k972documentnumber';
+   documentNumLabel.innerHTML=`شماره مصوبه / تصمیم / سند<input name="documentNumber" data-document-number placeholder="مثلاً ۲۱۵"><small>شماره رسمی سند برای جستجو و ارجاع</small>`;
+   oldBlock.appendChild(documentNumLabel);
 
    const meetingDateHidden=document.createElement('input');meetingDateHidden.type='hidden';meetingDateHidden.name='meetingDate';meetingDateHidden.dataset.meetingDate='1';
    oldBlock.appendChild(meetingDateHidden);k954CreateCalendarField(meetingDateHidden,'تاریخ برگزاری جلسه',oldBlock);
@@ -431,6 +429,20 @@ function k961ArticleHeadingNumber(el){
  return m?String(Number(m[1])):'';
 }
 
+
+/* ---------- 0.9.7.2 — Legal-number repair for already stored DOCX structures ---------- */
+function k972RepairLegalNumberRuns(root){
+ if(!root)return;
+ const rx=/((?:ماده|تبصره|بند|جزء)\s*[\.:‌\-–—]?\s*)([۰-۹٠-٩0-9](?:\s+[۰-۹٠-٩0-9]){1,3})/g;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+   acceptNode:n=>/(?:ماده|تبصره|بند|جزء)/.test(n.nodeValue||'')&&/[۰-۹٠-٩0-9]/.test(n.nodeValue||'')?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT
+ });
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ for(const n of nodes){
+   n.nodeValue=String(n.nodeValue||'').replace(rx,(_,p,d)=>p+d.replace(/\s+/g,''));
+ }
+}
+
 function k962ArticleTargetNumber(article){
  const en=k961FaToEn(String(article||''));
  const m=en.match(/[0-9]{1,4}/);
@@ -628,6 +640,7 @@ async function k961ApplyInlineAmendments(full,id){
        if(docId&&typeof openDocumentModal==='function')openDocumentModal(docId,'');
      });
    });
+   k972RepairLegalNumberRuns(full);
    k962FixArticleNumberOrder(full);
    k961ProtectNumbers(full);
    full.dataset.k961Amendments='1';
@@ -647,6 +660,7 @@ async function k955RenderStructuredDoc(){
   if(html){full.innerHTML=html;full.classList.add('k955structured')}
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k972RepairLegalNumberRuns(full);
   k962FixArticleNumberOrder(full);
   k961ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
@@ -655,6 +669,7 @@ async function k955RenderStructuredDoc(){
  }catch{
   k956NormalizeDisplayedDigits(full);
   const tw=document.createTreeWalker(full,NodeFilter.SHOW_TEXT),tn=[];while(tw.nextNode())tn.push(tw.currentNode);tn.forEach(n=>n.nodeValue=k957NormPct(n.nodeValue));
+  k972RepairLegalNumberRuns(full);
   k962FixArticleNumberOrder(full);
   k961ProtectNumbers(full);
   const q=k957CurrentSearchQuery();if(q)k957Highlight(full,q);
@@ -853,7 +868,82 @@ window.addEventListener('click',e=>{
  setTimeout(k952AdminPanel,120);
 },true);
 
-function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc()}}
+
+/* ---------- 0.9.7.2 — Relation history by perspective ---------- */
+const K972_PARENT_PERSPECTIVES=new Set(['amended_by','superseded_by','repealed_by','extended_by','clarified_by','implemented_by']);
+const K972_CHILD_PERSPECTIVES=new Set(['amends','supersedes','repeals','extends','clarifies','implements']);
+const k972RelationTypeFa=t=>({
+ amends:'اصلاح',amended_by:'اصلاح',supersedes:'جایگزینی',superseded_by:'جایگزینی',
+ repeals:'لغو',repealed_by:'لغو',extends:'الحاق / توسعه',extended_by:'الحاق / توسعه',
+ clarifies:'تبیین / استفسار',clarified_by:'تبیین / استفسار',
+ implements:'سند اجرایی',implemented_by:'سند اجرایی',related_to:'ارتباط'
+}[t]||t||'ارتباط');
+
+function k972ChangeLocation(item,rel){
+ const bits=[];
+ const article=item?.article||rel?.targetArticle||'';
+ const clause=item?.clause||rel?.targetClause||'';
+ if(article)bits.push(`ماده ${k961NormDigits(article)}`);
+ if(clause)bits.push(`بند/تبصره ${k961NormDigits(clause)}`);
+ return bits.join(' · ')||'محل تغییر ثبت نشده';
+}
+function k972ParentHistoryHtml(rels){
+ return `<div class="k972history-list">${rels.map(rel=>{
+   const rd=rel.relatedDocument||{},items=Array.isArray(rel.changeItems)&&rel.changeItems.length?rel.changeItems:[{}];
+   return `<article class="k972history-item">
+    <div class="k972history-head">
+      <button type="button" data-doc-preview="${k955Esc(rd.id||'')}">${rd.documentNumber?`مصوبه / سند ${k955Esc(k961NormDigits(rd.documentNumber))} — `:''}${k955Esc(rd.title||'سند مرتبط')}</button>
+      <span>${k955Esc(rel.changeType||k972RelationTypeFa(rel.perspectiveType))}</span>
+    </div>
+    <div class="k972history-changes">${items.map(item=>`
+      <div class="k972history-change">
+        <div><b>محل تغییر</b><span>${k955Esc(k972ChangeLocation(item,rel))}</span></div>
+        <div><b>نوع تغییر</b><span>${k955Esc(rel.changeType||k972RelationTypeFa(rel.perspectiveType))}</span></div>
+        <div class="k972history-desc"><b>شرح تغییر</b><span>${k955Esc(item?.description||rel.note||'—')}</span></div>
+        ${rel.effectiveFrom?`<div><b>تاریخ اثر</b><span>${k955Esc(k961NormDigits(rel.effectiveFrom))}</span></div>`:''}
+      </div>`).join('')}</div>
+   </article>`;
+ }).join('')}</div>`;
+}
+function k972ChildRefsHtml(rels){
+ return `<div class="k972parentrefs">${rels.map(rel=>{
+   const rd=rel.relatedDocument||{};
+   return `<button type="button" class="k972parentref" data-doc-preview="${k955Esc(rd.id||'')}">
+     <span>سند اصلی</span>
+     <b>${rd.documentNumber?`مصوبه / سند ${k955Esc(k961NormDigits(rd.documentNumber))} — `:''}${k955Esc(rd.title||'سند اصلی')}</b>
+   </button>`;
+ }).join('')}</div>`;
+}
+async function k972RenderRelationPerspective(modal,id){
+ if(!modal||!id)return;
+ const box=modal.querySelector('.k944relations');
+ if(!box||box.dataset.k972For===id)return;
+ box.dataset.k972For=id;
+ try{
+   const d=await api('/api/v1/knowledge/document-relations?documentId='+encodeURIComponent(id));
+   const rels=d.items||[];
+   const parent=rels.filter(x=>K972_PARENT_PERSPECTIVES.has(x.perspectiveType));
+   const child=rels.filter(x=>K972_CHILD_PERSPECTIVES.has(x.perspectiveType));
+   const content=box.querySelector('.k950relcontent')||box.querySelector('.k944rellist')?.parentElement;
+   if(!content)return;
+   if(parent.length){
+     content.innerHTML=k972ParentHistoryHtml(parent);
+     const hc=box.querySelector('.k944headcopy');
+     if(hc)hc.innerHTML='<small>خط سیر تغییرات سند مادر</small><b>اصلاحات و سوابق سند</b><span>جزئیات ماده، بند/تبصره، نوع و شرح تغییر از اطلاعات ثبت‌شده رابطه نمایش داده می‌شود.</span>';
+   }else if(child.length){
+     content.innerHTML=k972ChildRefsHtml(child);
+     const hc=box.querySelector('.k944headcopy');
+     if(hc)hc.innerHTML='<small>ارجاع سند اصلاحی</small><b>سند اصلی</b><span>این سند یک سند اصلاحی/الحاقی است؛ جزئیات تغییر در خود متن سند و در سابقه سند مادر قابل مشاهده است.</span>';
+   }
+   content.querySelectorAll('[data-doc-preview]').forEach(btn=>btn.addEventListener('click',e=>{
+     e.preventDefault();e.stopPropagation();
+     const docId=btn.dataset.docPreview;
+     if(docId&&window.__ORG_OPEN_DOCUMENT__)window.__ORG_OPEN_DOCUMENT__(docId,'');
+   }));
+ }catch(e){console.warn('RELATION_PERSPECTIVE_RENDER_ERROR',e)}
+}
+
+function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}
 new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});enhance();
 document.addEventListener('k958:document-preview',()=>setTimeout(()=>{try{k955RenderStructuredDoc()}catch{}},30));
 /* ---------- 0.9.7.0 — Persian digits in repository/workspace surfaces ---------- */
