@@ -1,5 +1,5 @@
 import { CognitiveService } from './service.js';
-import { hash, newId, now } from '../domain/contracts.js';
+import { assert, classifications, hash, newId, now, zones } from '../domain/contracts.js';
 import { validateFile } from '../processing/mime.js';
 import { parseArtifact } from '../processing/parser.js';
 
@@ -28,10 +28,28 @@ export class KnowledgeCognitiveService extends CognitiveService {
     };
   }
 
+  async _materializeIncomingFile(file){
+    const fileName=String(file?.fileName||'').trim();
+    const mimeType=String(file?.mimeType||'application/octet-stream');
+    assert(fileName,'FILE_NAME_REQUIRED','نام فایل الزامی است.');
+    if(file?.blobUrl){
+      const url=String(file.blobUrl);
+      let host='';
+      try{host=new URL(url).hostname}catch{}
+      assert(host.endsWith('.blob.vercel-storage.com'),'BLOB_URL_INVALID','مرجع Blob معتبر نیست.');
+      const buffer=await this.storage.get(url);
+      return {
+        fileName,mimeType,buffer,
+        directStorage:{provider:'vercel-blob',objectKey:String(file.blobPathname||''),url,downloadUrl:url,size:buffer.length,mimeType,directUpload:true}
+      };
+    }
+    assert(file?.contentBase64,'FILE_CONTENT_REQUIRED','محتوای فایل یا مرجع Blob الزامی است.');
+    return {fileName,mimeType,buffer:Buffer.from(file.contentBase64,'base64'),directStorage:null};
+  }
+
   async _storeFileForDocument(actor,doc,file,{role='attachment',sourceVersion=null,replacePrimary=false}={}){
-    const fileName=String(file?.fileName||'').trim(),mimeType=String(file?.mimeType||'application/octet-stream');
-    if(!fileName||!file?.contentBase64)throw new Error('نام و محتوای فایل الزامی است.');
-    const buffer=Buffer.from(file.contentBase64,'base64');
+    const incoming=await this._materializeIncomingFile(file);
+    const {fileName,mimeType,buffer}=incoming;
     validateFile(fileName,mimeType,buffer.length);
     const parsed=await parseArtifact({buffer,mimeType,fileName});
     if(!parsed.text)throw new Error('محتوای متنی قابل پردازش از فایل استخراج نشد.');
@@ -40,7 +58,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
     const artifactId=newId('ART'),normalizedId=newId('NORM');
     const safe=fileName.replace(/[^\w.\-\u0600-\u06FF]+/g,'_');
     const objectKey=`${actor.organizationId}/${doc.id}/v${ver}/${role}-${sha}-${safe}`;
-    const stored=await this.storage.put({objectKey,buffer,mimeType});
+    const stored=incoming.directStorage||await this.storage.put({objectKey,buffer,mimeType});
     const artifact={
       id:artifactId,organizationId:actor.organizationId,documentRef:doc.id,fileName,mimeType,
       size:buffer.length,checksum:sha,storage:stored,status:'committed',role,
@@ -119,6 +137,39 @@ export class KnowledgeCognitiveService extends CognitiveService {
         normalized:{id:stored.normalized.id,language:stored.normalized.language,structure:stored.normalized.structure,textPreview:stored.normalized.text.slice(0,500)},
         attachments:attachments.map(x=>({id:x.artifact.id,fileName:x.artifact.fileName,mimeType:x.artifact.mimeType}))
       };
+    }
+
+    // New primary document already uploaded by browser directly to private Blob.
+    if(input?.blobUrl&&!input?.contentBase64){
+      const classification=input.classification||'internal',zone=input.knowledgeZone||'private';
+      assert(zones.includes(zone),'DOC_ZONE_INVALID','ناحیه دانش نامعتبر است.');
+      assert(classifications.includes(classification),'DOC_CLASS_INVALID','طبقه‌بندی نامعتبر است.');
+      const doc={
+        id:newId('DOC'),organizationId:actor.organizationId,title:(input.title||input.fileName).trim(),
+        status:'registered',version:1,knowledgeZone:zone,classification,createdAt:now(),createdBy:actor.personId,
+        contentHash:null,artifactRef:null,normalizedRef:null,sourceFileName:input.fileName,exactDuplicateOf:null,
+        ...this._metadataPatch(input)
+      };
+      await this.repo.mutate(db=>{
+        db.documents=db.documents||[];db.documents.push(doc);
+        db.audit=db.audit||[];db.audit.push({id:newId('AUD'),organizationId:actor.organizationId,actorRef:actor.personId,action:'document.direct_upload.begin',objectRef:doc.id,objectVersion:1,occurredAt:now(),correlationId:actor.correlationId});
+      });
+      try{
+        const stored=await this._storeFileForDocument(actor,doc,{
+          fileName:input.fileName,mimeType:input.mimeType,blobUrl:input.blobUrl,blobPathname:input.blobPathname
+        },{role:'primary',sourceVersion:1,replacePrimary:true});
+        const attachments=await this._addAttachments(actor,{...doc,version:1},input.attachments||[]);
+        const db=await this.repo.all(),updated=(db.documents||[]).find(x=>x.id===doc.id)||doc;
+        return {
+          document:updated,
+          artifact:{id:stored.artifact.id,fileName:stored.artifact.fileName,mimeType:stored.artifact.mimeType,directUpload:true},
+          normalized:{id:stored.normalized.id,language:stored.normalized.language,structure:stored.normalized.structure,textPreview:stored.normalized.text.slice(0,500)},
+          attachments:attachments.map(x=>({id:x.artifact.id,fileName:x.artifact.fileName,mimeType:x.artifact.mimeType,directUpload:true}))
+        };
+      }catch(e){
+        await this.repo.mutate(db=>{const d=(db.documents||[]).find(x=>x.id===doc.id);if(d){d.status='upload_failed';d.uploadError=e?.message||String(e);d.updatedAt=now()}});
+        throw e;
+      }
     }
 
     const result=await super.uploadDocument(actor,input);
