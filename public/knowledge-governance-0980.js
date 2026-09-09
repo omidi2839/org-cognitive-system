@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.8.3';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.8.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -8,7 +8,7 @@ function currentUserName(){
  return m?m[1].trim():'کاربر واردشده';
 }
 const api=async(p,o={})=>{
- const r=await fetch(p,{...o,headers:{'content-type':'application/json','x-org-id':ORG,'x-role':'admin','x-person-name':currentUserName(),...(o.headers||{})}});
+ const r=await fetch(p,{...o,headers:{'content-type':'application/json','x-org-id':ORG,'x-role':'admin','x-person-name':encodeURIComponent(currentUserName()),...(o.headers||{})}});
  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا');return d
 };
 
@@ -23,7 +23,7 @@ let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).
 function shell(){
  let x=document.getElementById('knowledge076');
  if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
- x.innerHTML=`<div class="k76head"><div><small>محیط پژوهشی تحلیل اسناد · 0.9.8.3</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفهوم را مستقیماً از متن انتخاب می‌کند و یادداشت متنی یا صوتی خود را به همان شاهد متصل می‌کند.</p></div><button data-k983-close>×</button></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
+ x.innerHTML=`<div class="k76head"><div><small>محیط پژوهشی تحلیل اسناد · 0.9.8.4</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفهوم را مستقیماً از متن انتخاب می‌کند و یادداشت متنی یا صوتی خود را به همان شاهد متصل می‌کند.</p></div><button data-k983-close>×</button></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
  x.querySelector('[data-k983-close]').onclick=()=>x.remove();return x
 }
 async function openAnalysis(){

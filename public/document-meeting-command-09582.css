@@ -315,3 +315,6 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 .k961inline-change.k975replacement .k961inline-change-text p{
   color:#8a5a2d!important;
 }
+
+/* 0.9.8.4 */
+.k961inline-change.k984newarticle{margin-top:12px;padding-top:10px;border-top:1px dashed #9bc8ad}

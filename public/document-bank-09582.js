@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.3';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.4';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -185,6 +185,92 @@ async function k983LoadUnits(select,current){
   select.innerHTML='<option value="">انتخاب واحد سازمانی…</option>'+units.map(u=>`<option value="${esc(u.id)}"${String(u.id)===String(current||'')?' selected':''}>${esc(u.name)}</option>`).join('');
  }catch{select.innerHTML='<option value="">ساختار سازمانی در دسترس نیست</option>'}
 }
+
+const K984_REL_TYPES=[
+ ['amends','اصلاح می‌کند'],['extends','الحاق / توسعه می‌دهد'],['supersedes','جایگزین می‌کند'],
+ ['repeals','لغو می‌کند'],['clarifies','تبیین / استفسار می‌کند'],['implements','اجرا می‌کند'],['related_to','مرتبط است با']
+];
+function k984RelationLabel(v){return Object.fromEntries(K984_REL_TYPES)[v]||v||'ارتباط'}
+function k984RelationPerspectiveLabel(r){
+ const m={amended_by:'اصلاح‌شده توسط',extended_by:'الحاق‌شده توسط',superseded_by:'جایگزین‌شده توسط',repealed_by:'لغوشده توسط',clarified_by:'تبیین‌شده توسط',implemented_by:'دارای سند اجرایی'};
+ return m[r.perspectiveType]||k984RelationLabel(r.perspectiveType);
+}
+function k984RelationEditorMarkup(){
+ return `<section class="k983editcard k984relations"><header><div><b>ارتباط حقوقی سند</b><small>اصلاح، الحاق، جایگزینی، لغو و سایر روابط حقوقی سند</small></div><span>۰۴</span></header>
+  <div data-k984-rel-list class="k984rellist"><div class="k76loading">در حال دریافت روابط ثبت‌شده…</div></div>
+  <div class="k984relform" data-k984-rel-form>
+   <label>نوع ارتباط<select data-k984-type>${K984_REL_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
+   <label>سند مرتبط<select data-k984-doc><option value="">انتخاب سند مرتبط…</option></select></label>
+   <label>نوع تغییر<input data-k984-change-type placeholder="مثلاً الحاق ماده / اصلاح متن / جایگزینی"></label>
+   <label>ماده هدف<input data-k984-article placeholder="مثلاً ۲۷"></label>
+   <label>بند / تبصره<input data-k984-clause placeholder="مثلاً تبصره ۲"></label>
+   <label class="k984reldesc">شرح تغییر<textarea data-k984-desc rows="2" placeholder="شرح دقیق اثر حقوقی این سند"></textarea></label>
+   <label class="k984releffective">تاریخ اثر<input type="hidden" data-k984-effective></label>
+   <div class="k984relactions"><button type="button" data-k984-clear>پاک کردن</button><button type="button" data-k984-save>ثبت / به‌روزرسانی ارتباط</button></div>
+   <span data-k984-status></span>
+  </div>
+ </section>`;
+}
+async function k984InitRelationEditor(root,currentId){
+ const list=root.querySelector('[data-k984-rel-list]'),docSel=root.querySelector('[data-k984-doc]'),type=root.querySelector('[data-k984-type]'),
+       change=root.querySelector('[data-k984-change-type]'),article=root.querySelector('[data-k984-article]'),clause=root.querySelector('[data-k984-clause]'),
+       desc=root.querySelector('[data-k984-desc]'),effective=root.querySelector('[data-k984-effective]'),status=root.querySelector('[data-k984-status]');
+ if(window.__ORG_JALALI_ENHANCE__)window.__ORG_JALALI_ENHANCE__(effective,'تاریخ اثر');
+
+ const docsData=await api('/api/v1/knowledge/documents');
+ const docs=(docsData.items||[]).filter(d=>d.id!==currentId);
+ docSel.innerHTML='<option value="">انتخاب سند مرتبط…</option>'+docs.map(d=>`<option value="${esc(d.id)}">${d.documentNumber?`مصوبه/سند ${esc(d.documentNumber)} — `:''}${esc(d.title)}</option>`).join('');
+
+ const clear=()=>{type.value='amends';docSel.value='';change.value='';article.value='';clause.value='';desc.value='';effective.value='';status.textContent='';root.dataset.k984EditingRelation=''};
+ root.querySelector('[data-k984-clear]').onclick=clear;
+
+ async function load(){
+  const d=await api('/api/v1/knowledge/document-relations?documentId='+encodeURIComponent(currentId)),rels=d.items||[];
+  list.innerHTML=rels.length?rels.map(r=>`<article class="k984relitem" data-rel-id="${esc(r.id)}">
+   <div><b>${esc(k984RelationPerspectiveLabel(r))}</b><span>${esc(r.relatedDocument?.documentNumber?`مصوبه/سند ${r.relatedDocument.documentNumber} — ${r.relatedDocument.title}`:(r.relatedDocument?.title||'سند مرتبط'))}</span>
+   <small>${r.targetArticle?`ماده ${esc(r.targetArticle)}`:''}${r.targetClause?` · ${esc(r.targetClause)}`:''}${r.changeType?` · ${esc(r.changeType)}`:''}</small></div>
+   <div class="k984relitemactions"><button type="button" data-edit-rel="${esc(r.id)}">ویرایش</button><button type="button" data-del-rel="${esc(r.id)}">حذف</button></div>
+  </article>`).join(''):'<div class="k983editnote">هنوز ارتباط حقوقی برای این سند ثبت نشده است.</div>';
+
+  list.querySelectorAll('[data-edit-rel]').forEach(b=>b.onclick=()=>{
+   const r=rels.find(x=>x.id===b.dataset.editRel);if(!r)return;
+   const inv={amended_by:'amends',extended_by:'extends',superseded_by:'supersedes',repealed_by:'repeals',clarified_by:'clarifies',implemented_by:'implements'};
+   // If current document is the target, editing from this perspective uses inverse type.
+   type.value=inv[r.perspectiveType]||r.perspectiveType||'related_to';
+   docSel.value=r.relatedDocument?.id||'';
+   change.value=r.changeType||'';
+   article.value=r.changeItems?.[0]?.article||r.targetArticle||'';
+   clause.value=r.changeItems?.[0]?.clause||r.targetClause||'';
+   desc.value=r.changeItems?.[0]?.description||r.note||'';
+   effective.value=r.effectiveFrom||'';
+   root.dataset.k984EditingRelation=r.id;
+   status.textContent='اطلاعات رابطه برای ویرایش در فرم قرار گرفت.';
+  });
+  list.querySelectorAll('[data-del-rel]').forEach(b=>b.onclick=async()=>{
+   if(!confirm('این ارتباط حقوقی حذف شود؟'))return;
+   try{await api('/api/v1/knowledge/document-relations',{method:'DELETE',body:JSON.stringify({relationId:b.dataset.delRel})});status.textContent='ارتباط حذف شد.';await load()}catch(e){status.textContent=e.message}
+  });
+ }
+ root.querySelector('[data-k984-save]').onclick=async()=>{
+  if(!docSel.value){status.textContent='انتخاب سند مرتبط الزامی است.';return}
+  status.textContent='در حال ثبت ارتباط حقوقی…';
+  try{
+   // POST endpoint is an upsert for same canonical relation. If relation type/doc changes while editing,
+   // delete the old relation first so the edit does not leave a duplicate historical edge.
+   const editing=root.dataset.k984EditingRelation||'';
+   if(editing){
+     try{await api('/api/v1/knowledge/document-relations',{method:'DELETE',body:JSON.stringify({relationId:editing})})}catch{}
+   }
+   await api('/api/v1/knowledge/document-relations',{method:'POST',body:JSON.stringify({
+    documentId:currentId,relatedDocumentId:docSel.value,relationType:type.value,changeType:change.value,
+    changeItems:[{article:article.value,clause:clause.value,description:desc.value}],
+    targetArticle:article.value,targetClause:clause.value,note:desc.value,effectiveFrom:effective.value
+   })});
+   status.textContent='✓ ارتباط حقوقی ذخیره شد.';clear();await load();
+  }catch(e){status.textContent=e.message}
+ };
+ await load();
+}
 async function k982OpenEdit(documentId){
  let existing=document.getElementById('k982editmodal');if(existing)existing.remove();
  const w=document.createElement('div');w.id='k982editmodal';w.className='k91modalbackdrop k982editbackdrop';
@@ -233,6 +319,8 @@ async function k982OpenEdit(documentId){
      <label>زیرموضوع سند<input name="subjectArea" required value="${k983Val(d.subjectArea)}" placeholder="مثلاً حقوق و دستمزد و مزایا"></label>
     </div><small class="k983editnote">در ویرایش، فایل اصلی سند تغییر نمی‌کند؛ این فرم شناسنامه و طبقه‌بندی ثبت‌شده را اصلاح می‌کند.</small></section>
 
+    ${k984RelationEditorMarkup()}
+
     <div class="k983editactions"><button type="button" data-cancel>انصراف</button><button class="k76primary" type="submit">ذخیره تغییرات سند</button></div>
     <span data-status class="k983editstatus"></span>
    </form>
@@ -241,6 +329,7 @@ async function k982OpenEdit(documentId){
   k983BindEditDates(w);
   const unitSel=w.querySelector('[data-k983-unit]'),unitWrap=w.querySelector('[data-k983-unit-wrap]'),scope=w.querySelector('[data-k983-scope]');
   await k983LoadUnits(unitSel,d.organizationalUnitRef);
+  await k984InitRelationEditor(w,documentId);
   const syncScope=()=>{const show=scope.value==='unit';unitWrap.hidden=!show;if(!show)unitSel.value=''};
   scope.onchange=syncScope;syncScope();
 

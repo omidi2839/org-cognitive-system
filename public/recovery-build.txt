@@ -1,10 +1,10 @@
-ORG Cognitive System Research Analysis Release
-Version: 0.9.8.3
+ORG Cognitive System Focused Stabilization Release
+Version: 0.9.8.4
 Deployment-safe; no new top-level API function.
-- registration-style document edit form with Jalali calendars
-- stronger legal amendment body extraction
-- research-style expert analysis workspace
-- select text directly from upstream document and attach annotations
-- logged-in expert identity inferred by system; fixed expert workgroup
-- text or audio expert notes (test limit 1.5 MB)
-- 0.9.7.5 article/proviso/clause append/replace semantics retained
+Fixes:
+- expert-analysis Unicode HTTP-header failure
+- logged-in expert name is percent-encoded client-side and decoded server-side
+- legal relation management added to document edit form
+- existing legal relations can be reviewed, edited and deleted
+- a new article whose number is after the current last article is appended to the consolidated mother document
+- 0.9.7.5/0.9.8.3 amendment extraction and article/proviso/clause semantics retained

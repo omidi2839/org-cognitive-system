@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.3';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -763,7 +763,21 @@ function k975ArticleRange(full,article){
 }
 function k975ApplyNode(full,article,node,mode){
  const range=k975ArticleRange(full,article);
- if(!range)return false;
+ if(!range){
+   // A legal amendment may create a brand-new article (e.g. Article 27 after an original 26-article act).
+   // In that case there is no target node to insert before. Append only when the requested article
+   // is numerically after the current last article, so a typo targeting an old missing article is not hidden.
+   const target=Number(k962ArticleTargetNumber(article)||0);
+   const nums=[...full.children].map(k970ArticleNumberFromBlock).filter(Boolean).map(x=>Number(x)).filter(Number.isFinite);
+   const max=nums.length?Math.max(...nums):0;
+   if(mode==='append'&&target>0&&target>max){
+     full.appendChild(node);
+     node.classList.add('k975addition','k984newarticle');
+     node.dataset.newArticle=String(target);
+     return true;
+   }
+   return false;
+ }
  if(mode==='replace'){
    // Effective view: remove the old article and all of its dependent provisos/clauses,
    // then put the amended legal text at exactly the same location.
