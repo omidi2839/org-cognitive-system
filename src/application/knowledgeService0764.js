@@ -6,6 +6,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
     const patch={
       documentClass:m.documentClass||'unclassified',
       documentType:m.documentType||'سایر',
+      documentNumber:m.documentNumber||null,
       issuer:m.issuer||null,
       versionLabel:m.versionLabel||null,
       issuedAt:m.issuedAt||null,
@@ -19,6 +20,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
       scopeType:m.scopeType||null,
       organizationalUnitRef:m.organizationalUnitRef||null,
       organizationalUnitName:m.organizationalUnitName||null,
+      subjectCategory:m.subjectCategory||null,
       subjectArea:m.subjectArea||null
     };
     await this.repo.mutate(db=>{
@@ -40,14 +42,14 @@ export class KnowledgeCognitiveService extends CognitiveService {
     const items=docs.slice().sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||''))).map(d=>{
       const dc=candidates.filter(c=>c.documentRef===d.id);
       return {
-        id:d.id,title:d.title,documentClass:d.documentClass||'unclassified',documentType:d.documentType||null,
+        id:d.id,title:d.title,documentClass:d.documentClass||'unclassified',documentType:d.documentType||null,documentNumber:d.documentNumber||null,
         status:d.status,version:d.version,versionLabel:d.versionLabel||null,issuer:d.issuer||null,
         issuedAt:d.issuedAt||null,promulgationDate:d.promulgationDate||null,
         meetingType:d.meetingType||null,meetingNumber:d.meetingNumber||null,meetingDate:d.meetingDate||null,
         validUntil:d.validUntil||null,validityStatus:d.validityStatus||'unknown',
         classification:d.classification,organizationalLevel:d.organizationalLevel||null,
         organizationalUnitRef:d.organizationalUnitRef||null,organizationalUnitName:d.organizationalUnitName||null,
-        subjectArea:d.subjectArea||null,sourceFileName:d.sourceFileName||null,createdAt:d.createdAt,
+        subjectCategory:d.subjectCategory||null,subjectArea:d.subjectArea||null,sourceFileName:d.sourceFileName||null,createdAt:d.createdAt,
         candidates:{total:dc.length,pending:dc.filter(x=>x.status==='ready_for_review').length,accepted:dc.filter(x=>['accepted','corrected'].includes(x.status)).length}
       }
     });
