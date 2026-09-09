@@ -18,7 +18,7 @@ const actorOf=req=>{
     organizationId:String(h['x-org-id']||ORG),
     role,
     personRef:String(h['x-person-id']||h['x-user-id']||'current-user'),
-    name:String(h['x-person-name']||'کاربر فعلی'),
+    name:(()=>{try{return decodeURIComponent(String(h['x-person-name']||'کاربر فعلی'))}catch{return String(h['x-person-name']||'کاربر فعلی')}})(),
     canEdit:String(h['x-document-edit-permission']||'').toLowerCase()==='true'||
       ['admin','administrator','document_editor','knowledge_admin'].includes(role)
   };
