@@ -58,7 +58,14 @@ async function handleGovernance(req,res,repo,actor,u){
     if(!id) return send(res,200,{permissions:{documentEdit:actor.canEdit,role:actor.role}});
     const d=(db.documents||[]).find(x=>x.id===id&&x.organizationId===actor.organizationId);
     if(!d) return send(res,404,{message:'سند پیدا نشد'});
-    return send(res,200,{document:d,permissions:{documentEdit:actor.canEdit,role:actor.role}});
+    const artifacts=(db.artifacts||[]).filter(x=>x.documentRef===d.id&&x.organizationId===actor.organizationId);
+    const currentPrimary=artifacts.find(x=>x.id===d.artifactRef)||artifacts.filter(x=>x.role!=='attachment'&&x.status==='committed').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0]||null;
+    const attachments=artifacts.filter(x=>x.role==='attachment'&&x.status==='committed').map(x=>({id:x.id,fileName:x.fileName,mimeType:x.mimeType,size:x.size||0,createdAt:x.createdAt||null}));
+    return send(res,200,{
+      document:d,
+      files:{primary:currentPrimary?{id:currentPrimary.id,fileName:currentPrimary.fileName,mimeType:currentPrimary.mimeType,size:currentPrimary.size||0}:null,attachments},
+      permissions:{documentEdit:actor.canEdit,role:actor.role}
+    });
   }
 
   if(req.method!=='PATCH') return send(res,405,{message:'Method not allowed'});

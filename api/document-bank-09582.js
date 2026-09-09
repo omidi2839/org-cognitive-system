@@ -26,12 +26,24 @@ export default async function handler(req,res){
   const db=await repo.all();
   const org=String(req.headers['x-org-id']||'ORG:SYN-001');
   const docMap=new Map((db.documents||[]).filter(x=>x.organizationId===org).map(x=>[x.id,x]));
+  const norms=(db.normalizedDocuments||[]).filter(x=>x.organizationId===org&&x.role!=='attachment'&&x.status!=='superseded');
+  const artifacts=(db.artifacts||[]).filter(x=>x.organizationId===org);
+  const primaryText=id=>{
+    const doc=docMap.get(id)||{};
+    return norms.find(x=>x.id===doc.normalizedRef)?.text||
+      norms.filter(x=>(x.documentRef||x.documentId)===id).sort((a,b)=>(b.sourceVersion||1)-(a.sourceVersion||1))[0]?.text||'';
+  };
+  const attachmentList=id=>artifacts.filter(x=>x.documentRef===id&&x.role==='attachment'&&x.status==='committed').map(x=>({id:x.id,fileName:x.fileName,mimeType:x.mimeType,size:x.size||0,createdAt:x.createdAt||null}));
 
   const enrich=item=>{
     const d=docMap.get(item.id)||{};
     const relationCount=Number(item.relationSummary?.total||0);
+    const atts=attachmentList(item.id);
     return {
       ...item,
+      ...(item.fullText!==undefined?{fullText:String(primaryText(item.id)||item.fullText||'')}:{}),
+      attachments:atts,
+      attachmentCount:atts.length,
       promulgationDate:d.promulgationDate||null,
       meetingType:d.meetingType||null,
       meetingNumber:d.meetingNumber||null,
