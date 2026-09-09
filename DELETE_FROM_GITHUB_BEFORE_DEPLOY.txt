@@ -13,3 +13,10 @@ Vercel هر فایل سطح بالای api/*.js را به عنوان Function ج
 پس از حذف، فایل‌های همین ZIP را روی repository جایگزین/آپلود کنید و فقط یک Deploy انجام دهید.
 
 این حذف هیچ ارتباطی با PostgreSQL یا داده‌های اسناد ندارد.
+
+
+0.9.8.1 DEPLOYMENT-SAFE:
+اگر فایل‌های نسخه 0.9.8.0 را قبلاً روی GitHub قرار داده‌اید، این دو فایل را نیز حذف کنید:
+api/document-governance.js
+api/collaborative-analysis.js
+این دو قابلیت اکنون داخل api/knowledge-documents.js ادغام شده‌اند.

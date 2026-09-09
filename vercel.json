@@ -39,11 +39,11 @@
     },
     {
       "source": "/api/v1/knowledge/document-governance",
-      "destination": "/api/document-governance.js"
+      "destination": "/api/knowledge-documents.js"
     },
     {
       "source": "/api/v1/knowledge/collaborative-analysis",
-      "destination": "/api/collaborative-analysis.js"
+      "destination": "/api/knowledge-documents.js"
     },
     {
       "source": "/api/(.*)",
