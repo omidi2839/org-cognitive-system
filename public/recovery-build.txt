@@ -1,5 +1,5 @@
 ORG Cognitive System Direct Object Storage Upload Release
-Version: 0.9.8.6
+Version: 0.9.8.7
 Deployment-safe: no new top-level API function.
 Architecture:
 browser -> short-lived signed PUT URL -> private Vercel Blob
