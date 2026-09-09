@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.3';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -589,26 +589,70 @@ function k975FindDirective(body,item,rel){
  return scoreBest>0?best:-1;
 }
 
-function k982StripAmendmentAdminPrefix(text){
- let t=k975Norm(text);
- // Administrative wrappers can be stored on the same line as the substantive text.
- t=t.replace(/^\s*متن\s+مصوبه\s*[:：\-–—]*\s*/,'');
- t=t.replace(/^\s*ماده\s+واحده\s*[:：\-–—]*\s*/,'');
- t=t.replace(/^\s*متن\s+الحاقیه\s*[:：\-–—]*\s*/,'');
- t=t.replace(/^\s*متن\s+اصلاحیه\s*[:：\-–—]*\s*/,'');
+
+function k983CanonAdmin(text){
+ let t=k975Norm(text)
+  .replace(/م\s*ص\s*و\s*ب\s*ه/g,'مصوبه')
+  .replace(/ا\s*ص\s*ل\s*ا\s*ح\s*ی\s*ه/g,'اصلاحیه')
+  .replace(/ا\s*ل\s*ح\s*ا\s*ق\s*ی\s*ه/g,'الحاقیه')
+  .replace(/م\s*ا\s*د\s*ه\s+و\s*ا\s*ح\s*د\s*ه/g,'ماده واحده');
  return k975Norm(t);
 }
+function k983IsAdminHeading(text){
+ const t=k983CanonAdmin(text);
+ return /^(?:متن\s+(?:مصوبه|اصلاحیه|الحاقیه)|ماده\s+واحده|عنوان|موضوع)\s*[:：\-–—]*\s*$/.test(t) ||
+        /^(?:در\s+خصوص|در\s+مورد|موضوع\s*:|عنوان\s*:)\s+.{0,120}$/.test(t);
+}
+function k982StripAmendmentAdminPrefix(text){
+ let t=k983CanonAdmin(text);
+ t=t.replace(/^\s*متن\s+(?:مصوبه|الحاقیه|اصلاحیه)\s*[:：\-–—]*\s*/,'');
+ // Preserve substantive text if it is on the same line after "ماده واحده:".
+ t=t.replace(/^\s*ماده\s+واحده\s*[:：\-–—]+\s*/,'');
+ return k975Norm(t);
+}
+function k983SingleArticleTail(text){
+ const t=k983CanonAdmin(text);
+ const m=t.match(/^\s*ماده\s+واحده\s*[:：\-–—]+\s*(.+)$/);
+ return m?k975Norm(m[1]):'';
+}
+function k983SubstantiveScore(t,targetArticle=''){
+ const x=k983CanonAdmin(t);let score=0;
+ if(!x||k983IsAdminHeading(x)||k975IsIntro(x))return-100;
+ if(k975LegalMarker(x)?.kind==='article')score+=18;
+ if(k975LegalMarker(x)?.kind==='note'||k975LegalMarker(x)?.kind==='clause'||k975LegalMarker(x)?.kind==='part')score+=12;
+ if(targetArticle&&new RegExp(`ماده\\s*${targetArticle}(?![۰-۹٠-٩0-9])`).test(k975En(x)))score+=10;
+ if(/(?:الحاق|اضافه|اصلاح|جایگزین).*(?:می\s*شود|می\s*گردد|گردد|شود)/.test(x))score+=5;
+ if(/[؛:.]/.test(x)&&x.length>35)score+=3;
+ if(x.length>25)score+=2;
+ return score;
+}
+
 
 function k975ExtractAmendmentRange(lines,item,rel){
- const body=k975BodyLines(lines);
- if(!body.length)return{lines:[],mode:'append'};
+ const raw=(lines||[]).map(k983CanonAdmin).filter(Boolean);
  const targetArticle=k962ArticleTargetNumber(item?.article||rel?.targetArticle||'');
  const changeType=k975Norm(rel?.changeType||'');
  const description=k975Norm(item?.description||rel?.note||'');
  const replacement=/(جایگزین|جایگزینی|اصلاح\s*متن|تغییر\s*متن|متن\s*جدید|به\s*شرح\s*زیر\s*اصلاح)/.test(changeType+' '+description);
+ if(!raw.length)return{lines:[],mode:replacement?'replace':'append'};
 
- // 1) Best case: amendment document contains a concrete article heading.
+ // Start after a normalized "متن مصوبه / اصلاحیه / الحاقیه" heading when available.
+ let bodyStart=0;
+ const textHeading=raw.findIndex(x=>/^\s*متن\s+(?:مصوبه|اصلاحیه|الحاقیه)\s*[:：\-–—]*\s*$/.test(x));
+ if(textHeading>=0)bodyStart=textHeading+1;
+
+ // If "ماده واحده: substantive text" is on one line, keep its tail as a candidate.
+ let inlineTail='',singleIndex=-1;
+ for(let i=bodyStart;i<raw.length;i++){
+   const tail=k983SingleArticleTail(raw[i]);
+   if(tail){inlineTail=tail;singleIndex=i;break}
+   if(k975LegalMarker(raw[i])?.kind==='single'){singleIndex=i;break}
+ }
+
+ const body=raw.slice(bodyStart);
  let start=-1;
+
+ // A concrete target article heading is strongest.
  if(targetArticle){
    for(let i=0;i<body.length;i++){
      const m=k975LegalMarker(body[i]);
@@ -616,46 +660,73 @@ function k975ExtractAmendmentRange(lines,item,rel){
    }
  }
 
- // 2) Typical "ماده واحده ... به شرح ذیل" document: use first substantive provision after directive.
+ // Next prefer the legal operation referring to the target article, then move to its substantive payload.
  if(start<0){
-   const dir=k975FindDirective(body,item,rel);
-   if(dir>=0){
-     for(let i=dir+1;i<body.length;i++){
-       if(k975IsIntro(body[i]))continue;
-       if(k961IsDirectiveLine(body[i]))continue;
+   let directive=-1,best=-999;
+   for(let i=0;i<body.length;i++){
+     const x=body[i];
+     let s=k983SubstantiveScore(x,targetArticle);
+     if(k961IsDirectiveLine(x))s+=12;
+     if(targetArticle&&new RegExp(`ماده\\s*${targetArticle}(?![0-9])`).test(k975En(x)))s+=12;
+     if(s>best){best=s;directive=i}
+   }
+   if(directive>=0&&best>4){
+     // If the directive itself is an article/clause text, keep it. Otherwise begin at next true payload line.
+     const dm=k975LegalMarker(body[directive]);
+     if(dm&&dm.kind!=='single')start=directive;
+     else{
+       for(let i=directive+1;i<body.length;i++){
+         if(k983IsAdminHeading(body[i])||k975IsIntro(body[i])||k961IsDirectiveLine(body[i]))continue;
+         if(k975IsRole(body[i])||k975IsProbableSigner(body,i))break;
+         start=i;break;
+       }
+     }
+   }
+ }
+
+ // Single-article fallback. A same-line tail is substantive and must not be lost.
+ if(start<0&&singleIndex>=0){
+   const local=singleIndex-bodyStart;
+   if(inlineTail){
+     body.splice(local,1,inlineTail);
+     start=local;
+   }else{
+     for(let i=local+1;i<body.length;i++){
+       if(k983IsAdminHeading(body[i])||k975IsIntro(body[i])||k961IsDirectiveLine(body[i]))continue;
        if(k975IsRole(body[i])||k975IsProbableSigner(body,i))break;
        start=i;break;
      }
    }
  }
 
- // 3) Fallback to first legal content after "ماده واحده".
+ // Last safe fallback: first substantive line after body heading, never preamble/title.
  if(start<0){
-   const single=body.findIndex(x=>k975LegalMarker(x)?.kind==='single');
-   if(single>=0&&single+1<body.length)start=single+1;
+   for(let i=0;i<body.length;i++){
+     if(k983IsAdminHeading(body[i])||k975IsIntro(body[i])||k961IsDirectiveLine(body[i]))continue;
+     if(k975IsRole(body[i])||k975IsProbableSigner(body,i))break;
+     if(k983SubstantiveScore(body[i],targetArticle)>0){start=i;break}
+   }
  }
  if(start<0)return{lines:[],mode:replacement?'replace':'append'};
 
  const picked=[];
- const firstMarker=k975LegalMarker(body[start]);
  for(let i=start;i<body.length;i++){
-   const t=body[i];
-   if(k975IsRole(t)||k975IsProbableSigner(body,i))break;
-   if(k975IsIntro(t))continue;
-   if(/^[۰-۹٠-٩0-9\s\/.\-]{1,24}$/.test(t))continue;
+   let text=body[i];
+   if(k975IsRole(text)||k975IsProbableSigner(body,i))break;
+   if(k983IsAdminHeading(text)||k975IsIntro(text))continue;
+   if(/^[۰-۹٠-٩0-9\s\/.\-]{1,24}$/.test(text))continue;
 
-   const marker=k975LegalMarker(t);
-   if(i>start&&marker?.kind==='article'){
-     // Children of the target article (تبصره/بند/جزء) stay in range; next article ends it.
-     break;
-   }
-   // Do not copy a second administrative directive after the substantive text starts.
-   if(i>start&&picked.length&&k961IsDirectiveLine(t))break;
-   picked.push(t);
+   const marker=k975LegalMarker(text);
+   if(i>start&&marker?.kind==='article')break;
+   if(i>start&&picked.length&&k961IsDirectiveLine(text))break;
+
+   text=k982StripAmendmentAdminPrefix(text);
+   if(!text||k983IsAdminHeading(text))continue;
+   picked.push(text);
  }
- const cleaned=picked.map(k982StripAmendmentAdminPrefix).filter(t=>t&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!/^ماده\s+واحده\s*[:：]?$/.test(t));
- return{lines:cleaned,mode:replacement?'replace':'append'};
+ return{lines:picked,mode:replacement?'replace':'append'};
 }
+
 function k961PickExactAmendmentLines(lines,item,rel){
  return k975ExtractAmendmentRange(lines,item,rel).lines;
 }
@@ -714,7 +785,7 @@ function k975ApplyNode(full,article,node,mode){
 function k961InlineText(rel,item,lines){
  const sourceId=rel.relatedDocument?.id||'';
  const sourceTitle=rel.relatedDocument?.title||'سند اصلاحی';
- lines=(lines||[]).map(k982StripAmendmentAdminPrefix).filter((t,i,a)=>t&&!k975IsIntro(t)&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!/^ماده\s+واحده\s*[:：]?$/.test(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
+ lines=(lines||[]).map(k982StripAmendmentAdminPrefix).filter((t,i,a)=>t&&!k983IsAdminHeading(t)&&!k975IsIntro(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
  const wrap=document.createElement('div');
  wrap.className='k961inline-change';
  wrap.dataset.relationId=rel.id||'';

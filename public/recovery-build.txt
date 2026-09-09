@@ -1,10 +1,10 @@
-ORG Cognitive System Focused UX/Analysis Fix Release
-Version: 0.9.8.2
-Base: 0.9.8.1 deployment-safe + 0.9.7.5 legal consolidation retained.
-Fixes:
-- edit button moved from document modal to bank list row, permission-aware
-- compact repository counters without card wrapping
-- amendment admin wrappers such as 'متن مصوبه: ماده واحده:' stripped
-- analysis takeover now runs at window capture phase
-- legacy analysis panel is replaced defensively
-- collaborative multi-stage upstream-only analysis remains active
+ORG Cognitive System Research Analysis Release
+Version: 0.9.8.3
+Deployment-safe; no new top-level API function.
+- registration-style document edit form with Jalali calendars
+- stronger legal amendment body extraction
+- research-style expert analysis workspace
+- select text directly from upstream document and attach annotations
+- logged-in expert identity inferred by system; fixed expert workgroup
+- text or audio expert notes (test limit 1.5 MB)
+- 0.9.7.5 article/proviso/clause append/replace semantics retained

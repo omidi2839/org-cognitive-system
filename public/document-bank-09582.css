@@ -189,3 +189,6 @@
 .k91dates.k958dates{align-content:start}
 .k91dates.k958dates>span{min-width:0}
 .k91dates.k958dates>span b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 0.9.8.3 */
+.k982editbackdrop{align-items:center;justify-content:center;padding:22px}

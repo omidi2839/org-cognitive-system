@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.2';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.3';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -150,36 +150,117 @@ async function k982LoadEditPermission(){
   k982CanEditDocuments=!!g.permissions?.documentEdit;
  }catch{k982CanEditDocuments=false}
 }
+
+const K983_PRIMARY_TOPICS=[
+ 'راهبرد و برنامه‌ریزی','منابع انسانی','مالی و بودجه','فناوری و زیرساخت','آموزش','پژوهش و نوآوری',
+ 'فروش و بازاریابی','مشتریان و ذی‌نفعان','عملیات و فرآیندها','حقوقی و مقررات','ساختار و حاکمیت سازمانی',
+ 'نظارت، ارزیابی و عملکرد','ریسک، ایمنی و امنیت','ارتباطات و رسانه','تدارکات، خرید و زنجیره تأمین',
+ 'دارایی‌ها، اموال و پشتیبانی','محصول و خدمت','کیفیت و بهبود','پروژه‌ها و برنامه‌های اجرایی',
+ 'امور فرهنگی و اجتماعی','امور تخصصی حوزه فعالیت سازمان','امور بین‌الملل'
+];
+const K983_MEETING_TYPES=['شورای سیاست‌گذاری','شورای مدیریتی','شورای تخصصی','کمیسیون','کمیته','کارگروه','جلسه کارشناسی','جلسه هماهنگی','جلسه رسمی عمومی'];
+const K983_UP_TYPES=['مأموریت','چشم‌انداز','اهداف کلان','سیاست','راهبرد','چارچوب','ضوابط','قانون/الزام بیرونی'];
+const K983_GENERAL_TYPES=['آیین‌نامه','دستورالعمل','بخشنامه','گزارش','صورتجلسه','نامه رسمی','سایر'];
+
+function k983Opt(values,current,blank='انتخاب کنید…'){
+ return `<option value="">${blank}</option>`+values.map(v=>`<option value="${esc(v)}"${String(v)===String(current||'')?' selected':''}>${esc(v)}</option>`).join('');
+}
+function k983Val(v){return esc(v==null?'':String(v))}
+function k983DateField(name,label,value){
+ return `<label class="k983datefield">${label}<input type="hidden" name="${name}" value="${k983Val(value)}" data-k983-date></label>`;
+}
+function k983BindEditDates(root){
+ root.querySelectorAll('[data-k983-date]').forEach(inp=>{
+  if(typeof window.__ORG_JALALI_ENHANCE__==='function'){
+    window.__ORG_JALALI_ENHANCE__(inp,inp.closest('label')?.childNodes?.[0]?.textContent?.trim()||'تاریخ');
+  }else{
+    inp.type='date';inp.style.display='';
+  }
+ });
+}
+async function k983LoadUnits(select,current){
+ if(!select)return;
+ try{
+  const r=await api('/api/v1/organization/units'),units=r.units||[];
+  select.innerHTML='<option value="">انتخاب واحد سازمانی…</option>'+units.map(u=>`<option value="${esc(u.id)}"${String(u.id)===String(current||'')?' selected':''}>${esc(u.name)}</option>`).join('');
+ }catch{select.innerHTML='<option value="">ساختار سازمانی در دسترس نیست</option>'}
+}
 async function k982OpenEdit(documentId){
- let existing=document.getElementById('k982editmodal'); if(existing)existing.remove();
+ let existing=document.getElementById('k982editmodal');if(existing)existing.remove();
  const w=document.createElement('div');w.id='k982editmodal';w.className='k91modalbackdrop k982editbackdrop';
- w.innerHTML='<div class="k982editdialog"><div class="k76loading">در حال دریافت اطلاعات سند…</div></div>';
+ w.innerHTML='<div class="k983editdialog"><div class="k76loading">در حال آماده‌سازی فرم سند…</div></div>';
  w.onclick=e=>{if(e.target===w)w.remove()};document.body.appendChild(w);
  try{
   const g=await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId));
   if(!g.permissions?.documentEdit)throw Error('شما مجوز ویرایش سند را ندارید.');
-  const d=g.document||{};
-  const fields=[
-   ['title','عنوان سند'],['documentNumber','شماره مصوبه / تصمیم / سند'],['documentType','نوع سند'],
-   ['issuer','مرجع صادرکننده'],['meetingType','نوع جلسه'],['meetingNumber','شماره جلسه'],
-   ['issuedAt','تاریخ تصویب/صدور'],['promulgationDate','تاریخ ابلاغ'],
-   ['subjectCategory','موضوع کلان'],['subjectArea','زیرموضوع'],['validityStatus','وضعیت اعتبار']
-  ];
-  w.innerHTML=`<div class="k982editdialog"><div class="k982edithead"><div><b>ویرایش سند</b><small>${esc(d.title||'')}</small></div><button type="button" data-close>×</button></div>
-   <div class="k982editaudit">ویرایش فقط برای سطح دسترسی مجاز فعال است و تغییرات در سابقه ممیزی ثبت می‌شوند.</div>
-   <form id="k982editform">${fields.map(([k,l])=>`<label>${l}<input name="${k}" value="${esc(d?.[k]||'')}"></label>`).join('')}
-   <div class="k982editactions"><button type="button" data-cancel>انصراف</button><button class="k76primary" type="submit">ذخیره تغییرات</button></div><span data-status></span></form></div>`;
+  const d=g.document||{},up=d.documentClass==='upstream',types=up?K983_UP_TYPES:K983_GENERAL_TYPES;
+  w.innerHTML=`<div class="k983editdialog">
+   <div class="k983edithead"><div><small>همان شناسنامه ثبت سند</small><b>ویرایش سند</b><span>${up?'سند بالادستی':'سند عمومی'} · تغییرات در ممیزی ثبت می‌شود</span></div><button type="button" data-close>×</button></div>
+   <form id="k983editform">
+    <section class="k983editcard"><header><b>مشخصات پایه سند</b><span>۰۱</span></header><div class="k983editgrid">
+     <label>عنوان سند<input name="title" required value="${k983Val(d.title)}"></label>
+     <label>نوع سند<select name="documentType">${k983Opt(types,d.documentType)}</select></label>
+     <label>مرجع صادرکننده<input name="issuer" value="${k983Val(d.issuer)}"></label>
+     <label>نسخه<input name="versionLabel" value="${k983Val(d.versionLabel)}"></label>
+     ${k983DateField('issuedAt','تاریخ صدور',d.issuedAt)}
+     ${k983DateField('validUntil','تاریخ پایان / قطع اعتبار',d.validUntil)}
+     <label>وضعیت اعتبار<select name="validityStatus">
+      <option value="active"${d.validityStatus==='active'?' selected':''}>معتبر</option>
+      <option value="draft"${d.validityStatus==='draft'?' selected':''}>پیش‌نویس</option>
+      <option value="expired"${d.validityStatus==='expired'?' selected':''}>منقضی</option>
+      <option value="unknown"${d.validityStatus==='unknown'?' selected':''}>نیازمند احراز</option>
+     </select></label>
+     <label>طبقه‌بندی<select name="classification">
+      ${['public','internal','confidential','secret'].map(v=>`<option value="${v}"${d.classification===v?' selected':''}>${({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]}</option>`).join('')}
+     </select></label>
+     <label>دامنه سازمانی<select name="scopeType" data-k983-scope>
+      <option value="organization"${(d.scopeType==='organization'||!d.scopeType)?' selected':''}>کل سازمان</option>
+      <option value="unit"${d.scopeType==='unit'?' selected':''}>واحد سازمانی</option>
+     </select></label>
+     <label data-k983-unit-wrap${d.scopeType==='unit'?'':' hidden'}>واحد سازمانی<select name="organizationalUnitRef" data-k983-unit><option value="">در حال دریافت…</option></select></label>
+    </div></section>
+
+    <section class="k983editcard"><header><b>جلسه، شماره و ابلاغ</b><span>۰۲</span></header><div class="k983editgrid">
+     <label>نوع جلسه<select name="meetingType">${k983Opt(K983_MEETING_TYPES,d.meetingType,'بدون جلسه')}</select></label>
+     <label>شماره جلسه<input name="meetingNumber" value="${k983Val(d.meetingNumber)}"></label>
+     <label>شماره مصوبه / تصمیم / سند<input name="documentNumber" value="${k983Val(d.documentNumber)}"></label>
+     ${k983DateField('meetingDate','تاریخ برگزاری جلسه',d.meetingDate)}
+     ${k983DateField('promulgationDate','تاریخ ابلاغ سند',d.promulgationDate)}
+    </div></section>
+
+    <section class="k983editcard"><header><b>طبقه‌بندی موضوعی</b><span>۰۳</span></header><div class="k983editgrid k983topicgrid">
+     <label>موضوع کلان<select name="subjectCategory" required>${k983Opt(K983_PRIMARY_TOPICS,d.subjectCategory,'انتخاب موضوع کلان…')}</select></label>
+     <label>زیرموضوع سند<input name="subjectArea" required value="${k983Val(d.subjectArea)}" placeholder="مثلاً حقوق و دستمزد و مزایا"></label>
+    </div><small class="k983editnote">در ویرایش، فایل اصلی سند تغییر نمی‌کند؛ این فرم شناسنامه و طبقه‌بندی ثبت‌شده را اصلاح می‌کند.</small></section>
+
+    <div class="k983editactions"><button type="button" data-cancel>انصراف</button><button class="k76primary" type="submit">ذخیره تغییرات سند</button></div>
+    <span data-status class="k983editstatus"></span>
+   </form>
+  </div>`;
   w.querySelector('[data-close]').onclick=()=>w.remove();w.querySelector('[data-cancel]').onclick=()=>w.remove();
-  w.querySelector('#k982editform').onsubmit=async e=>{
-   e.preventDefault();const fd=new FormData(e.currentTarget),patch={};for(const [k] of fields)patch[k]=fd.get(k);
+  k983BindEditDates(w);
+  const unitSel=w.querySelector('[data-k983-unit]'),unitWrap=w.querySelector('[data-k983-unit-wrap]'),scope=w.querySelector('[data-k983-scope]');
+  await k983LoadUnits(unitSel,d.organizationalUnitRef);
+  const syncScope=()=>{const show=scope.value==='unit';unitWrap.hidden=!show;if(!show)unitSel.value=''};
+  scope.onchange=syncScope;syncScope();
+
+  w.querySelector('#k983editform').onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(e.currentTarget),patch={};
+   ['title','documentType','issuer','versionLabel','issuedAt','validUntil','validityStatus','classification','scopeType','organizationalUnitRef','meetingType','meetingNumber','documentNumber','meetingDate','promulgationDate','subjectCategory','subjectArea'].forEach(k=>patch[k]=fd.get(k)||'');
+   patch.organizationalLevel=patch.scopeType==='unit'?'واحد سازمانی':'کل سازمان';
+   if(patch.scopeType==='unit')patch.organizationalUnitName=unitSel.selectedOptions?.[0]?.textContent||'';
+   else patch.organizationalUnitName='';
    const st=w.querySelector('[data-status]');st.textContent='در حال ذخیره تغییرات…';
    try{
     await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId),{method:'PATCH',body:JSON.stringify(patch)});
-    st.textContent='✓ تغییرات ذخیره و در ممیزی ثبت شد.';
-    setTimeout(async()=>{w.remove();await runBankSearch()},500);
+    st.textContent='✓ تغییرات سند ذخیره و در سابقه ممیزی ثبت شد.';
+    setTimeout(async()=>{w.remove();await runBankSearch()},600);
    }catch(err){st.textContent=err.message}
   };
- }catch(e){w.innerHTML=`<div class="k982editdialog"><div class="k982edithead"><b>ویرایش سند</b><button type="button" data-close>×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;w.querySelector('[data-close]').onclick=()=>w.remove()}
+ }catch(e){
+   w.innerHTML=`<div class="k983editdialog"><div class="k983edithead"><b>ویرایش سند</b><button type="button" data-close>×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;
+   w.querySelector('[data-close]').onclick=()=>w.remove();
+ }
 }
 
 async function runBankSearch(){
