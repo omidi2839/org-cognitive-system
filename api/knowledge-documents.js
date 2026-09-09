@@ -280,6 +280,32 @@ async function handleKnowledgeDocuments(req,res,repo,actor,u){
   });
 }
 
+
+function k986SafeFileName(name){
+ return String(name||'file').normalize('NFC').replace(/[^\w.\-\u0600-\u06FF]+/g,'_').replace(/^\.+/,'').slice(-160)||'file';
+}
+async function handleBlobUploadUrl(req,res,actor){
+ if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
+ const input=bodyOf(req),fileName=k986SafeFileName(input.fileName),mimeType=String(input.mimeType||'application/octet-stream');
+ const size=Math.max(0,Number(input.size||0)),role=String(input.role||'attachment')==='primary'?'primary':'attachment';
+ if(!fileName)return send(res,400,{message:'نام فایل الزامی است.'});
+ // Keep this endpoint for document-like uploads only; final MIME validation still occurs during commit/parse.
+ const allowed=/\.(docx|pdf)$/i.test(fileName);
+ if(!allowed)return send(res,400,{message:'در این مرحله آپلود مستقیم فقط برای Word و PDF فعال است.',code:'DIRECT_UPLOAD_TYPE_NOT_ALLOWED'});
+ const nonce=`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+ const pathname=`${actor.organizationId}/direct/${new Date().toISOString().slice(0,10)}/${role}-${nonce}-${fileName}`;
+ const validUntil=Date.now()+15*60*1000;
+ try{
+  const {issueSignedToken,presignUrl}=await import('@vercel/blob');
+  const token=await issueSignedToken({pathname,operations:['put'],validUntil});
+  const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
+  const blobUrl=String(presignedUrl||'').split('?')[0];
+  return send(res,200,{presignedUrl,blobUrl,pathname,fileName,mimeType,size,validUntil,direct:true});
+ }catch(e){
+  console.error('BLOB_PRESIGN_ERROR',e);
+  return send(res,503,{message:'آپلود مستقیم Blob در دسترس نیست. اتصال Vercel Blob/OIDC را بررسی کنید.',code:'DIRECT_UPLOAD_UNAVAILABLE',detail:e?.message||String(e)});
+ }
+}
 export default async function handler(req,res){
   try{
     const u=new URL(req.url,'https://local');
@@ -287,6 +313,9 @@ export default async function handler(req,res){
     const actor=actorOf(req);
     const repo=createRepository();
 
+    if(pathname.endsWith('/blob-upload-url')){
+      return handleBlobUploadUrl(req,res,actor);
+    }
     if(pathname.endsWith('/document-governance')){
       return handleGovernance(req,res,repo,actor,u);
     }
