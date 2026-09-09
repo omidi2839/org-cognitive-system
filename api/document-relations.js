@@ -14,12 +14,16 @@ const normalizeItems=b=>{
 };
 export default async function handler(req,res){
  try{
-  const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
+  const repo=createRepository(),org=String((req.headers||{})['x-org-id']||'ORG:SYN-001');
   if(req.method==='GET'){
    const u=new URL(req.url,'https://local'),id=u.searchParams.get('documentId')||'',db=await repo.all(),docsArr=(db.documents||[]).filter(d=>d.organizationId===org),docs=new Map(docsArr.map(d=>[d.id,d])),rels=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted');
    if(!docs.has(id))return send(res,404,{message:'سند پیدا نشد.'});
-   const items=rels.filter(r=>r.sourceDocumentRef===id||r.targetDocumentRef===id).map(r=>{const from=r.sourceDocumentRef===id,pt=from?r.relationType:inverse(r.relationType),other=from?r.targetDocumentRef:r.sourceDocumentRef,d=docs.get(other);return d?{...r,changeItems:Array.isArray(r.changeItems)?r.changeItems:normalizeItems(r),perspectiveType:pt,label:labels[pt]||pt,relatedDocument:{id:d.id,title:d.title,issuer:d.issuer||null}}:null}).filter(Boolean);
-   const incoming=items.filter(x=>['amended_by','superseded_by','repealed_by','extended_by'].includes(x.perspectiveType));
+   const items=rels.filter(r=>r.sourceDocumentRef===id||r.targetDocumentRef===id).map(r=>{
+    const from=r.sourceDocumentRef===id,pt=from?r.relationType:inverse(r.relationType),other=from?r.targetDocumentRef:r.sourceDocumentRef,d=docs.get(other);
+    return d?{...r,changeItems:Array.isArray(r.changeItems)?r.changeItems:normalizeItems(r),perspectiveType:pt,label:labels[pt]||pt,
+      relatedDocument:{id:d.id,title:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null,issuedAt:d.issuedAt||null,promulgationDate:d.promulgationDate||null}}:null
+   }).filter(Boolean);
+   const incoming=items.filter(x=>['amended_by','superseded_by','repealed_by','extended_by','clarified_by'].includes(x.perspectiveType));
    const statusLabel=items.some(x=>x.perspectiveType==='repealed_by')?'ملغی‌شده':items.some(x=>x.perspectiveType==='superseded_by')?'جایگزین‌شده':incoming.length?'معتبر با اصلاحات':'بدون اصلاحیه ثبت‌شده';
    return send(res,200,{items,summary:{total:items.length,statusLabel,latestChange:incoming[0]?{title:incoming[0].relatedDocument.title}:null}});
   }
