@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.4';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.5';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -525,120 +525,127 @@ function k961LooksBoundary(t){
         /^(?:رئیس|دبیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(t);
 }
 
-function k974NormalizeLegalLine(s){
- return String(s||'').replace(/\u200c/g,'‌').replace(/\s+/g,' ').trim();
+/* ---------- 0.9.7.5 — structural legal amendment extraction ---------- */
+function k975Norm(s){return String(s||'').replace(/\u200c/g,'‌').replace(/\s+/g,' ').trim()}
+function k975En(s){return k961FaToEn(k975Norm(s))}
+function k975IsRole(t){
+ return /^(?:رئیس|رییس|دبیر|نایب رئیس|نائب رئیس|معاون|مدیر|سرپرست|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(k975Norm(t));
 }
-function k974IsIntroLine(t){
- const x=k974NormalizeLegalLine(t);
+function k975IsProbableSigner(lines,i){
+ const cur=k975Norm(lines[i]),next=k975Norm(lines[i+1]);
+ if(!cur||cur.length>70)return false;
+ if(k975IsRole(cur))return true;
+ return !!next&&k975IsRole(next)&&!/^(?:ماده|تبصره|بند|جزء|متن\s+مصوبه)/.test(cur);
+}
+function k975IsIntro(t){
+ const x=k975Norm(t);
  return /^(?:مقدمه|عنوان|موضوع|متن\s+مقدمه|دلایل|شرح\s+موضوع|پیشگفتار)\s*[:：]?$/.test(x) ||
         /^(?:به\s+منظور|با\s+توجه\s+به|نظر\s+به|در\s+راستای|پیرو|احتراماً|احتراما)\b/.test(x);
 }
-function k974IsResolutionBodyMarker(t){
- const x=k974NormalizeLegalLine(t);
- return /^(?:متن\s+مصوبه|ماده\s+واحده|ماده\s*[۰-۹٠-٩0-9]+|تبصره\s*[۰-۹٠-٩0-9]+|بند\s*[الف-یآ-ی0-9۰-۹٠-٩]+|جزء\s*[۰-۹٠-٩0-9]+)\b/.test(x);
+function k975LegalMarker(t){
+ const x=k975En(t);
+ let m=x.match(/^ماده\s*[-–—:.：]?\s*([0-9]{1,4})(?![0-9])/);
+ if(m)return{kind:'article',no:String(Number(m[1]))};
+ if(/^ماده\s+واحده\b/.test(x))return{kind:'single',no:'single'};
+ m=x.match(/^تبصره\s*[-–—:.：]?\s*([0-9]{1,4})(?![0-9])/);
+ if(m)return{kind:'note',no:String(Number(m[1]))};
+ m=x.match(/^بند\s*[-–—:.：]?\s*([0-9]{1,4}|[الف-یآ-ی])(?![0-9])/);
+ if(m)return{kind:'clause',no:m[1]};
+ m=x.match(/^جزء\s*[-–—:.：]?\s*([0-9]{1,4})(?![0-9])/);
+ if(m)return{kind:'part',no:String(Number(m[1]))};
+ return null;
 }
-function k974LooksLikeActualChangeText(t){
- const x=k974NormalizeLegalLine(t);
- return /^(?:[-ـ•●▪]\s*)/.test(x) ||
-        /^(?:ماده|تبصره|بند|جزء)\s*[۰-۹٠-٩0-9الف-یآ-ی]*[\s.:：\-–—]/.test(x) ||
-        /(?:به\s+شرح\s+ذیل|به\s+شرح\s+زیر)\s*[:：]?$/.test(x)===false;
-}
-function k974BodyWindow(lines){
- const clean=lines.map(k974NormalizeLegalLine).filter(Boolean);
- let bodyStart=-1;
- for(let i=0;i<clean.length;i++){
-   if(/^متن\s+مصوبه\s*[:：]?$/.test(clean[i])){bodyStart=i+1;break}
+function k975BodyLines(lines){
+ const clean=lines.map(k975Norm).filter(Boolean);
+ let start=-1;
+ for(let i=0;i<clean.length;i++)if(/^متن\s+مصوبه\s*[:：]?$/.test(clean[i])){start=i+1;break}
+ if(start<0){
+   for(let i=0;i<clean.length;i++)if(k975LegalMarker(clean[i])){start=i;break}
  }
- if(bodyStart<0){
-   for(let i=0;i<clean.length;i++){
-     if(/^ماده\s+واحده\s*[:：]?$/.test(clean[i])||/^(?:ماده|تبصره|بند|جزء)\s*[۰-۹٠-٩0-9الف-یآ-ی]+/.test(clean[i])){
-       bodyStart=i;break
+ if(start<0)start=0;
+ const out=[];
+ for(let i=start;i<clean.length;i++){
+   if(k975IsRole(clean[i])||k975IsProbableSigner(clean,i))break;
+   if(/^[۰-۹٠-٩0-9\s\/.\-]{1,24}$/.test(clean[i]))continue;
+   out.push(clean[i]);
+ }
+ return out;
+}
+function k975Keywords(item,rel){
+ const s=String(item?.description||rel?.note||'')
+   .replace(/[«»"']/g,' ').replace(/[۰-۹٠-٩0-9]+/g,' ');
+ return [...new Set(s.split(/[\s،؛:()\-–—.]+/).map(x=>x.trim()).filter(x=>x.length>1&&!k961StopWords.has(x)))];
+}
+function k975FindDirective(body,item,rel){
+ const keys=k975Keywords(item,rel);
+ let best=-1,scoreBest=-999;
+ for(let i=0;i<body.length;i++){
+   const t=body[i];let score=0;
+   for(const k of keys)if(t.includes(k))score+=4;
+   if(k961IsDirectiveLine(t))score+=8;
+   if(k975IsIntro(t))score-=30;
+   if(score>scoreBest){scoreBest=score;best=i}
+ }
+ return scoreBest>0?best:-1;
+}
+function k975ExtractAmendmentRange(lines,item,rel){
+ const body=k975BodyLines(lines);
+ if(!body.length)return{lines:[],mode:'append'};
+ const targetArticle=k962ArticleTargetNumber(item?.article||rel?.targetArticle||'');
+ const changeType=k975Norm(rel?.changeType||'');
+ const description=k975Norm(item?.description||rel?.note||'');
+ const replacement=/(جایگزین|جایگزینی|اصلاح\s*متن|تغییر\s*متن|متن\s*جدید|به\s*شرح\s*زیر\s*اصلاح)/.test(changeType+' '+description);
+
+ // 1) Best case: amendment document contains a concrete article heading.
+ let start=-1;
+ if(targetArticle){
+   for(let i=0;i<body.length;i++){
+     const m=k975LegalMarker(body[i]);
+     if(m?.kind==='article'&&m.no===targetArticle){start=i;break}
+   }
+ }
+
+ // 2) Typical "ماده واحده ... به شرح ذیل" document: use first substantive provision after directive.
+ if(start<0){
+   const dir=k975FindDirective(body,item,rel);
+   if(dir>=0){
+     for(let i=dir+1;i<body.length;i++){
+       if(k975IsIntro(body[i]))continue;
+       if(k961IsDirectiveLine(body[i]))continue;
+       if(k975IsRole(body[i])||k975IsProbableSigner(body,i))break;
+       start=i;break;
      }
    }
  }
- if(bodyStart<0)bodyStart=0;
- return clean.slice(bodyStart);
-}
-function k961PickExactAmendmentLines(lines,item,rel){
- if(!lines.length)return[];
- const body=k974BodyWindow(lines);
- if(!body.length)return[];
 
- const keys=k961Keywords(item,rel);
- const preferred=[...keys];
- const desc=k974NormalizeLegalLine(item?.description||rel?.note||'');
-
- // Prefer exact legal locators first: article / clause / proviso.
- const art=k962ArticleTargetNumber(item?.article||rel?.targetArticle||'');
- const clause=k974NormalizeLegalLine(item?.clause||rel?.targetClause||'');
-
- let start=-1,best=-999;
- for(let i=0;i<body.length;i++){
-   const t=body[i];
-   let score=0;
-
-   if(art){
-     const en=k961FaToEn(t);
-     if(new RegExp(`(?:ماده|تبصره|بند|جزء)\\s*[-–—:.：]?\\s*${art}(?![0-9])`).test(en))score+=18;
-   }
-   if(clause&&t.includes(clause))score+=12;
-
-   for(const k of preferred){
-     if(k&&t.includes(k))score+=5;
-   }
-
-   // Strongly prefer substantive resolution text, strongly reject intro/preamble.
-   if(k974IsIntroLine(t))score-=30;
-   if(/^متن\s+مصوبه/.test(t))score-=20;
-   if(/^ماده\s+واحده/.test(t))score+=3;
-   if(k961IsDirectiveLine(t))score+=1; // useful locator, but not final text by itself
-   if(/^(?:رئیس|رییس|دبیر|امضاء|امضا)/.test(t))score-=50;
-
-   if(score>best){best=score;start=i}
+ // 3) Fallback to first legal content after "ماده واحده".
+ if(start<0){
+   const single=body.findIndex(x=>k975LegalMarker(x)?.kind==='single');
+   if(single>=0&&single+1<body.length)start=single+1;
  }
- if(start<0||best<=0)return[];
+ if(start<0)return{lines:[],mode:replacement?'replace':'append'};
 
- // If the selected line is the administrative directive, find the first substantive
- // changed provision after it. Never fall backwards into the document introduction.
- if(k961IsDirectiveLine(body[start])||/به\s+شرح\s+(?:ذیل|زیر)/.test(body[start])){
-   let candidate=-1;
-   for(let j=start+1;j<Math.min(body.length,start+14);j++){
-     const t=body[j];
-     if(k974IsIntroLine(t))continue;
-     if(/^(?:رئیس|رییس|دبیر|امضاء|امضا)/.test(t))break;
-     if(k961IsDirectiveLine(t))continue;
-
-     const keyHit=preferred.some(k=>k&&t.includes(k));
-     const structural=/^(?:[-ـ•●▪]\s*|ماده|تبصره|بند|جزء)/.test(t);
-     if(keyHit||structural){candidate=j;break}
-   }
-   if(candidate>=0)start=candidate;
- }
-
- const isRole=t=>/^(?:رئیس|رییس|دبیر|نایب رئیس|نائب رئیس|معاون|مدیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(String(t||'').trim());
  const picked=[];
- for(let j=start;j<Math.min(body.length,start+18);j++){
-   const t=body[j];
-   if(!t)continue;
-   if(j>start&&isRole(t))break;
-   if(j>start&&k974IsIntroLine(t))break;
+ const firstMarker=k975LegalMarker(body[start]);
+ for(let i=start;i<body.length;i++){
+   const t=body[i];
+   if(k975IsRole(t)||k975IsProbableSigner(body,i))break;
+   if(k975IsIntro(t))continue;
+   if(/^[۰-۹٠-٩0-9\s\/.\-]{1,24}$/.test(t))continue;
 
-   // Stop when a completely new legal target begins.
-   if(j>start&&/^(?:ماده|تبصره|بند|جزء)\s*[۰-۹٠-٩0-9الف-یآ-ی]+/.test(t)){
-     const targetText=[art,clause].filter(Boolean).join(' ');
-     const tEn=k961FaToEn(t);
-     const sameArticle=art&&new RegExp(`(?:ماده|تبصره|بند|جزء)\\s*[-–—:.：]?\\s*${art}(?![0-9])`).test(tEn);
-     const sameClause=clause&&t.includes(clause);
-     if(!sameArticle&&!sameClause&&picked.length)break;
+   const marker=k975LegalMarker(t);
+   if(i>start&&marker?.kind==='article'){
+     // Children of the target article (تبصره/بند/جزء) stay in range; next article ends it.
+     break;
    }
-
-   // Never include generic preamble text even if it happens to share keywords.
-   if(k974IsIntroLine(t))continue;
-   if(/^متن\s+مصوبه\s*[:：]?$/.test(t))continue;
-
+   // Do not copy a second administrative directive after the substantive text starts.
+   if(i>start&&picked.length&&k961IsDirectiveLine(t))break;
    picked.push(t);
  }
- return picked.filter(Boolean);
+ return{lines:picked.filter(Boolean),mode:replacement?'replace':'append'};
+}
+function k961PickExactAmendmentLines(lines,item,rel){
+ return k975ExtractAmendmentRange(lines,item,rel).lines;
 }
 async function k961SourceLines(documentId){
  try{
@@ -653,10 +660,49 @@ async function k961SourceLines(documentId){
  }catch{return[]}
 }
 
+
+function k975ArticleRange(full,article){
+ const target=k962ArticleTargetNumber(article);
+ if(!target)return null;
+ const blocks=[...full.children];
+ let start=-1,end=blocks.length;
+ for(let i=0;i<blocks.length;i++){
+   const raw=k970ArticleNumberFromBlock(blocks[i]);
+   if(!raw)continue;
+   const rev=raw.split('').reverse().join('');
+   if(start<0&&(String(Number(raw))===target||String(Number(rev))===target)){
+     start=i;continue;
+   }
+   if(start>=0){end=i;break}
+ }
+ if(start<0)return null;
+ return{blocks,start,end,before:blocks[end]||null};
+}
+function k975ApplyNode(full,article,node,mode){
+ const range=k975ArticleRange(full,article);
+ if(!range)return false;
+ if(mode==='replace'){
+   // Effective view: remove the old article and all of its dependent provisos/clauses,
+   // then put the amended legal text at exactly the same location.
+   for(let i=range.start;i<range.end;i++){
+     const el=range.blocks[i];
+     if(el&&el.parentNode===full)el.remove();
+   }
+   if(range.before&&range.before.parentNode===full)full.insertBefore(node,range.before);
+   else full.appendChild(node);
+   node.classList.add('k975replacement');
+ }else{
+   if(range.before&&range.before.parentNode===full)full.insertBefore(node,range.before);
+   else full.appendChild(node);
+   node.classList.add('k975addition');
+ }
+ return true;
+}
+
 function k961InlineText(rel,item,lines){
  const sourceId=rel.relatedDocument?.id||'';
  const sourceTitle=rel.relatedDocument?.title||'سند اصلاحی';
- lines=(lines||[]).filter(t=>!k974IsIntroLine(t)&&!/^متن\s+مصوبه\s*[:：]?$/.test(k974NormalizeLegalLine(t)));
+ lines=(lines||[]).map(k975Norm).filter((t,i,a)=>t&&!k975IsIntro(t)&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
  const wrap=document.createElement('div');
  wrap.className='k961inline-change';
  wrap.dataset.relationId=rel.id||'';
@@ -696,16 +742,13 @@ async function k961ApplyInlineAmendments(full,id){
      for(const item of items){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;
-       const exact=k961PickExactAmendmentLines(sourceLines,item,rel);
-       // Do not fabricate an "exact amendment" from the relation description.
+       const extraction=k975ExtractAmendmentRange(sourceLines,item,rel);
+       const exact=extraction.lines;
        if(!exact.length)continue;
 
        const node=k961InlineText(rel,item,exact);
-       const before=k961FindArticleInsertionPoint(full,article);
-       if(before)full.insertBefore(node,before);
-       else{
-         // If article location cannot be resolved, do not append to end of document.
-         console.warn('INLINE_AMENDMENT_TARGET_NOT_FOUND',{article,relationId:rel.id});
+       if(!k975ApplyNode(full,article,node,extraction.mode)){
+         console.warn('INLINE_AMENDMENT_TARGET_NOT_FOUND',{article,relationId:rel.id,mode:extraction.mode});
          continue;
        }
      }

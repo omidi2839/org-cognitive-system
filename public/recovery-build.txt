@@ -1,7 +1,4 @@
-ORG Cognitive System Focused Release
-Version: 0.9.7.4
-Scope:
-- amendment extraction is restricted to resolution body
-- preamble/introduction text can no longer be injected into parent document
-- legal target markers (article/clause/proviso) get priority
-- administrative directive is used only as locator, not as final amendment content
+ORG Cognitive System Consolidated Test Release
+Version: 0.9.8.0
+Preserves 0.9.7.5 amendment semantics.
+Adds document edit governance, repository counters, upstream-only cognitive analysis, reference-only general documents, collaborative expert analysis V1.

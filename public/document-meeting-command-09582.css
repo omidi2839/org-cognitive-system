@@ -300,3 +300,18 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
   color:#174f3c!important;
   opacity:1!important;
 }
+
+
+/* 0.9.7.5 — legal change semantics */
+.k961inline-change.k975addition{
+  border-right:2px solid #2d8b64!important;
+  padding-right:9px!important;
+}
+.k961inline-change.k975replacement{
+  border-right:3px solid #8a5a2d!important;
+  padding-right:10px!important;
+}
+.k961inline-change.k975replacement .k961inline-change-text,
+.k961inline-change.k975replacement .k961inline-change-text p{
+  color:#8a5a2d!important;
+}
