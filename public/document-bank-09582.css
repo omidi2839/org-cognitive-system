@@ -171,3 +171,16 @@
 .k958comboempty{padding:9px;color:#788c99;font-size:10px}
 @media(max-width:1100px){.k958filters{grid-template-columns:repeat(3,minmax(150px,1fr))!important}}
 @media(max-width:720px){.k958filters{grid-template-columns:1fr!important}.k958metainfo{display:grid;grid-template-columns:1fr}}
+
+/* 0.9.7.0 consolidated bank refinements */
+.k970morewrap{margin-top:7px}
+.k970moreitems[hidden]{display:none!important}
+.k970morebtn{border:0;background:transparent;color:#c62828;font-family:inherit;font-size:9px;font-weight:900;cursor:pointer;padding:6px 0}
+.k970morebtn:hover{text-decoration:underline}
+.k958dates{grid-template-columns:repeat(2,minmax(112px,1fr))!important}
+.k958dates .k91previewbtn{grid-column:1/-1}
+.k958filters .k954datefield{margin:0;min-width:0}
+.k958filters .k954datefield .k954datelabel{font-size:9px}
+.k958filters .k954datefield small{display:none}
+.k958filters .k954dateinput input{margin-top:5px}
+.k970native-date{display:none!important}

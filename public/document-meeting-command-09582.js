@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.6.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.1';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -21,7 +21,12 @@ window.fetch=async function(input,init={}){
    if(form){
     const meetingNumber=form.querySelector('[data-meeting-number]')?.value?.trim()||'';
     const meetingDate=form.querySelector('[data-meeting-date]')?.value?.trim()||'';
-    if(meetingNumber||meetingDate){const b=JSON.parse(init.body);b.metadata={...(b.metadata||{}),meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};init={...init,body:JSON.stringify(b)}}
+    const documentNumber=form.querySelector('[data-document-number]')?.value?.trim()||'';
+    if(meetingNumber||meetingDate||documentNumber){
+      const b=JSON.parse(init.body);
+      b.metadata={...(b.metadata||{}),documentNumber:documentNumber||null,meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};
+      init={...init,body:JSON.stringify(b)}
+    }
    }
   }
  }catch{}
@@ -174,10 +179,19 @@ function k954CreateCalendarField(original,label,container=null){
  document.addEventListener('click',e=>{if(!wrap.contains(e.target))pop.hidden=true});
  return{wrap,display,original,pop,setVisible:v=>{wrap.style.display=v?'block':'none'},clear:()=>{original.value='';display.value='';selected=''}};
 }
+window.__ORG_JALALI_ENHANCE__=(input,label,container=null)=>k954CreateCalendarField(input,label,container);
 const K953_MEETING_TYPES=['شورای سیاست‌گذاری','شورای مدیریتی','شورای تخصصی','کمیسیون','کمیته','کارگروه','جلسه کارشناسی','جلسه هماهنگی','جلسه رسمی عمومی'];
 
 function k953EnhanceMetadata(form){
  if(!form||form.dataset.k953Meta)return;form.dataset.k953Meta='1';
+
+ const baseGrid=form.querySelector('.k76grid');
+ if(baseGrid&&!form.querySelector('[data-document-number]')){
+   const label=document.createElement('label');
+   label.className='k970docnumber';
+   label.innerHTML='شماره مصوبه / تصمیم / سند<input name="documentNumber" data-document-number placeholder="مثلاً ۲۱۵"><small>شماره رسمی سند برای جستجو و ارجاع</small>';
+   baseGrid.appendChild(label);
+ }
 
  const issued=form.querySelector('input[name="issuedAt"]');
  if(issued)k954CreateCalendarField(issued,'تاریخ صدور');
@@ -218,37 +232,65 @@ function k953EnhanceMetadata(form){
  const subject=form.querySelector('input[name="subjectArea"]');
  if(subject){
    subject.type='hidden';subject.dataset.k953Canonical='1';
+
+   let category=form.querySelector('input[name="subjectCategory"]');
+   if(!category){
+     category=document.createElement('input');
+     category.type='hidden';category.name='subjectCategory';category.dataset.subjectCategory='1';
+     subject.insertAdjacentElement('afterend',category);
+   }
+
+   const PRIMARY=[
+    'راهبرد و برنامه‌ریزی','منابع انسانی','مالی و بودجه','فناوری و زیرساخت','آموزش','پژوهش و نوآوری',
+    'فروش و بازاریابی','مشتریان و ذی‌نفعان','عملیات و فرآیندها','حقوقی و مقررات','ساختار و حاکمیت سازمانی',
+    'نظارت، ارزیابی و عملکرد','ریسک، ایمنی و امنیت','ارتباطات و رسانه','تدارکات، خرید و زنجیره تأمین',
+    'دارایی‌ها، اموال و پشتیبانی','محصول و خدمت','کیفیت و بهبود','پروژه‌ها و برنامه‌های اجرایی',
+    'امور فرهنگی و اجتماعی','امور تخصصی حوزه فعالیت سازمان','امور بین‌الملل'
+   ];
+
    const label=subject.closest('label');
-   const box=document.createElement('div');box.className='k953topics';
-   box.innerHTML=`<div class="k953topichead"><div><b>حوزه موضوعی</b><small>موضوع آزاد ثبت نمی‌شود؛ سامانه از فهرست استاندارد پیشنهاد می‌دهد.</small></div><button type="button" data-k953-analyze>تحلیل متن سند و پیشنهاد موضوع</button></div>
-   <select data-k953-topic required><option value="">ابتدا فایل را انتخاب و تحلیل موضوعی را اجرا کنید…</option></select>
+   const box=document.createElement('div');box.className='k953topics k971topic-tree';
+   box.innerHTML=`<div class="k953topichead"><div><b>طبقه‌بندی موضوعی سند</b><small>لایه اول موضوع کلان سازمانی است؛ لایه دوم زیرموضوع دقیق همین سند.</small></div><button type="button" data-k953-analyze>تحلیل فایل و پیشنهاد زیرموضوع</button></div>
+   <div class="k971topicgrid">
+    <label><b>موضوع کلان *</b><select data-k971-primary required><option value="">انتخاب موضوع کلان…</option>${PRIMARY.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select><small>انتخاب از درختواره استاندارد سازمانی الزامی است.</small></label>
+    <label><b>زیرموضوع سند *</b><input data-k971-subtopic list="k971subtopics" placeholder="مثلاً حقوق و دستمزد و مزایا" required><datalist id="k971subtopics"></datalist><small>سامانه پیشنهاد می‌دهد و کاربر می‌تواند متن نهایی را ویرایش و تأیید کند.</small></label>
+   </div>
    <div data-k953-topic-status class="k953topicstatus"></div>`;
    label.insertAdjacentElement('afterend',box);label.style.display='none';
-   const sel=box.querySelector('[data-k953-topic]'),status=box.querySelector('[data-k953-topic-status]');
-   sel.addEventListener('change',()=>{subject.value=sel.value});
+
+   const primary=box.querySelector('[data-k971-primary]'),
+         sub=box.querySelector('[data-k971-subtopic]'),
+         dl=box.querySelector('#k971subtopics'),
+         status=box.querySelector('[data-k953-topic-status]');
+
+   function sync(){category.value=primary.value||'';subject.value=sub.value.trim()}
+   primary.addEventListener('change',()=>{sync();if(form.querySelector('input[type="file"][name="file"]')?.files?.[0])analyze()});
+   sub.addEventListener('input',sync);
+
    async function analyze(){
      const file=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
      if(!file){status.textContent='ابتدا فایل سند را انتخاب کنید.';return}
-     status.textContent='در حال خواندن متن و مقایسه با موضوعات استاندارد…';
+     status.textContent='در حال تحلیل موضوع کلان و زیرموضوع سند…';
      try{
        const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
-       const d=await api('/api/v1/knowledge/topic-suggestions',{method:'POST',body:JSON.stringify({title:form.querySelector('input[name="title"]')?.value?.trim()||'',fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64})});
-       const topics=d.catalog||[],rec=new Set((d.recommended||[]).map(x=>x.label));
-       sel.innerHTML='<option value="">انتخاب حوزه موضوعی…</option>'+topics.map(x=>`<option value="${esc(x)}">${rec.has(x)?'★ ':''}${esc(x)}</option>`).join('');
-       if(d.recommended?.[0]?.label){sel.value=d.recommended[0].label;subject.value=sel.value}
-       status.innerHTML=d.recommended?.length?`${d.analysis?.detectedTitle?`<div class="k958detected"><b>تیتر تشخیص‌داده‌شده:</b> ${esc(d.analysis.detectedTitle)}</div>`:''}پیشنهاد سامانه: ${d.recommended.slice(0,4).map((x,i)=>`<b>${i===0?'★ ':''}${esc(x.label)}</b>${x.source==='document_title'?'<small class="k958source">از تیتر داخل سند</small>':x.source==='form_title'?'<small class="k958source">از عنوان فرم</small>':x.source==='heading'?'<small class="k958source">از سوتیتر</small>':''}`).join('، ')}`:'موضوع غالب با اطمینان کافی تشخیص داده نشد؛ از فهرست انتخاب کنید.';
+       const d=await api('/api/v1/knowledge/topic-suggestions',{method:'POST',body:JSON.stringify({
+         title:form.querySelector('input[name="title"]')?.value?.trim()||'',
+         primaryTopic:primary.value||'',
+         fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64
+       })});
+       if(!primary.value&&d.primaryRecommended?.[0]?.label)primary.value=d.primaryRecommended[0].label;
+       const subs=d.subtopics||[];
+       dl.innerHTML=subs.map(x=>`<option value="${esc(x.label)}"></option>`).join('');
+       if(!sub.value&&subs[0]?.label)sub.value=subs[0].label;
+       sync();
+       status.innerHTML=`${d.analysis?.detectedTitle?`<div class="k958detected"><b>عنوان تشخیص‌داده‌شده:</b> ${esc(d.analysis.detectedTitle)}</div>`:''}<b>موضوع کلان:</b> ${esc(primary.value||'انتخاب نشده')} ${subs.length?`· <b>زیرموضوع‌های پیشنهادی:</b> ${subs.slice(0,5).map(x=>esc(x.label)).join('، ')}`:'· زیرموضوع پیشنهادی قابل اتکا پیدا نشد؛ کاربر آن را نهایی کند.'}`;
      }catch(e){status.textContent=e.message}
    }
    box.querySelector('[data-k953-analyze]').onclick=analyze;
-   const titleInput=form.querySelector('input[name="title"]');
-   if(titleInput)titleInput.addEventListener('input',()=>{
-     if(form.querySelector('input[type="file"][name="file"]')?.files?.[0]){
-       status.textContent='عنوان سند تغییر کرده است؛ برای اعمال اولویت عنوان، «تحلیل فایل و پیشنهاد موضوع» را دوباره بزنید.';
-     }
-   });
    const file=form.querySelector('input[type="file"][name="file"]');
-   if(file)file.addEventListener('change',()=>{subject.value='';sel.innerHTML='<option value="">برای فایل جدید، تحلیل موضوعی را دوباره اجرا کنید…</option>';status.textContent='';setTimeout(analyze,100)});
+   if(file)file.addEventListener('change',()=>{subject.value='';sub.value='';dl.innerHTML='';status.textContent='';setTimeout(analyze,100)});
  }
+
 }
 
 
@@ -362,42 +404,26 @@ function k962ArticleHeadingInfo(el){
 }
 
 function k962FixArticleNumberOrder(full){
- if(!full||full.dataset.k962ArticleOrder==='1')return;
- const entries=[...full.children].map(k962ArticleHeadingInfo).filter(Boolean);
- if(entries.length<3){full.dataset.k962ArticleOrder='1';return}
-
- const score=vals=>{
-   let s=0;
-   for(let i=1;i<vals.length;i++){
-     const d=vals[i]-vals[i-1];
-     s+=Math.abs(d-1);
-     if(d<=0)s+=25;
-     if(Math.abs(d)>5)s+=8;
+ if(!full)return;
+ const blocks=[...full.children];
+ let prev=null;
+ for(const el of blocks){
+   const raw=k970ArticleNumberFromBlock(el);
+   if(!raw)continue;
+   let val=Number(raw),rev=Number(raw.split('').reverse().join('')),chosen=val;
+   if(raw.length===2){
+     if(prev!==null){
+       const rawCost=Math.abs(val-(prev+1));
+       const revCost=Math.abs(rev-(prev+1));
+       if(revCost<rawCost)chosen=rev;
+     }else if(val>=50&&rev>=1&&rev<=49){
+       chosen=rev;
+     }
    }
-   return s;
- };
- const rawVals=entries.map(x=>x.value);
- const revVals=entries.map(x=>x.revValue);
- const useReverse=score(revVals)+1<score(rawVals);
- if(!useReverse){full.dataset.k962ArticleOrder='1';return}
-
- for(const x of entries){
-   if(x.digits.length<2)continue;
-   const want=k962ReverseDigits(x.digits);
-   const walker=document.createTreeWalker(x.el,NodeFilter.SHOW_TEXT);
-   const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
-   const rx=new RegExp(`(ماده\\s*[-–—:]?\\s*)${x.digits}(?![0-9])`);
-   for(const n of nodes){
-     const en=k961FaToEn(n.nodeValue||'');
-     if(!rx.test(en))continue;
-     const faWant=k961NormDigits(want);
-     n.nodeValue=(n.nodeValue||'').replace(/[۰-۹٠-٩0-9]{2,4}/,faWant);
-     break;
-   }
+   if(chosen!==val)k970CorrectArticleHeading(el,String(chosen));
+   prev=chosen;
  }
- full.dataset.k962ArticleOrder='1';
 }
-
 function k961ArticleHeadingNumber(el){
  const t=k961FaToEn(String(el?.textContent||'').replace(/\s+/g,' ').trim());
  // Strong heading test: article designation must be at/near the beginning of the block.
@@ -410,29 +436,41 @@ function k962ArticleTargetNumber(article){
  const m=en.match(/[0-9]{1,4}/);
  return m?String(Number(m[0])):'';
 }
+function k970ArticleNumberFromBlock(el){
+ const text=k961FaToEn(String(el?.textContent||'').replace(/\s+/g,' ').trim());
+ const m=text.match(/^[«»()\[\]\s\-–—]*ماده\s*[-–—:]?\s*([0-9]{1,4})(?![0-9])/);
+ return m?m[1]:'';
+}
+function k970CorrectArticleHeading(el,target){
+ if(!el||!target)return;
+ const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ for(const n of nodes){
+   const raw=n.nodeValue||'',en=k961FaToEn(raw);
+   if(!/ماده\s*[-–—:]?\s*[0-9]{1,4}/.test(en))continue;
+   n.nodeValue=raw.replace(/(ماده\s*[-–—:]?\s*)[۰-۹٠-٩0-9]{1,4}/,(_,p)=>p+k961NormDigits(target));
+   return;
+ }
+}
 function k961FindArticleInsertionPoint(full,article){
  const target=k962ArticleTargetNumber(article);
  if(!target)return null;
  const blocks=[...full.children];
  let start=-1;
-
  for(let i=0;i<blocks.length;i++){
-   if(k961ArticleHeadingNumber(blocks[i])===target){start=i;break}
- }
- // Fallback for documents whose article number is embedded in a formatted paragraph.
- if(start<0){
-   const rx=new RegExp(`ماده\\s*[-–—:]?\\s*${target}(?![0-9])`);
-   for(let i=0;i<blocks.length;i++){
-     const t=k961FaToEn(blocks[i].textContent||'');
-     if(rx.test(t)){start=i;break}
+   const raw=k970ArticleNumberFromBlock(blocks[i]);
+   if(!raw)continue;
+   const rev=raw.split('').reverse().join('');
+   if(String(Number(raw))===target||String(Number(rev))===target){
+     start=i;
+     if(String(Number(raw))!==target)k970CorrectArticleHeading(blocks[i],target);
+     break;
    }
  }
  if(start<0)return null;
-
- // Insert immediately before the next true article heading.
  for(let i=start+1;i<blocks.length;i++){
-   const n=k961ArticleHeadingNumber(blocks[i]);
-   if(n&&n!==target)return blocks[i];
+   const n=k970ArticleNumberFromBlock(blocks[i]);
+   if(n)return blocks[i];
  }
  return null;
 }
@@ -477,48 +515,42 @@ function k961LooksBoundary(t){
 
 function k961PickExactAmendmentLines(lines,item,rel){
  if(!lines.length)return[];
+ const desc=String(item?.description||rel?.note||'');
  const keys=k961Keywords(item,rel);
- let best=-1,bestScore=-1;
+ const preferred=['فوق العاده','فوق‌العاده','سختی شرایط','سختی کار',...keys].filter(Boolean);
 
+ let start=-1,best=-999;
  for(let i=0;i<lines.length;i++){
-   const t=lines[i],low=t.toLowerCase();
+   const t=String(lines[i]||'').trim();
    let score=0;
-   for(const k of keys)if(low.includes(k.toLowerCase()))score+=4;
-   if(/فوق\s*العاده/.test(t))score+=3;
-   if(/سختی\s*(?:شرایط\s*)?(?:کار)?/.test(t))score+=4;
-   if(k961IsDirectiveLine(t))score-=4;
-   if(score>bestScore){bestScore=score;best=i}
+   for(const k of preferred)if(t.includes(k))score+=5;
+   if(/فوق[\s‌-]*العاده/.test(t))score+=6;
+   if(/سختی[\s‌-]*(?:شرایط[\s‌-]*)?کار/.test(t))score+=6;
+   if(k961IsDirectiveLine(t))score-=10;
+   if(/الحاق\s+یک\s+بند/.test(t))score-=10;
+   if(score>best){best=score;start=i}
  }
- if(best<0||bestScore<=0)return[];
+ if(start<0||best<=0)return[];
 
- // Prefer the actual inserted heading/provision, never the administrative sentence that says "add a clause".
- let start=best;
- if(k961IsDirectiveLine(lines[start])){
-   let found=-1;
-   for(let j=start+1;j<Math.min(lines.length,start+10);j++){
-     const keyHit=keys.some(k=>lines[j].includes(k));
-     if(keyHit&&!k961IsDirectiveLine(lines[j])){found=j;break}
-   }
-   if(found<0){
-     for(let j=start+1;j<Math.min(lines.length,start+10);j++){
-       if(!k961IsDirectiveLine(lines[j])&&!k961LooksBoundary(lines[j])){found=j;break}
+ // If title/directive was selected, find the first substantive matching line below it.
+ if(k961IsDirectiveLine(lines[start])||/الحاق\s+یک\s+بند/.test(lines[start])){
+   for(let j=start+1;j<Math.min(lines.length,start+14);j++){
+     const t=lines[j];
+     if((/فوق[\s‌-]*العاده/.test(t)||/سختی[\s‌-]*(?:شرایط[\s‌-]*)?کار/.test(t))&&!k961IsDirectiveLine(t)){
+       start=j;break;
      }
    }
-   if(found>=0)start=found;
  }
-
  const picked=[];
- for(let j=start;j<Math.min(lines.length,start+12);j++){
-   const t=lines[j];
-   if(j>start&&k961LooksBoundary(t))break;
-   if(j>start&&k961IsDirectiveLine(t))break;
-   // Stop on signature/admin closing lines.
+ for(let j=start;j<Math.min(lines.length,start+10);j++){
+   const t=String(lines[j]||'').trim();
+   if(!t)continue;
+   if(j>start&&(/^(?:ماده|تبصره)\s*[۰-۹٠-٩0-9]+/.test(t)||k961IsDirectiveLine(t)))break;
    if(j>start&&/^(?:رئیس|دبیر|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(t))break;
    picked.push(t);
  }
- return picked.filter(Boolean);
+ return picked;
 }
-
 async function k961SourceLines(documentId){
  try{
    const d=await api('/api/v1/knowledge/document-structure?documentId='+encodeURIComponent(documentId));
@@ -739,6 +771,7 @@ window.fetch=async function(input,init={}){
     m.meetingType=form.querySelector('[data-meeting-type]')?.value||null;
     m.promulgationDate=form.querySelector('input[name="promulgationDate"]')?.value||null;
     m.validUntil=form.querySelector('input[name="validUntil"]')?.value||null;
+    m.subjectCategory=form.querySelector('input[name="subjectCategory"]')?.value||null;
     m.subjectArea=form.querySelector('input[name="subjectArea"]')?.value||null;
     b.metadata=m;init={...init,body:JSON.stringify(b)}
    }
@@ -823,4 +856,25 @@ window.addEventListener('click',e=>{
 function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc()}}
 new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});enhance();
 document.addEventListener('k958:document-preview',()=>setTimeout(()=>{try{k955RenderStructuredDoc()}catch{}},30));
+/* ---------- 0.9.7.0 — Persian digits in repository/workspace surfaces ---------- */
+function k970PersianizeRepositoryDigits(root=document.getElementById('knowledge076')){
+ if(!root)return;
+ const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{
+  acceptNode:n=>{
+   if(!/[0-9]/.test(n.nodeValue||''))return NodeFilter.FILTER_REJECT;
+   if(n.parentElement?.closest('script,style,input,textarea,select,code,pre,.k961num'))return NodeFilter.FILTER_REJECT;
+   return NodeFilter.FILTER_ACCEPT;
+  }
+ });
+ const nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
+ nodes.forEach(n=>n.nodeValue=String(n.nodeValue||'').replace(/\d/g,d=>FA[d]));
+}
+let k970RepoScheduled=false;
+function k970ScheduleRepoDigits(){
+ if(k970RepoScheduled)return;k970RepoScheduled=true;
+ requestAnimationFrame(()=>{k970RepoScheduled=false;k970PersianizeRepositoryDigits()});
+}
+new MutationObserver(k970ScheduleRepoDigits).observe(document.documentElement,{subtree:true,childList:true,characterData:true});
+window.addEventListener('load',k970ScheduleRepoDigits);
+
 })();

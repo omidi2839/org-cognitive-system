@@ -174,3 +174,16 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
   opacity:.72;
   text-decoration:none!important;
 }
+
+/* 0.9.7.0 consolidated release */
+.k970docnumber small{display:block;margin-top:4px;font-size:10px;color:#80909d;font-weight:400}
+.k970docnumber input{display:block;width:100%;box-sizing:border-box;margin-top:5px;border:1px solid #d6e0e7;border-radius:8px;padding:9px;font-family:inherit}
+
+
+/* 0.9.7.1 — two-level document topic tree */
+.k971topicgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:11px}
+.k971topicgrid label{display:block;font-size:11px;color:#536b7b}
+.k971topicgrid label>b{display:block;color:#35566d;font-size:11px;margin-bottom:5px}
+.k971topicgrid select,.k971topicgrid input{width:100%;box-sizing:border-box;border:1px solid #cfdde6;border-radius:9px;background:#fff;padding:10px;font-family:inherit;font-size:12px}
+.k971topicgrid small{display:block;margin-top:5px;font-size:9px;color:#81919d;line-height:1.8}
+@media(max-width:700px){.k971topicgrid{grid-template-columns:1fr}}

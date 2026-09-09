@@ -1,3 +1,7 @@
-ORG Cognitive System Feature
-Version: 0.9.6.2
-Fixes: target article normalization; sequential article-number correction; precise inline amendment extraction
+ORG Cognitive System Consolidated Release
+Version: 0.9.7.1
+Changes:
+- issuer filter is closed registered-data list
+- duplicate public badge removed
+- two-level topic tree: mandatory primary topic + editable suggested subtopic
+- primary topic stored separately from subtopic

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.6.2';
+window.__DOCUMENT_BANK_BUILD__='0.9.7.1';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -62,18 +62,20 @@ function ensureShell(){
  x.querySelector('[data-kback]').onclick=closeBank;return x;
 }
 function metaLine(d){
- return `<div class="k958metainfo"><span><b>نوع سند:</b> ${esc(d.documentType||'—')}</span><span><b>موضوع:</b> ${esc(d.subjectArea||'بدون موضوع')}</span><span><b>مرجع صادرکننده:</b> ${esc(d.issuer||'مرجع نامشخص')}</span></div>`;
+ return `<div class="k958metainfo"><span><b>نوع سند:</b> ${esc(d.documentType||'—')}</span><span><b>موضوع:</b> ${esc(d.subjectCategory||d.subjectArea||'بدون موضوع')}${d.subjectCategory&&d.subjectArea?` / ${esc(d.subjectArea)}`:''}</span><span><b>مرجع صادرکننده:</b> ${esc(d.issuer||'مرجع نامشخص')}</span></div>`;
 }
 function snippetsBlock(d,q){
  const ss=(d.matchSnippets||[]).filter(Boolean);
  if(!ss.length)return d.metadataMatch?'<div class="k91snippet k91meta-hit"><b>تطابق در فراداده سند</b></div>':'';
- return ss.slice(0,3).map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+1)}:</b> ${highlightText(s,q)}</div>`).join('');
+ const first=ss.slice(0,3).map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+1)}:</b> ${highlightText(s,q)}</div>`).join('');
+ const more=ss.slice(3).map((s,i)=>`<div class="k91snippet"><b>تطابق ${toFa(i+4)}:</b> ${highlightText(s,q)}</div>`).join('');
+ return `${first}${more?`<div class="k970morewrap"><div class="k970moreitems" hidden>${more}</div><button type="button" class="k970morebtn" data-k970-more>نمایش ${toFa(ss.length-3)} تطابق دیگر</button></div>`:''}`;
 }
 function resultRow(d,q){
  const mb=d.matchCount?`<span class="k91matchbadge">${toFa(d.matchCount)} تطابق در متن</span>`:(d.metadataMatch?'<span class="k91matchbadge">تطابق در فراداده</span>':'');
  return `<article class="k91result k958result">
   <div class="k91result-main">
-   <div class="k91badges"><span>${docClass(d.documentClass)}</span><span>${statusLabel(d.validityStatus)}</span><span>${classLabel(d.classification)}</span>${d.hasRelations?'<span class="k958relbadge">دارای ارتباط سندی</span>':''}${mb}</div>
+   <div class="k91badges"><span>${docClass(d.documentClass)}</span><span>${statusLabel(d.validityStatus)}</span>${classLabel(d.classification)!==docClass(d.documentClass)?`<span>${classLabel(d.classification)}</span>`:''}${d.hasRelations?'<span class="k958relbadge">دارای ارتباط سندی</span>':''}${mb}</div>
    <button type="button" class="k91doctitle" data-doc-preview="${esc(d.id)}">${esc(d.title||'بدون عنوان')}</button>
    <div class="k91result-info">${metaLine(d)}${snippetsBlock(d,q)}</div>
   </div>
@@ -81,6 +83,7 @@ function resultRow(d,q){
    <span>تاریخ تصویب/صدور<b>${fmtDate(d.issuedAt||d.createdAt)}</b></span>
    <span>تاریخ ابلاغ<b>${fmtDate(d.promulgationDate)}</b></span>
    <span>شماره جلسه<b>${esc(d.meetingNumber||'—')}</b></span>
+   <span>شماره سند<b>${esc(d.documentNumber||'—')}</b></span>
    <button type="button" class="k91previewbtn" data-doc-preview="${esc(d.id)}">مشاهده سند</button>
   </div>
  </article>`;
@@ -94,15 +97,16 @@ function bankMarkup(){
   <label class="k91q">جستجو در عنوان، موضوع، مرجع و متن سند<input name="q" placeholder="عبارت موردنظر را وارد کنید"></label>
   <div class="k91filters k958filters">
    <label>رده سند<select name="documentClass"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select></label>
-   ${comboMarkup('subject','k958subject','موضوع سند','جستجو یا انتخاب موضوع…')}
+   ${comboMarkup('subjectCategory','k958subject','موضوع کلان سند','جستجو یا انتخاب موضوع کلان…')}
    ${comboMarkup('meetingType','k958meetingtype','نوع جلسه','جستجو یا انتخاب نوع جلسه…')}
    <label>شماره جلسه<input name="meetingNumber" placeholder="مثلاً ۱۲۵"></label>
+   <label>شماره مصوبه / تصمیم / سند<input name="documentNumber" placeholder="مثلاً ۲۱۵"></label>
    <label>ارتباط با اسناد دیگر<select name="hasRelations"><option value="">همه</option><option value="yes">دارای ارتباط</option><option value="no">بدون ارتباط</option></select></label>
    <label>وضعیت اعتبار<select name="validity"><option value="">همه وضعیت‌ها</option><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="unknown">نیازمند احراز</option></select></label>
    <label>طبقه‌بندی<select name="classification"><option value="">همه سطوح</option><option value="public">عمومی</option><option value="internal">داخلی</option><option value="confidential">محرمانه</option><option value="secret">خیلی محرمانه</option></select></label>
-   <label>مرجع صادرکننده<input name="issuer" placeholder="نام مرجع"></label>
-   <label>از تاریخ<input type="date" name="from"></label>
-   <label>تا تاریخ<input type="date" name="to"></label>
+   ${comboMarkup('issuer','k971issuer','مرجع صادرکننده','جستجو یا انتخاب مرجع ثبت‌شده…')}
+   <label class="k970native-date">از تاریخ<input type="hidden" name="from" data-k970-bank-date></label>
+   <label class="k970native-date">تا تاریخ<input type="hidden" name="to" data-k970-bank-date></label>
   </div>
   <div class="k958actions"><button class="k76primary" type="submit">جستجو</button><button type="button" id="k958clear">پاک کردن فیلترها</button></div>
  </form>
@@ -128,9 +132,12 @@ function bindCombo(input,values){
  input._k958SetValues=v=>{options=[...new Set((v||[]).filter(Boolean))]};
 }
 function applyFacets(d){
- const s=document.getElementById('k958subject'),m=document.getElementById('k958meetingtype');
+ const s=document.getElementById('k958subject'),
+       m=document.getElementById('k958meetingtype'),
+       i=document.getElementById('k971issuer');
  s?._k958SetValues?.(d.facets?.subjects||[]);
  m?._k958SetValues?.(d.facets?.meetingTypes||[]);
+ i?._k958SetValues?.(d.facets?.issuers||[]);
 }
 async function runBankSearch(){
  const form=document.getElementById('k91search'),out=document.getElementById('k91results'),count=document.getElementById('k91count');
@@ -156,11 +163,20 @@ async function openDocumentModal(documentId,q=lastSearchQuery){
   const d=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(documentId)+'&detail=1'),x=(d.items||[])[0]||{};
   if(!x.id)throw Error('سند پیدا نشد یا دسترسی مجاز نیست.');
   const body=String(x.fullText||'').trim(),rendered=q?highlightText(body,q):esc(body);
-  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span><span>${classLabel(x.classification)}</span></div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><button class="k91modalclose" type="button">×</button></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span></div><div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
+  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><button class="k91modalclose" type="button">×</button></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div><div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
   w.querySelector('.k91modalclose').onclick=closeDocumentModal;persianize(w);
   if(q)setTimeout(()=>w.querySelector('.k91highlight')?.scrollIntoView({block:'center',behavior:'smooth'}),80);
  }catch(e){w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;w.querySelector('.k91modalclose').onclick=closeDocumentModal}
 }
+
+window.__ORG_OPEN_DOCUMENT__=openDocumentModal;
+document.addEventListener('click',e=>{
+ const p=e.target?.closest?.('#k91docmodal .k944relmain [data-doc-preview],#k91docmodal .k944relations [data-doc-preview]');
+ if(!p?.dataset.docPreview)return;
+ e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+ openDocumentModal(p.dataset.docPreview,'');
+},true);
+
 async function openBank(){
  const ctx=document.getElementById('workspaceContext');if(ctx)ctx.classList.add('k91-hidden-workspace');
  const x=ensureShell(),b=x.querySelector('#k76body');b.innerHTML=bankMarkup();
@@ -168,7 +184,21 @@ async function openBank(){
  bindCombo(document.getElementById('k958meetingtype'),[]);
  document.getElementById('k91search').onsubmit=e=>{e.preventDefault();runBankSearch()};
  document.getElementById('k958clear').onclick=()=>{document.getElementById('k91search').reset();runBankSearch()};
- b.onclick=e=>{const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery)};
+ b.onclick=e=>{
+   const more=e.target.closest('[data-k970-more]');
+   if(more){
+     const wrap=more.closest('.k970morewrap'),items=wrap?.querySelector('.k970moreitems');
+     if(items){items.hidden=!items.hidden;more.textContent=items.hidden?'نمایش تطابق‌های بیشتر':'بستن تطابق‌های بیشتر'}
+     return;
+   }
+   const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery)
+ };
+ const from=formDate('from'),to=formDate('to');
+ function formDate(name){return document.querySelector(`#k91search input[name="${name}"]`)}
+ if(window.__ORG_JALALI_ENHANCE__){
+   if(from)window.__ORG_JALALI_ENHANCE__(from,'از تاریخ');
+   if(to)window.__ORG_JALALI_ENHANCE__(to,'تا تاریخ');
+ }
  await runBankSearch();
 }
 window.addEventListener('click',e=>{
