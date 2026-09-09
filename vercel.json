@@ -50,6 +50,10 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
+      "source": "/api/v1/knowledge/database-migration",
+      "destination": "/api/knowledge-documents.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/index.js"
     }
