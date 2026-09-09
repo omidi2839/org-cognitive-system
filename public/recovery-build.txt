@@ -1,6 +1,10 @@
-ORG Cognitive System Deployment-Safe Consolidated Release
-Version: 0.9.8.1
-Base: 0.9.7.5 legal amendment/consolidation semantics retained.
-0.9.8.0 knowledge governance features retained.
-IMPORTANT: no new top-level /api serverless function was added.
-document-governance and collaborative-analysis are multiplexed through existing api/knowledge-documents.js.
+ORG Cognitive System Focused UX/Analysis Fix Release
+Version: 0.9.8.2
+Base: 0.9.8.1 deployment-safe + 0.9.7.5 legal consolidation retained.
+Fixes:
+- edit button moved from document modal to bank list row, permission-aware
+- compact repository counters without card wrapping
+- amendment admin wrappers such as 'متن مصوبه: ماده واحده:' stripped
+- analysis takeover now runs at window capture phase
+- legacy analysis panel is replaced defensively
+- collaborative multi-stage upstream-only analysis remains active

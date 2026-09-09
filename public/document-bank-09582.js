@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.7.5';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.2';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -10,6 +10,7 @@ const statusLabel=v=>({active:'معتبر',draft:'پیش‌نویس',expired:'م
 const classLabel=v=>({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]||v||'—';
 const docClass=v=>v==='upstream'?'بالادستی':v==='general'?'عمومی':'سایر';
 let lastSearchQuery='';
+let k982CanEditDocuments=false;
 
 function highlightPattern(q){
  const chars=[...String(q??'').trim()];if(!chars.length)return null;
@@ -84,7 +85,10 @@ function resultRow(d,q){
    <span>تاریخ ابلاغ<b>${fmtDate(d.promulgationDate)}</b></span>
    <span>شماره جلسه<b>${esc(d.meetingNumber||'—')}</b></span>
    <span>شماره سند<b>${esc(d.documentNumber||'—')}</b></span>
-   <button type="button" class="k91previewbtn" data-doc-preview="${esc(d.id)}">مشاهده سند</button>
+   <div class="k982rowactions ${k982CanEditDocuments?'can-edit':'view-only'}">
+    <button type="button" class="k91previewbtn k982actionbtn" data-doc-preview="${esc(d.id)}">مشاهده سند</button>
+    ${k982CanEditDocuments?`<button type="button" class="k982editrowbtn k982actionbtn" data-doc-edit="${esc(d.id)}">ویرایش سند</button>`:''}
+   </div>
   </div>
  </article>`;
 }
@@ -139,6 +143,45 @@ function applyFacets(d){
  m?._k958SetValues?.(d.facets?.meetingTypes||[]);
  i?._k958SetValues?.(d.facets?.issuers||[]);
 }
+
+async function k982LoadEditPermission(){
+ try{
+  const g=await api('/api/v1/knowledge/document-governance');
+  k982CanEditDocuments=!!g.permissions?.documentEdit;
+ }catch{k982CanEditDocuments=false}
+}
+async function k982OpenEdit(documentId){
+ let existing=document.getElementById('k982editmodal'); if(existing)existing.remove();
+ const w=document.createElement('div');w.id='k982editmodal';w.className='k91modalbackdrop k982editbackdrop';
+ w.innerHTML='<div class="k982editdialog"><div class="k76loading">در حال دریافت اطلاعات سند…</div></div>';
+ w.onclick=e=>{if(e.target===w)w.remove()};document.body.appendChild(w);
+ try{
+  const g=await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId));
+  if(!g.permissions?.documentEdit)throw Error('شما مجوز ویرایش سند را ندارید.');
+  const d=g.document||{};
+  const fields=[
+   ['title','عنوان سند'],['documentNumber','شماره مصوبه / تصمیم / سند'],['documentType','نوع سند'],
+   ['issuer','مرجع صادرکننده'],['meetingType','نوع جلسه'],['meetingNumber','شماره جلسه'],
+   ['issuedAt','تاریخ تصویب/صدور'],['promulgationDate','تاریخ ابلاغ'],
+   ['subjectCategory','موضوع کلان'],['subjectArea','زیرموضوع'],['validityStatus','وضعیت اعتبار']
+  ];
+  w.innerHTML=`<div class="k982editdialog"><div class="k982edithead"><div><b>ویرایش سند</b><small>${esc(d.title||'')}</small></div><button type="button" data-close>×</button></div>
+   <div class="k982editaudit">ویرایش فقط برای سطح دسترسی مجاز فعال است و تغییرات در سابقه ممیزی ثبت می‌شوند.</div>
+   <form id="k982editform">${fields.map(([k,l])=>`<label>${l}<input name="${k}" value="${esc(d?.[k]||'')}"></label>`).join('')}
+   <div class="k982editactions"><button type="button" data-cancel>انصراف</button><button class="k76primary" type="submit">ذخیره تغییرات</button></div><span data-status></span></form></div>`;
+  w.querySelector('[data-close]').onclick=()=>w.remove();w.querySelector('[data-cancel]').onclick=()=>w.remove();
+  w.querySelector('#k982editform').onsubmit=async e=>{
+   e.preventDefault();const fd=new FormData(e.currentTarget),patch={};for(const [k] of fields)patch[k]=fd.get(k);
+   const st=w.querySelector('[data-status]');st.textContent='در حال ذخیره تغییرات…';
+   try{
+    await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId),{method:'PATCH',body:JSON.stringify(patch)});
+    st.textContent='✓ تغییرات ذخیره و در ممیزی ثبت شد.';
+    setTimeout(async()=>{w.remove();await runBankSearch()},500);
+   }catch(err){st.textContent=err.message}
+  };
+ }catch(e){w.innerHTML=`<div class="k982editdialog"><div class="k982edithead"><b>ویرایش سند</b><button type="button" data-close>×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;w.querySelector('[data-close]').onclick=()=>w.remove()}
+}
+
 async function runBankSearch(){
  const form=document.getElementById('k91search'),out=document.getElementById('k91results'),count=document.getElementById('k91count');
  if(!form||!out)return;
@@ -182,6 +225,7 @@ async function openBank(){
  const x=ensureShell(),b=x.querySelector('#k76body');b.innerHTML=bankMarkup();
  bindCombo(document.getElementById('k958subject'),[]);
  bindCombo(document.getElementById('k958meetingtype'),[]);
+ await k982LoadEditPermission();
  document.getElementById('k91search').onsubmit=e=>{e.preventDefault();runBankSearch()};
  document.getElementById('k958clear').onclick=()=>{document.getElementById('k91search').reset();runBankSearch()};
  b.onclick=e=>{
@@ -191,6 +235,7 @@ async function openBank(){
      if(items){items.hidden=!items.hidden;more.textContent=items.hidden?'نمایش تطابق‌های بیشتر':'بستن تطابق‌های بیشتر'}
      return;
    }
+   const edit=e.target.closest('[data-doc-edit]');if(edit){k982OpenEdit(edit.dataset.docEdit);return}
    const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery)
  };
  const from=formDate('from'),to=formDate('to');

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.7.5';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -588,6 +588,17 @@ function k975FindDirective(body,item,rel){
  }
  return scoreBest>0?best:-1;
 }
+
+function k982StripAmendmentAdminPrefix(text){
+ let t=k975Norm(text);
+ // Administrative wrappers can be stored on the same line as the substantive text.
+ t=t.replace(/^\s*متن\s+مصوبه\s*[:：\-–—]*\s*/,'');
+ t=t.replace(/^\s*ماده\s+واحده\s*[:：\-–—]*\s*/,'');
+ t=t.replace(/^\s*متن\s+الحاقیه\s*[:：\-–—]*\s*/,'');
+ t=t.replace(/^\s*متن\s+اصلاحیه\s*[:：\-–—]*\s*/,'');
+ return k975Norm(t);
+}
+
 function k975ExtractAmendmentRange(lines,item,rel){
  const body=k975BodyLines(lines);
  if(!body.length)return{lines:[],mode:'append'};
@@ -642,7 +653,8 @@ function k975ExtractAmendmentRange(lines,item,rel){
    if(i>start&&picked.length&&k961IsDirectiveLine(t))break;
    picked.push(t);
  }
- return{lines:picked.filter(Boolean),mode:replacement?'replace':'append'};
+ const cleaned=picked.map(k982StripAmendmentAdminPrefix).filter(t=>t&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!/^ماده\s+واحده\s*[:：]?$/.test(t));
+ return{lines:cleaned,mode:replacement?'replace':'append'};
 }
 function k961PickExactAmendmentLines(lines,item,rel){
  return k975ExtractAmendmentRange(lines,item,rel).lines;
@@ -702,7 +714,7 @@ function k975ApplyNode(full,article,node,mode){
 function k961InlineText(rel,item,lines){
  const sourceId=rel.relatedDocument?.id||'';
  const sourceTitle=rel.relatedDocument?.title||'سند اصلاحی';
- lines=(lines||[]).map(k975Norm).filter((t,i,a)=>t&&!k975IsIntro(t)&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
+ lines=(lines||[]).map(k982StripAmendmentAdminPrefix).filter((t,i,a)=>t&&!k975IsIntro(t)&&!/^متن\s+مصوبه\s*[:：]?$/.test(t)&&!/^ماده\s+واحده\s*[:：]?$/.test(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
  const wrap=document.createElement('div');
  wrap.className='k961inline-change';
  wrap.dataset.relationId=rel.id||'';

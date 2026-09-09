@@ -184,3 +184,8 @@
 .k958filters .k954datefield small{display:none}
 .k958filters .k954dateinput input{margin-top:5px}
 .k970native-date{display:none!important}
+
+/* 0.9.8.2 — preserve four compact metadata cells plus one action row */
+.k91dates.k958dates{align-content:start}
+.k91dates.k958dates>span{min-width:0}
+.k91dates.k958dates>span b{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
