@@ -62,11 +62,7 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
-      "source": "/api/index.js",
-      "destination": "/api/auth-proxy.js"
-    },
-    {
-      "source": "/api/(.*)",
+      "source": "/api/v1/(.*)",
       "destination": "/api/auth-proxy.js"
     }
   ]
