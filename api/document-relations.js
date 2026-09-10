@@ -3,7 +3,7 @@ import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(data))};
 const now=()=>new Date().toISOString(),rid=()=>`DREL:${Date.now().toString(36)}:${Math.random().toString(36).slice(2,9)}`;
 const inverse=t=>({amends:'amended_by',amended_by:'amends',supersedes:'superseded_by',superseded_by:'supersedes',repeals:'repealed_by',repealed_by:'repeals',extends:'extended_by',extended_by:'extends',clarifies:'clarified_by',clarified_by:'clarifies',implements:'implemented_by',implemented_by:'implements',related_to:'related_to'})[t]||'related_to';
-const labels={amends:'اصلاح‌کننده',amended_by:'اصلاح‌شده توسط',supersedes:'جایگزین‌کننده',superseded_by:'جایگزین‌شده توسط',repeals:'ملغی‌کننده',repealed_by:'ملغی‌شده توسط',extends:'توسعه‌دهنده',extended_by:'توسعه‌یافته توسط',clarifies:'استفسار / تبیین‌کننده',clarified_by:'دارای استفسار / تبیین',implements:'سند اجرایی',implemented_by:'دارای سند اجرایی',related_to:'سند مرتبط'};
+const labels={amends:'اصلاحیه',amended_by:'دارای اصلاحیه',supersedes:'جایگزین‌کننده',superseded_by:'جایگزین‌شده توسط',repeals:'ملغی',repealed_by:'ملغی‌شده توسط',extends:'الحاقیه',extended_by:'دارای الحاقیه',clarifies:'استفسار',clarified_by:'دارای استفسار',implements:'سند اجرایی',implemented_by:'دارای سند اجرایی',related_to:'سند مرتبط'};
 function canonical(current,related,type){const inv=new Set(['amended_by','superseded_by','repealed_by','extended_by','clarified_by','implemented_by']);return inv.has(type)?{source:related,target:current,type:inverse(type)}:{source:current,target:related,type}}
 const parseBody=req=>{if(typeof req.body==='string'){try{return JSON.parse(req.body||'{}')}catch{return {}}}return req.body||{}};
 const normalizeItems=b=>{
@@ -50,7 +50,7 @@ export default async function handler(req,res){
     return d?{...r,changeItems:Array.isArray(r.changeItems)?r.changeItems:normalizeItems(r),perspectiveType:pt,label:labels[pt]||pt,
       relatedDocument:{id:d.id,title:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null,issuedAt:d.issuedAt||null,promulgationDate:d.promulgationDate||null}}:null
    }).filter(Boolean);
-   const incoming=items.filter(x=>['amended_by','superseded_by','repealed_by','extended_by','clarified_by'].includes(x.perspectiveType));
+   const incoming=items.filter(x=>['amended_by','superseded_by','repealed_by','extended_by','clarified_by','implemented_by'].includes(x.perspectiveType));
    const statusLabel=items.some(x=>x.perspectiveType==='repealed_by')?'ملغی‌شده':items.some(x=>x.perspectiveType==='superseded_by')?'جایگزین‌شده':incoming.length?'معتبر با اصلاحات':'بدون اصلاحیه ثبت‌شده';
    return send(res,200,{items,summary:{total:items.length,statusLabel,latestChange:incoming[0]?{title:incoming[0].relatedDocument.title}:null}});
   }
