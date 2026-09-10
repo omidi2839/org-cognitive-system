@@ -66,7 +66,11 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/v1/documents/upload",
+      "destination": "/api/index.js"
+    },
+    {
+      "source": "/api/v1/:path*",
       "destination": "/api/index.js"
     }
   ]
