@@ -50,5 +50,5 @@
 .k985fileeditgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.k985fileeditgrid label{display:grid;gap:6px;padding:11px;border:1px dashed #c7d7e8;border-radius:11px;background:#fff;font-size:11px;font-weight:800}.k985fileeditgrid input{height:auto!important;border:0!important;padding:4px!important}.k985fileeditgrid small{font-size:9px;color:#7b8999;font-weight:500}
 .k985existingattachments{margin-top:10px;display:grid;gap:6px}.k985existingattachments>b{font-size:10px}.k985existingattachments>div{display:flex;gap:6px;flex-wrap:wrap}.k985existingattachments span{padding:4px 7px;border-radius:8px;background:#eef5fd;color:#35608f;font-size:9px}.k985existingattachments small{font-size:9px;color:#8a96a5}
 
-/* 0.9.8.7.1 — direct-to-Blob file edit */
+/* 0.9.8.8 — direct-to-Blob file edit */
 .k985fileedit:after{content:'جایگزینی فایل اصلی و پیوست‌ها به‌صورت مستقیم به Vercel Blob انجام می‌شود؛ API فقط مرجع فایل و فراداده را دریافت می‌کند.';display:block;margin-top:9px;font-size:9px;color:#607890}

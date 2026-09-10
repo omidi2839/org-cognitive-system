@@ -1,13 +1,3 @@
-ORG Cognitive System Direct Object Storage Upload Release
-Version: 0.9.8.7.1
-Deployment-safe: no new top-level API function.
-Architecture:
-browser -> short-lived signed PUT URL -> private Vercel Blob
-browser -> API receives only Blob reference + metadata
-server -> private Blob read only when parsing/normalizing is required
-Key changes:
-- removes Base64 file payloads from normal registration/edit flows
-- primary file replacement and multiple attachments use direct signed uploads
-- @vercel/blob upgraded to 2.6.1 for private Blob, signed URLs and consistent reads
-- blob upload URL route multiplexed through existing api/knowledge-documents.js
-- legacy Base64 remains backend-compatible but is no longer the browser default
+Build: Supabase Clean Cutover
+Version: 0.9.8.8
+Database priority: SUPABASE_DATABASE_URL > DATABASE_URL > memory

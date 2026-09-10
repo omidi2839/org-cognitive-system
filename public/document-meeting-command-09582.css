@@ -322,5 +322,5 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 /* 0.9.8.5 — multi-file attachments on registration */
 .k985attachments{margin:10px 0;padding:12px;border:1px solid #dce7f2;border-radius:13px;background:#f9fbfe;display:grid;gap:9px}.k985attachments>div:first-child{display:grid;gap:3px}.k985attachments b{font-size:12px}.k985attachments small{font-size:9.5px;color:#7c8a9b}.k985attachments label{display:grid;gap:6px;font-size:10px;font-weight:800}.k985attachments input{border:1px dashed #bfd1e5;border-radius:9px;padding:9px;background:#fff}.k985filelist{display:flex;gap:6px;flex-wrap:wrap;font-size:9.5px;color:#6f7d8d}.k985filelist span{padding:4px 7px;border-radius:7px;background:#eef5fd;color:#315f92}
 
-/* 0.9.8.7.1 — direct-to-Blob upload */
+/* 0.9.8.8 — direct-to-Blob upload */
 .k985attachments:after{content:'فایل‌ها مستقیماً به فضای ذخیره‌سازی خصوصی ارسال می‌شوند و از API اصلی عبور نمی‌کنند.';font-size:9px;color:#5f7894}
