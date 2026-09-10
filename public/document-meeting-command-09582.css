@@ -334,3 +334,8 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 .k992attachmentrow label{display:grid;gap:5px}.k992attachmentrow label span{font-size:9.5px;color:#5f7185}.k992attachmentrow input[type=file]{width:100%;padding:10px;border:1px solid #d4e3f1;border-radius:11px;background:white}
 .k992attachmentrow>button{height:34px;border:1px solid #f0cfd4;background:#fff7f8;color:#a74855;border-radius:10px;font-size:18px;cursor:pointer}
 .k985filelist{margin-top:8px}.k985filelist span{display:inline-flex;align-items:center;gap:4px}
+
+/* 0.9.8.9.4 — linked detailed legal instrument instead of wholesale inline copy */
+.k994linked-instrument{margin:12px 0 16px;padding:11px 13px;border-right:3px solid #2d8b67;background:#f4fbf8;border-radius:10px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;color:#286950}
+.k994linked-instrument>span{font-size:16px}.k994linked-instrument>div{display:flex;flex-direction:column;gap:2px;flex:1;min-width:220px}.k994linked-instrument b{font-size:11px}.k994linked-instrument small{font-size:9.5px;color:#65867a}
+.k994linked-instrument button{border:0;background:transparent;color:#176c52;text-decoration:underline;font:inherit;font-weight:700;cursor:pointer;padding:4px 0}

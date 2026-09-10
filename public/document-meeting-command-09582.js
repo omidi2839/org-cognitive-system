@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.3';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -13,7 +13,7 @@ function enhanceUploadForm(form){
  grid.insertAdjacentElement('afterend',w);
 }
 const nativeFetch=window.fetch.bind(window);
-const K9885_SERVER_RAW_BUDGET=2750000;
+const K9885_SERVER_RAW_BUDGET=1800000;
 const k9885Sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function k9885Base64(file){
  const ab=await file.arrayBuffer();
@@ -27,7 +27,7 @@ async function k9885ServerRef(file){
 async function k986DirectBlobRef(file,role='attachment'){
  if(!file)throw Object.assign(new Error('فایل برای آپلود انتخاب نشده است.'),{code:'DIRECT_UPLOAD_FAILED'});
  let last;
- for(let attempt=1;attempt<=3;attempt++){
+ for(let attempt=1;attempt<=4;attempt++){
   try{
    const pre=await nativeFetch('/api/v1/knowledge/blob-upload-url',{method:'POST',headers:{'content-type':'application/json','x-org-id':ORG},body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
    const p=await pre.json().catch(()=>({}));
@@ -35,7 +35,7 @@ async function k986DirectBlobRef(file,role='attachment'){
    const put=await nativeFetch(p.presignedUrl,{method:'PUT',body:file});
    if(!put.ok)throw Object.assign(new Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`),{code:'DIRECT_UPLOAD_FAILED'});
    return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true,transport:'direct-blob-v2'};
-  }catch(e){last=e;if(attempt<3)await k9885Sleep(450*attempt)}
+  }catch(e){last=e;if(attempt<4)await k9885Sleep([0,350,800,1500][attempt]||1500)}
  }
  throw last||Object.assign(new Error('آپلود مستقیم فایل ناموفق بود.'),{code:'DIRECT_UPLOAD_FAILED'});
 }
@@ -59,16 +59,25 @@ window.fetch=async function(input,init={}){
    const primary=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
    const attachmentInputs=[...form.querySelectorAll('[data-k985-attachment-input],[data-k985-attachments]')];
    const attachments=attachmentInputs.flatMap(x=>[...(x.files||[])]);
-   const all=[...(primary?[primary]:[]),...attachments];
-   const rawBytes=all.reduce((n,f)=>n+Number(f.size||0),0);
-   // Small document sets avoid the browser->Blob route entirely. Base64 expansion stays
-   // safely below Vercel's 4.5 MB Function payload limit with this raw-byte budget.
-   const serverFallback=rawBytes>0&&rawBytes<=K9885_SERVER_RAW_BUDGET;
+   // Hybrid transport: keep the total Base64 portion comfortably below the Function
+   // payload ceiling, and send only the remaining/larger files directly to Blob.
+   let remainingServerBudget=K9885_SERVER_RAW_BUDGET;
+   const transportRef=async(file,role)=>{
+     const sz=Number(file?.size||0);
+     if(sz>0&&sz<=remainingServerBudget){
+       remainingServerBudget-=sz;
+       return k9885ServerRef(file);
+     }
+     return k986DirectBlobRef(file,role);
+   };
    if(primary){
-    const ref=serverFallback?await k9885ServerRef(primary):await k986DirectBlobRef(primary,'primary');
+    const ref=await transportRef(primary,'primary');
     Object.assign(b,ref);if(!ref.contentBase64)delete b.contentBase64;
    }
-   if(attachments.length)b.attachments=serverFallback?await Promise.all(attachments.map(k9885ServerRef)):await k986DirectBlobRefs(attachments,'attachment');
+   if(attachments.length){
+     b.attachments=[];
+     for(const file of attachments)b.attachments.push(await transportRef(file,'attachment'));
+   }
    init={...init,body:JSON.stringify(b)};
   }
  }
@@ -304,7 +313,7 @@ function k953EnhanceMetadata(form){
          status=box.querySelector('[data-k953-topic-status]');
 
    function sync(){category.value=primary.value||'';subject.value=sub.value.trim()}
-   primary.addEventListener('change',()=>{sync();if(form.querySelector('input[type="file"][name="file"]')?.files?.[0])analyze()});
+   primary.addEventListener('change',sync);
    sub.addEventListener('input',sync);
 
    async function analyze(){
@@ -312,23 +321,27 @@ function k953EnhanceMetadata(form){
      if(!file){status.textContent='ابتدا فایل سند را انتخاب کنید.';return}
      status.textContent='در حال تحلیل موضوع کلان و زیرموضوع سند…';
      try{
-       const b64=await new Promise((ok,no)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=no;r.readAsDataURL(file)});
-       const d=await api('/api/v1/knowledge/topic-suggestions',{method:'POST',body:JSON.stringify({
+       const light=file.size>700000;
+       const payload={
          title:form.querySelector('input[name="title"]')?.value?.trim()||'',
          primaryTopic:primary.value||'',
-         fileName:file.name,mimeType:file.type||'application/octet-stream',contentBase64:b64
-       })});
+         fileName:file.name,mimeType:file.type||'application/octet-stream'
+       };
+       if(!light){
+         payload.contentBase64=await k9885Base64(file);
+       }
+       const d=await api('/api/v1/knowledge/topic-suggestions',{method:'POST',body:JSON.stringify(payload)});
        if(!primary.value&&d.primaryRecommended?.[0]?.label)primary.value=d.primaryRecommended[0].label;
        const subs=d.subtopics||[];
        dl.innerHTML=subs.map(x=>`<option value="${esc(x.label)}"></option>`).join('');
        if(!sub.value&&subs[0]?.label)sub.value=subs[0].label;
        sync();
        status.innerHTML=`${d.analysis?.detectedTitle?`<div class="k958detected"><b>عنوان تشخیص‌داده‌شده:</b> ${esc(d.analysis.detectedTitle)}</div>`:''}<b>موضوع کلان:</b> ${esc(primary.value||'انتخاب نشده')} ${subs.length?`· <b>زیرموضوع‌های پیشنهادی:</b> ${subs.slice(0,5).map(x=>esc(x.label)).join('، ')}`:'· زیرموضوع پیشنهادی قابل اتکا پیدا نشد؛ کاربر آن را نهایی کند.'}`;
-     }catch(e){status.textContent=e.message}
+     }catch(e){status.textContent='پیشنهاد موضوعی در دسترس نیست؛ این موضوع مانع ثبت سند نمی‌شود.'}
    }
    box.querySelector('[data-k953-analyze]').onclick=analyze;
    const file=form.querySelector('input[type="file"][name="file"]');
-   if(file)file.addEventListener('change',()=>{subject.value='';sub.value='';dl.innerHTML='';status.textContent='';setTimeout(analyze,100)});
+   if(file)file.addEventListener('change',()=>{subject.value='';sub.value='';dl.innerHTML='';status.textContent='فایل آماده است. برای پیشنهاد موضوع، دکمه «تحلیل فایل و پیشنهاد زیرموضوع» را بزنید.'});
  }
 
 }
@@ -941,6 +954,34 @@ function k992ApplyNode(full,article,node,mode){
  return true;
 }
 
+
+function k994SourceProfile(lines,rel){
+ const clean=(lines||[]).map(k983CanonAdmin).filter(Boolean);
+ let articles=0,clauses=0,substantive=0,chars=0;
+ for(const x of clean){
+   chars+=x.length;
+   const m=k975LegalMarker(x);
+   if(m?.kind==='article')articles++;
+   else if(m?.kind)clauses++;
+   if(!k983IsAdminHeading(x)&&!k975IsIntro(x)&&!k975IsRole(x))substantive++;
+ }
+ const title=String(rel?.relatedDocument?.title||'');
+ const joined=(title+' '+clean.slice(0,16).join(' ')).replace(/\s+/g,' ');
+ const instructionLike=/(دستورالعمل|شیوه[\s‌-]*نامه|آیین[\s‌-]*نامه اجرایی|راهنمای اجرایی|ضوابط اجرایی|روش اجرایی)/.test(joined);
+ const complexInstruction=instructionLike&&(articles>=2||substantive>=10||chars>=900);
+ const veryLargeLegalBody=articles>=6||chars>=5000;
+ return{articles,clauses,substantive,chars,instructionLike,referenceOnly:complexInstruction||veryLargeLegalBody};
+}
+function k994ReferenceNode(rel,article,profile){
+ const sourceId=rel.relatedDocument?.id||'',title=rel.relatedDocument?.title||'سند مرتبط';
+ const wrap=document.createElement('div');
+ wrap.className='k994linked-instrument';
+ wrap.dataset.relationId=rel.id||'';
+ const label=profile?.instructionLike?'دستورالعمل مصوب':'سند اجرایی/تفصیلی';
+ wrap.innerHTML=`<span>↗</span><div><b>این ماده دارای ${label} است.</b><small>متن کامل سند به دلیل تفصیلی بودن در همین محل درج نشده است.</small></div>${sourceId?`<button type="button" data-amend-source="${k955Esc(sourceId)}">${k955Esc(title)}</button>`:''}`;
+ return wrap;
+}
+
 async function k961ApplyInlineAmendments(full,id){
  if(!full||!id||full.dataset.k961Amendments==='loading'||full.dataset.k961Amendments==='1')return;
  full.dataset.k961Amendments='loading';
@@ -951,18 +992,34 @@ async function k961ApplyInlineAmendments(full,id){
    // Never apply the mother document text back into the amendment document.
    const incoming=(d.items||[]).filter(r=>
      r.targetDocumentRef===id &&
-     ['amends','supersedes','extends','clarifies'].includes(r.relationType) &&
-     ['amended_by','superseded_by','extended_by','clarified_by'].includes(r.perspectiveType)
+     ['amends','supersedes','extends','clarifies','implements'].includes(r.relationType) &&
+     ['amended_by','superseded_by','extended_by','clarified_by','implemented_by'].includes(r.perspectiveType)
    );
    for(const rel of incoming){
      const sourceId=rel.relatedDocument?.id||'';
      if(!sourceId)continue;
      const sourceLines=await k961SourceLines(sourceId);
+     const profile=k994SourceProfile(sourceLines,rel);
      const items=Array.isArray(rel.changeItems)&&rel.changeItems.length
        ?rel.changeItems:[{article:rel.targetArticle,clause:rel.targetClause,description:rel.note}];
+     const linkedArticles=new Set();
      for(const item of items){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;
+
+       // Detailed instructions/bylaws are linked at the target article instead of being
+       // copied wholesale into the mother document. Short amendments still consolidate inline.
+       if(profile.referenceOnly||rel.relationType==='implements'){
+         const key=String(k962ArticleTargetNumber(article)||article);
+         if(linkedArticles.has(key))continue;
+         linkedArticles.add(key);
+         const node=k994ReferenceNode(rel,article,profile);
+         if(!k992ApplyNode(full,article,node,'append')){
+           console.warn('LINKED_INSTRUMENT_TARGET_NOT_FOUND',{article,relationId:rel.id,sourceId});
+         }
+         continue;
+       }
+
        const extraction=k975ExtractAmendmentRange(sourceLines,item,rel);
        let exact=extraction.lines;
        if(!exact.length)exact=k992FallbackPayload(sourceLines,item,rel);
@@ -982,6 +1039,7 @@ async function k961ApplyInlineAmendments(full,id){
        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
        const docId=btn.dataset.amendSource;
        if(docId&&typeof window.__ORG_OPEN_DOCUMENT__==='function'){
+         window.__K951_ACTIVE_DOC_ID=docId;window.__K950_ACTIVE_DOC_ID=docId;window.__K992_ACTIVE_DOC_ID=docId;
          window.__ORG_OPEN_DOCUMENT__(docId,'');
        }else{
          console.warn('AMENDMENT_SOURCE_NAVIGATION_UNAVAILABLE',{docId});

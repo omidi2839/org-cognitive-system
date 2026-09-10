@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.9.3';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.9.4';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -430,8 +430,8 @@ async function runBankSearch(){
 }
 function closeDocumentModal(){document.getElementById('k91docmodal')?.remove();document.body.classList.remove('k91-modal-open')}
 async function openDocumentModal(documentId,q=lastSearchQuery){
- closeDocumentModal();window.__K951_ACTIVE_DOC_ID=documentId;window.__K950_ACTIVE_DOC_ID=documentId;
- const w=document.createElement('div');w.id='k91docmodal';w.className='k91modalbackdrop';
+ closeDocumentModal();window.__K951_ACTIVE_DOC_ID=documentId;window.__K950_ACTIVE_DOC_ID=documentId;window.__K992_ACTIVE_DOC_ID=documentId;
+ const w=document.createElement('div');w.id='k91docmodal';w.className='k91modalbackdrop';w.dataset.documentId=documentId;
  w.innerHTML='<div class="k91modal"><div class="k91modal-loading">در حال دریافت متن سند…</div></div>';
  w.onclick=e=>{if(e.target===w)closeDocumentModal()};document.body.appendChild(w);document.body.classList.add('k91-modal-open');
  try{
