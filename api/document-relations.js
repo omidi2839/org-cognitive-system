@@ -26,7 +26,13 @@ function looksLegacyReversedAmendment(r,docs){
  const legalChange=hasLegalLocator||/(اصلاح|الحاق|جایگزین|تبصره|ماده)/.test(change);
  // Legacy upload form encoded «اصلاحیه سند قبلی» as amended_by and the old canonicalizer reversed it.
  // A legal amendment should not chronologically precede its mother document.
- return legalChange && ((ad&&bd&&ad<bd)||(an!=null&&bn!=null&&an<bn&&(!ad||!bd||ad<=bd)&&(!ac||!bc||ac<=bc)));
+ const aLooksMother=!/(اصلاحیه|الحاقیه|متمم)/.test(String(a.title||''));
+ const bLooksAmendment=/(اصلاحیه|الحاقیه|متمم)/.test(String(b.title||''));
+ return legalChange && (
+   (aLooksMother&&bLooksAmendment) ||
+   (ad&&bd&&ad<bd) ||
+   (an!=null&&bn!=null&&an<bn&&(!ad||!bd||ad<=bd))
+ );
 }
 
 export default async function handler(req,res){
