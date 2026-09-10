@@ -57,28 +57,87 @@ const migrationAuthorized=req=>{
   const actual=String((req.headers||{})['x-migration-secret']||'');
   return Boolean(expected)&&actual===expected;
 };
+const migrationError=(e,stage)=>({
+  ok:false,
+  stage,
+  code:e?.code||(
+    /data transfer quota/i.test(String(e?.message||'')) ? 'DATABASE_TRANSFER_QUOTA_EXCEEDED' :
+    'DATABASE_MIGRATION_ERROR'
+  ),
+  message:e?.message||String(e)||'Database migration error',
+  retryable:!['MIGRATION_TARGET_NOT_EMPTY','MIGRATION_SNAPSHOT_INVALID'].includes(String(e?.code||''))
+});
+async function migrationStats(repo,stage){
+  try{
+    return {ok:true,stage,stats:await repo.stats()};
+  }catch(e){
+    console.error(`DATABASE_MIGRATION_${stage.toUpperCase()}_ERROR`,e);
+    return migrationError(e,stage);
+  }
+}
 async function handleDatabaseMigration(req,res,repo){
   if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
   if(!migrationAuthorized(req)) return send(res,403,{message:'دسترسی مهاجرت مجاز نیست.',code:'MIGRATION_FORBIDDEN'});
+
+  const input=bodyOf(req),action=String(input.action||'probe-target').toLowerCase();
+  const needsTarget=['probe-target','probe','copy'].includes(action);
   const targetUrl=String(process.env.MIGRATION_TARGET_DATABASE_URL||'');
-  if(!targetUrl) return send(res,503,{message:'MIGRATION_TARGET_DATABASE_URL تنظیم نشده است.',code:'MIGRATION_TARGET_URL_REQUIRED'});
-  const input=bodyOf(req),action=String(input.action||'probe');
-  const target=new PostgresRepository(targetUrl);
+  if(needsTarget&&!targetUrl) return send(res,503,{ok:false,stage:'target',message:'MIGRATION_TARGET_DATABASE_URL تنظیم نشده است.',code:'MIGRATION_TARGET_URL_REQUIRED'});
+
+  if(action==='probe-source'){
+    const source=await migrationStats(repo,'source');
+    return send(res,source.ok?200:503,source);
+  }
+
+  const target=needsTarget?new PostgresRepository(targetUrl):null;
   try{
-    if(action==='probe'){
-      const sourceStats=await repo.stats();
-      const targetStats=await target.stats();
-      return send(res,200,{ok:true,source:sourceStats,target:targetStats});
+    if(action==='probe-target'){
+      const result=await migrationStats(target,'target');
+      return send(res,result.ok?200:503,result);
     }
-    if(action!=='copy') return send(res,400,{message:'عملیات مهاجرت نامعتبر است.',code:'MIGRATION_ACTION_INVALID'});
-    const snapshot=await repo.exportSnapshot();
-    const result=await target.importSnapshot(snapshot,{requireEmpty:true});
-    const verify=await target.exportSnapshot();
+
+    // Backward-compatible combined probe, now target-first so a blocked source does not hide target health.
+    if(action==='probe'){
+      const targetResult=await migrationStats(target,'target');
+      if(!targetResult.ok) return send(res,503,{ok:false,target:targetResult,source:{ok:false,stage:'source',skipped:true,reason:'TARGET_PROBE_FAILED'}});
+      const sourceResult=await migrationStats(repo,'source');
+      return send(res,sourceResult.ok?200:503,{ok:targetResult.ok&&sourceResult.ok,target:targetResult,source:sourceResult});
+    }
+
+    if(action!=='copy') return send(res,400,{ok:false,message:'عملیات مهاجرت نامعتبر است.',code:'MIGRATION_ACTION_INVALID',allowed:['probe-target','probe-source','probe','copy']});
+
+    let snapshot;
+    try{
+      snapshot=await repo.exportSnapshot();
+    }catch(e){
+      console.error('DATABASE_MIGRATION_SOURCE_EXPORT_ERROR',e);
+      return send(res,503,migrationError(e,'source-export'));
+    }
+
+    let result;
+    try{
+      result=await target.importSnapshot(snapshot,{requireEmpty:true});
+    }catch(e){
+      console.error('DATABASE_MIGRATION_TARGET_IMPORT_ERROR',e);
+      return send(res,503,migrationError(e,'target-import'));
+    }
+
+    let verify;
+    try{
+      verify=await target.exportSnapshot();
+    }catch(e){
+      console.error('DATABASE_MIGRATION_TARGET_VERIFY_ERROR',e);
+      return send(res,503,migrationError(e,'target-verify'));
+    }
+
     const same=JSON.stringify(snapshot.counts)===JSON.stringify(verify.counts);
-    if(!same) return send(res,500,{message:'صحت‌سنجی شمارشی مهاجرت ناموفق بود.',code:'MIGRATION_VERIFY_FAILED',source:snapshot.counts,target:verify.counts});
+    if(!same) return send(res,500,{ok:false,message:'صحت‌سنجی شمارشی مهاجرت ناموفق بود.',code:'MIGRATION_VERIFY_FAILED',stage:'verify',source:snapshot.counts,target:verify.counts});
     return send(res,200,{ok:true,migrated:true,source:snapshot.counts,target:verify.counts,compressedBytes:result.compressedBytes});
+  }catch(e){
+    console.error('DATABASE_MIGRATION_HANDLER_ERROR',e);
+    return send(res,500,migrationError(e,'handler'));
   }finally{
-    await target.close().catch(()=>{});
+    if(target) await target.close().catch(()=>{});
   }
 }
 
