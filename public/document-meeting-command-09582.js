@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.4';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -118,7 +118,7 @@ function isQuestion(q){return /(چی|چه|چرا|چگونه|چطور|کدام|ک
 function renderDocCommand(d){
  const out=document.getElementById('commandResult');if(!out)return;out.classList.remove('hidden');const items=d.items||[],ev=d.answer?.evidence||[];
  const answer=d.answer?`<section class="k951qa"><div class="k951qatitle"><b>✦ پاسخ از محتوای اسناد</b><span>${esc(d.answer.scopeLabel||'بانک اسناد')}</span></div><p class="k951summary">${esc(d.answer.summary||'')}</p>${ev.length?`<div class="k951evidence">${ev.map((a,i)=>`<article><span>${toFa(i+1)}</span><div><button type="button" data-doc-preview="${esc(a.documentId)}">${esc(a.documentTitle)}</button><p>${esc(a.text)}</p></div></article>`).join('')}</div>`:''}<small>پاسخ بر اساس متن استخراج‌شده اسناد و همراه با شاهد نمایش داده شده است.</small></section>`:'';
- out.innerHTML=`<div class="k950answer"><div class="k950answerhead"><span>${d.answer?'◈ پرسش از اسناد':'□ جستجوی اسناد سازمان'}</span><b>${toFa(items.length)} سند</b></div>${answer}${items.length?items.map(x=>`<article><button type="button" data-doc-preview="${esc(x.id)}">${esc(x.title||'بدون عنوان')}</button><div class="k950docmeta">${x.documentType?`<span>${esc(x.documentType)}</span>`:''}${x.subjectArea?`<span>موضوع: ${esc(x.subjectArea)}</span>`:''}${x.meetingNumber?`<span>جلسه: ${esc(x.meetingNumber)}</span>`:''}${x.meetingDate?`<span>تاریخ جلسه: ${esc(x.meetingDate)}</span>`:''}</div>${!d.answer&&x.excerpt?`<p>${esc(x.excerpt)}</p>`:''}</article>`).join(''):'<div class="k950empty">سندی مطابق این درخواست پیدا نشد.</div>'}<small class="k950notice">برای مشاهده متن کامل روی عنوان سند کلیک کنید.</small></div>`;
+ out.innerHTML=`<div class="k950answer"><div class="k950answerhead"><span>${d.answer?'◈ پرسش از اسناد':'□ جستجوی اسناد سازمان'}</span><b>${toFa(items.length)} سند</b></div>${answer}${items.length?items.map(x=>`<article><button type="button" data-doc-preview="${esc(x.id)}">${esc(x.title||'بدون عنوان')}</button><div class="k950docmeta">${x.documentType?`<span>${esc(x.documentType)}</span>`:''}${x.documentNumber?`<span>شماره: ${esc(x.documentNumber)}</span>`:''}${x.subjectCategory?`<span>موضوع کلان: ${esc(x.subjectCategory)}</span>`:''}${x.subjectArea?`<span>زیرموضوع: ${esc(x.subjectArea)}</span>`:''}${x.issuer?`<span>مرجع: ${esc(x.issuer)}</span>`:''}${x.meetingNumber?`<span>جلسه: ${esc(x.meetingNumber)}</span>`:''}${x.meetingDate?`<span>تاریخ جلسه: ${esc(x.meetingDate)}</span>`:''}</div>${!d.answer&&x.excerpt?`<p>${esc(x.excerpt)}</p>`:''}</article>`).join(''):'<div class="k950empty">سندی مطابق این درخواست پیدا نشد.</div>'}<small class="k950notice">برای مشاهده متن کامل روی عنوان سند کلیک کنید.</small></div>`;
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function handleDocumentCommand(q){
@@ -982,6 +982,66 @@ function k994ReferenceNode(rel,article,profile){
  return wrap;
 }
 
+
+function k990RelationVisual(rel){
+ const t=rel?.relationType||'';
+ return {
+  amends:{label:'اصلاحیه',cls:'k990-amend'},
+  extends:{label:'الحاقیه',cls:'k990-addendum'},
+  repeals:{label:'ملغی',cls:'k990-repeal'},
+  clarifies:{label:'استفسار',cls:'k990-interpret'}
+ }[t]||{label:'اثر حقوقی',cls:'k990-legal'};
+}
+function k990ExplicitNode(rel,item){
+ const text=String(item?.description||rel?.note||'').trim();if(!text)return null;
+ const v=k990RelationVisual(rel),wrap=document.createElement('div');
+ wrap.className=`k990-explicit-change ${v.cls}`;wrap.dataset.relationId=rel.id||'';
+ const loc=[item?.article?`ماده ${item.article}`:'',item?.clause||''].filter(Boolean).join(' · ');
+ wrap.innerHTML=`<div class="k990-explicit-head"><b>${v.label}${loc?` — ${k955Esc(loc)}`:''}</b><span>ثبت‌شده به‌عنوان اثر حقوقی صریح</span></div><div class="k990-explicit-text"></div>${rel.relatedDocument?.id?`<button type="button" class="k961inline-source" data-amend-source="${k955Esc(rel.relatedDocument.id)}">↗ ${k955Esc(rel.relatedDocument.title||'سند مرتبط')}</button>`:''}`;
+ const body=wrap.querySelector('.k990-explicit-text');
+ for(const line of text.split(/\n+/).map(x=>x.trim()).filter(Boolean)){const p=document.createElement('p');p.textContent=line;body.appendChild(p)}
+ return wrap;
+}
+function k990ClauseSpec(raw){
+ const s=k975En(String(raw||'').replace(/\u200c/g,' ').trim());
+ if(!s)return null;
+ let m=s.match(/تبصره\s*[-–—:.：]?\s*([0-9]+)/);if(m)return{kind:'note',no:String(Number(m[1]))};
+ m=s.match(/بند\s*[-–—:.：]?\s*([0-9]+|[الف-یآ])/);if(m)return{kind:'clause',no:m[1]};
+ m=s.match(/جزء\s*[-–—:.：]?\s*([0-9]+)/);if(m)return{kind:'part',no:String(Number(m[1]))};
+ if(/^[0-9]+$/.test(s))return{kind:'note',no:String(Number(s))};
+ return{kind:'text',no:s};
+}
+function k990BlockMarker(el){
+ const t=k975Norm(el?.innerText||el?.textContent||'');
+ return k975LegalMarker(t);
+}
+function k990ApplyAtLocator(full,item,node){
+ const article=item?.article||'';const range=k975ArticleRange(full,article)||k992ArticleRangeFallback(full,article);
+ if(!range)return false;
+ const spec=k990ClauseSpec(item?.clause||'');
+ if(!spec)return k992ApplyNode(full,article,node,'append');
+
+ const blocks=range.blocks;let hit=-1;
+ for(let i=range.start;i<range.end;i++){
+   const text=k975Norm(blocks[i]?.innerText||blocks[i]?.textContent||'');
+   const mk=k990BlockMarker(blocks[i]);
+   if(spec.kind==='text'){
+     if(k975En(text).startsWith(spec.no)){hit=i;break}
+   }else if(mk?.kind===spec.kind&&String(mk.no)===String(spec.no)){hit=i;break}
+ }
+ if(hit<0){
+   console.warn('LEGAL_TARGET_CLAUSE_NOT_FOUND',{article,clause:item?.clause});
+   return false; // do not silently attach to the wrong place
+ }
+ let before=range.before||null;
+ for(let i=hit+1;i<range.end;i++){
+   const mk=k990BlockMarker(blocks[i]);
+   if(mk && ['note','clause','part','article'].includes(mk.kind)){before=blocks[i];break}
+ }
+ if(before?.parentNode===full)full.insertBefore(node,before);else full.appendChild(node);
+ node.classList.add('k990-located');
+ return true;
+}
 async function k961ApplyInlineAmendments(full,id){
  if(!full||!id||full.dataset.k961Amendments==='loading'||full.dataset.k961Amendments==='1')return;
  full.dataset.k961Amendments='loading';
@@ -1007,8 +1067,7 @@ async function k961ApplyInlineAmendments(full,id){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;
 
-       // Detailed instructions/bylaws are linked at the target article instead of being
-       // copied wholesale into the mother document. Short amendments still consolidate inline.
+       // Detailed independent instruments remain reference-only.
        if(profile.referenceOnly||rel.relationType==='implements'){
          const key=String(k962ArticleTargetNumber(article)||article);
          if(linkedArticles.has(key))continue;
@@ -1020,15 +1079,24 @@ async function k961ApplyInlineAmendments(full,id){
          continue;
        }
 
+       // For amendment/addendum/repeal/interpretation the user-entered legal text is authoritative.
+       // No semantic guessing/extraction is performed when explicit text exists.
+       const explicit=k990ExplicitNode(rel,item);
+       if(explicit){
+         if(!k990ApplyAtLocator(full,item,explicit)){
+           console.warn('EXPLICIT_LEGAL_TARGET_NOT_FOUND',{article,clause:item?.clause,relationId:rel.id});
+         }
+         continue;
+       }
+
+       // Legacy records without explicit text keep the old extraction fallback.
        const extraction=k975ExtractAmendmentRange(sourceLines,item,rel);
        let exact=extraction.lines;
        if(!exact.length)exact=k992FallbackPayload(sourceLines,item,rel);
-       if(!exact.length){console.warn('INLINE_AMENDMENT_TEXT_NOT_EXTRACTED',{article,relationId:rel.id,sourceId});continue}
-
+       if(!exact.length)continue;
        const node=k961InlineText(rel,item,exact);
        if(!k992ApplyNode(full,article,node,extraction.mode)){
          console.warn('INLINE_AMENDMENT_TARGET_NOT_FOUND',{article,relationId:rel.id,mode:extraction.mode});
-         continue;
        }
      }
    }

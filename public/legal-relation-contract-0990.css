@@ -1,0 +1,8 @@
+
+/* 0.9.9.0 explicit legal relation contract */
+.k990legal-contract .k990internal-field{display:none!important}
+.k990legal-contract .k944items{border:1px solid #d8e6f5;background:linear-gradient(180deg,#fbfdff,#f6faff);border-radius:16px}
+.k990legal-contract .k944itemshead{align-items:center}
+.k990legal-contract .k944changeitem{background:#fff;border:1px solid #e2ebf4;border-radius:14px}
+.k990legal-contract [data-change-description]{min-height:100px;line-height:1.9}
+.k990legal-contract [data-reltype],.k990legal-contract [data-reldoc]{font-weight:650}

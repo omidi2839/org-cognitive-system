@@ -1,10 +1,10 @@
 (()=>{
-const VERSION='0.9.8.9.2';
+const VERSION='0.9.9.0';
 document.documentElement.classList.add('auth-pending');
 const scripts=[
  './app.js','./workspace-shell-075.js','./knowledge-workspace-076.js',
  `./document-bank-09582.js?v=${VERSION}`,`./document-bank-entry-09587.js?v=${VERSION}`,'./document-amendments-093.js?v=0.9.4.0',
- './document-relations-ui-0944.js?v=0.9.4.4',`./document-meeting-command-09582.js?v=${VERSION}`,`./knowledge-governance-0980.js?v=${VERSION}`,`./platform-unified-09889.js?v=${VERSION}`
+ './document-relations-ui-0944.js?v=0.9.4.4',`./legal-relation-contract-0990.js?v=${VERSION}`,`./document-meeting-command-09582.js?v=${VERSION}`,`./knowledge-governance-0980.js?v=${VERSION}`,`./platform-unified-09889.js?v=${VERSION}`,`./document-command-suggestions-0990.js?v=${VERSION}`
 ];
 function mount(){
  const gate=document.createElement('div');gate.className='k989-auth';gate.innerHTML=`<i class="k989-orb o1"></i><i class="k989-orb o2"></i><i class="k989-grid"></i><form class="k989-login"><div class="k989-ai-mark">✦</div><h1>ورود به پلتفرم هوش شناختی سازمان</h1><p>فضای امن مدیریت، اسناد و شناخت سازمانی. برای ادامه هویت مدیریتی خود را تأیید کنید.</p><label>نام کاربری<input name="username" autocomplete="username" required autofocus placeholder="نام کاربری"></label><label>رمز عبور<input name="password" type="password" autocomplete="current-password" required placeholder="رمز عبور"></label><button type="submit">ورود به سامانه</button><div class="k989-auth-status"></div><div class="k989-secure"><span>◇</span><span>نشست امن مدیریتی · دسترسی ادمین کل</span></div></form>`;document.body.appendChild(gate);

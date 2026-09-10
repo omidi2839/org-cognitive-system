@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.9.4';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -187,9 +187,10 @@ async function k983LoadUnits(select,current){
 }
 
 const K984_REL_TYPES=[
- ['amends','اصلاح می‌کند'],['extends','الحاق / توسعه می‌دهد'],['supersedes','جایگزین می‌کند'],
- ['repeals','لغو می‌کند'],['clarifies','تبیین / استفسار می‌کند'],['implements','اجرا می‌کند'],['related_to','مرتبط است با']
+ ['amends','اصلاحیه'],['extends','الحاقیه'],['repeals','ملغی'],['clarifies','استفسار']
 ];
+const K984_EFFECT_LABEL={amends:'متن کامل اصلاحی',extends:'متن کامل الحاقیه',repeals:'متن/شرح بخش ملغی',clarifies:'متن کامل استفسار'};
+const K984_INTERNAL_CHANGE={amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'};
 function k984RelationLabel(v){return Object.fromEntries(K984_REL_TYPES)[v]||v||'ارتباط'}
 function k984RelationPerspectiveLabel(r){
  const m={amended_by:'اصلاح‌شده توسط',extended_by:'الحاق‌شده توسط',superseded_by:'جایگزین‌شده توسط',repealed_by:'لغوشده توسط',clarified_by:'تبیین‌شده توسط',implemented_by:'دارای سند اجرایی'};
@@ -201,10 +202,10 @@ function k984RelationEditorMarkup(){
   <div class="k984relform" data-k984-rel-form>
    <label>نوع ارتباط<select data-k984-type>${K984_REL_TYPES.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></label>
    <label>سند مرتبط<select data-k984-doc><option value="">انتخاب سند مرتبط…</option></select></label>
-   <label>نوع تغییر<input data-k984-change-type placeholder="مثلاً الحاق ماده / اصلاح متن / جایگزینی"></label>
-   <label>ماده هدف<input data-k984-article placeholder="مثلاً ۲۷"></label>
-   <label>بند / تبصره<input data-k984-clause placeholder="مثلاً تبصره ۲"></label>
-   <label class="k984reldesc">شرح تغییر<textarea data-k984-desc rows="2" placeholder="شرح دقیق اثر حقوقی این سند"></textarea></label>
+   <input type="hidden" data-k984-change-type>
+   <label>ماده هدف<input data-k984-article placeholder="مثلاً ۹"></label>
+   <label>بند / تبصره<input data-k984-clause placeholder="مثلاً تبصره ۱ یا بند الف"></label>
+   <label class="k984reldesc"><span data-k984-desc-label>متن اثر حقوقی</span><textarea data-k984-desc rows="4" placeholder="متن دقیق را وارد کنید"></textarea></label>
    <label class="k984releffective">تاریخ اثر<input type="hidden" data-k984-effective></label>
    <div class="k984relactions"><button type="button" data-k984-clear>پاک کردن</button><button type="button" data-k984-save>ثبت / به‌روزرسانی ارتباط</button></div>
    <span data-k984-status></span>
@@ -221,7 +222,7 @@ async function k984InitRelationEditor(root,currentId){
  const docs=(docsData.items||[]).filter(d=>d.id!==currentId);
  docSel.innerHTML='<option value="">انتخاب سند مرتبط…</option>'+docs.map(d=>`<option value="${esc(d.id)}">${d.documentNumber?`مصوبه/سند ${esc(d.documentNumber)} — `:''}${esc(d.title)}</option>`).join('');
 
- const clear=()=>{type.value='amends';docSel.value='';change.value='';article.value='';clause.value='';desc.value='';effective.value='';status.textContent='';root.dataset.k984EditingRelation=''};
+ const syncType=()=>{change.value=K984_INTERNAL_CHANGE[type.value]||'';const l=root.querySelector('[data-k984-desc-label]');if(l)l.textContent=K984_EFFECT_LABEL[type.value]||'متن اثر حقوقی';desc.placeholder=`${K984_EFFECT_LABEL[type.value]||'متن اثر حقوقی'} را دقیقاً وارد کنید`;};type.addEventListener('change',syncType);const clear=()=>{type.value='amends';docSel.value='';article.value='';clause.value='';desc.value='';effective.value='';status.textContent='';root.dataset.k984EditingRelation='';syncType()};syncType();
  root.querySelector('[data-k984-clear]').onclick=clear;
 
  async function load(){
@@ -236,9 +237,9 @@ async function k984InitRelationEditor(root,currentId){
    const r=rels.find(x=>x.id===b.dataset.editRel);if(!r)return;
    const inv={amended_by:'amends',extended_by:'extends',superseded_by:'supersedes',repealed_by:'repeals',clarified_by:'clarifies',implemented_by:'implements'};
    // If current document is the target, editing from this perspective uses inverse type.
-   type.value=inv[r.perspectiveType]||r.perspectiveType||'related_to';
+   type.value=inv[r.perspectiveType]||r.perspectiveType||'amends';syncType();
    docSel.value=r.relatedDocument?.id||'';
-   change.value=r.changeType||'';
+   change.value=K984_INTERNAL_CHANGE[type.value]||r.changeType||'';
    article.value=r.changeItems?.[0]?.article||r.targetArticle||'';
    clause.value=r.changeItems?.[0]?.clause||r.targetClause||'';
    desc.value=r.changeItems?.[0]?.description||r.note||'';
