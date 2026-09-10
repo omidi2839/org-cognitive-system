@@ -372,26 +372,43 @@ async function handleKnowledgeDocuments(req,res,repo,actor,u){
 }
 
 
-function k986SafeFileName(name){
- return String(name||'file').normalize('NFC').replace(/[^\w.\-\u0600-\u06FF]+/g,'_').replace(/^\.+/,'').slice(-160)||'file';
+function k9881OriginalFileName(name){
+ // Preserve the user's display filename, but never use it as the signed Blob object key.
+ // Unicode filenames (especially Persian/Arabic) can be encoded differently inside a signed-token scope.
+ const raw=String(name||'').normalize('NFC').replace(/[\u0000-\u001F\u007F]/g,'').trim();
+ const base=raw.split(/[\\/]/).pop()||'';
+ return base.slice(-220);
+}
+function k9881BlobExtension(fileName,mimeType){
+ const m=String(mimeType||'').toLowerCase();
+ if(/\.docx$/i.test(fileName)||m==='application/vnd.openxmlformats-officedocument.wordprocessingml.document')return'docx';
+ if(/\.pdf$/i.test(fileName)||m==='application/pdf')return'pdf';
+ return'';
+}
+function k9881AsciiSegment(value,fallback='org'){
+ const out=String(value||'').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
+ return out||fallback;
 }
 async function handleBlobUploadUrl(req,res,actor){
  if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
- const input=bodyOf(req),fileName=k986SafeFileName(input.fileName),mimeType=String(input.mimeType||'application/octet-stream');
+ const input=bodyOf(req),fileName=k9881OriginalFileName(input.fileName),mimeType=String(input.mimeType||'application/octet-stream');
  const size=Math.max(0,Number(input.size||0)),role=String(input.role||'attachment')==='primary'?'primary':'attachment';
  if(!fileName)return send(res,400,{message:'نام فایل الزامی است.'});
- // Keep this endpoint for document-like uploads only; final MIME validation still occurs during commit/parse.
- const allowed=/\.(docx|pdf)$/i.test(fileName);
- if(!allowed)return send(res,400,{message:'در این مرحله آپلود مستقیم فقط برای Word و PDF فعال است.',code:'DIRECT_UPLOAD_TYPE_NOT_ALLOWED'});
- const nonce=`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
- const pathname=`${actor.organizationId}/direct/${new Date().toISOString().slice(0,10)}/${role}-${nonce}-${fileName}`;
+ // Keep display/original filename in metadata, while the physical Blob pathname is ASCII-only.
+ const extension=k9881BlobExtension(fileName,mimeType);
+ if(!extension)return send(res,400,{message:'در این مرحله آپلود مستقیم فقط برای Word و PDF فعال است.',code:'DIRECT_UPLOAD_TYPE_NOT_ALLOWED'});
+ const nonce=`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+ const orgSegment=k9881AsciiSegment(actor.organizationId,'org');
+ const dateSegment=new Date().toISOString().slice(0,10);
+ const pathname=`${orgSegment}/direct/${dateSegment}/${role}-${nonce}.${extension}`;
  const validUntil=Date.now()+15*60*1000;
  try{
   const {issueSignedToken,presignUrl}=await import('@vercel/blob');
+  // IMPORTANT: issue and consume the signed token with the exact same canonical ASCII pathname.
   const token=await issueSignedToken({pathname,operations:['put'],validUntil});
   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
   const blobUrl=String(presignedUrl||'').split('?')[0];
-  return send(res,200,{presignedUrl,blobUrl,pathname,fileName,mimeType,size,validUntil,direct:true});
+  return send(res,200,{presignedUrl,blobUrl,pathname,fileName,mimeType,size,validUntil,direct:true,pathStrategy:'ascii-canonical-v1'});
  }catch(e){
   console.error('BLOB_PRESIGN_ERROR',e);
   return send(res,503,{message:'آپلود مستقیم Blob در دسترس نیست. اتصال Vercel Blob/OIDC را بررسی کنید.',code:'DIRECT_UPLOAD_UNAVAILABLE',detail:e?.message||String(e)});
