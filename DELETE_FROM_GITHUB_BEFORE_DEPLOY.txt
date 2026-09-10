@@ -20,3 +20,8 @@ Vercel هر فایل سطح بالای api/*.js را به عنوان Function ج
 api/document-governance.js
 api/collaborative-analysis.js
 این دو قابلیت اکنون داخل api/knowledge-documents.js ادغام شده‌اند.
+
+0.9.8.9.2:
+اگر از نسخه 0.9.8.9 یا 0.9.8.9.1 فایل زیر هنوز در GitHub باقی مانده است، آن را حذف کنید:
+api/auth-proxy.js
+این فایل در 0.9.8.9.2 وجود ندارد و vercel.json دیگر به آن اشاره نمی‌کند.
