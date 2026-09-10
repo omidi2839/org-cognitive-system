@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.2';
+window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.5';
 const ORG='ORG:SYN-001';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const base64=async file=>{
@@ -10,26 +10,8 @@ const base64=async file=>{
 const parseJson=async r=>{try{return await r.clone().json()}catch{return{}}};
 const requestId=()=>crypto?.randomUUID?.()||`REG-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-function formRelation(form){
- const box=form?.querySelector('.k94relationentry');if(!box)return null;
- const relationType=box.querySelector('[data-reltype]')?.value||'';
- const relatedDocumentId=box.querySelector('[data-reldoc]')?.value||'';
- if(!relationType||!relatedDocumentId)return null;
- const changeItems=[...box.querySelectorAll('[data-change-item]')].map(x=>({
-   article:x.querySelector('[data-change-article]')?.value.trim()||'',
-   clause:x.querySelector('[data-change-clause]')?.value.trim()||'',
-   description:x.querySelector('[data-change-description]')?.value.trim()||''
- })).filter(x=>x.article||x.clause||x.description);
- const first=changeItems[0]||{};
- return{
-   relationType,relatedDocumentId,
-   changeType:({amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'})[relationType]||'',
-   targetArticle:first.article||box.querySelector('[data-relarticle]')?.value.trim()||'',
-   targetClause:first.clause||box.querySelector('[data-relclause]')?.value.trim()||'',
-   note:first.description||box.querySelector('[data-relnote]')?.value.trim()||'',
-   changeItems
- };
-}
+function currentRelation(form){const box=form?.querySelector('.k94relationentry');if(!box)return null;const relationType=box.querySelector('[data-reltype]')?.value||'',relatedDocumentId=box.querySelector('[data-reldoc]')?.value||'';if(!relationType||!relatedDocumentId)return null;const changeItems=[...box.querySelectorAll('[data-change-item]')].map(x=>({article:x.querySelector('[data-change-article]')?.value.trim()||'',clause:x.querySelector('[data-change-clause]')?.value.trim()||'',description:x.querySelector('[data-change-description]')?.value.trim()||''})).filter(x=>x.article||x.clause||x.description);if(!changeItems.length)return null;const first=changeItems[0];return{clientRelationKey:box.dataset.k990CurrentRelationKey||(box.dataset.k990CurrentRelationKey=crypto?.randomUUID?.()||`REL-${Date.now()}`),relationType,relatedDocumentId,changeType:({amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'})[relationType]||'',targetArticle:first.article||'',targetClause:first.clause||'',note:first.description||'',changeItems}}
+function formRelations(form){const drafts=(form?.__k990RelationDrafts||[]).map(r=>{const f=r.changeItems?.[0]||{};return{...r,changeType:({amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'})[r.relationType]||'',targetArticle:f.article||'',targetClause:f.clause||'',note:f.description||''}});const c=currentRelation(form);return c?[...drafts,c]:drafts}
 
 function filesOf(form){
  const primary=form?.querySelector('input[type="file"][name="file"]')?.files?.[0]||null;
@@ -108,20 +90,11 @@ window.fetch=async function(input,init={}){
 
    if(response?.ok){
      const newId=detail?.document?.id||detail?.id||'';
-     const rel=formRelation(form);
-     if(newId&&rel){
+     const relations=formRelations(form);
+     if(newId&&relations.length){
        // Let any legacy relation POST finish first, then deterministically upsert the complete
        // explicit locator/text payload. Backend de-duplicates the same source-target-type.
-       setTimeout(async()=>{
-         try{
-           await prev('/api/v1/knowledge/document-relations',{
-             method:'POST',
-             headers:{'content-type':'application/json','x-org-id':ORG},
-             body:JSON.stringify({documentId:newId,...rel})
-           });
-           document.dispatchEvent(new CustomEvent('k9902:relation-committed',{detail:{documentId:newId,relationType:rel.relationType}}));
-         }catch(e){console.error('EXPLICIT_RELATION_COMMIT_FAILED',e)}
-       },900);
+       setTimeout(async()=>{try{for(const rel of relations){await prev('/api/v1/knowledge/document-relations',{method:'POST',headers:{'content-type':'application/json','x-org-id':ORG},body:JSON.stringify({documentId:newId,...rel})})}form.__k990RelationDrafts=[];document.dispatchEvent(new CustomEvent('k9902:relations-committed',{detail:{documentId:newId,count:relations.length}}))}catch(e){console.error('EXPLICIT_RELATIONS_COMMIT_FAILED',e)}},900);
      }
      delete form.dataset.k9902RequestId;
    }

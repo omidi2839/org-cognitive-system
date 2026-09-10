@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.2';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.5';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
@@ -13,6 +13,12 @@ const typeMap=Object.fromEntries(TYPES);
 const internalChange={amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'};
 const textLabel={amends:'متن کامل اصلاحی',extends:'متن کامل الحاقیه',repeals:'متن/شرح بخش ملغی',clarifies:'متن کامل استفسار'};
 const itemTitle={amends:'مورد اصلاح',extends:'مورد الحاق',repeals:'مورد ملغی',clarifies:'مورد استفسار'};
+
+
+function relationKey(){return crypto?.randomUUID?.()||`REL-${Date.now()}-${Math.random().toString(36).slice(2)}`}
+function snapshotCurrent(wrap){const relationType=wrap.querySelector('[data-reltype]')?.value||'',relatedDocumentId=wrap.querySelector('[data-reldoc]')?.value||'';if(!relationType||!relatedDocumentId)return null;const changeItems=[...wrap.querySelectorAll('[data-change-item]')].map(x=>({article:x.querySelector('[data-change-article]')?.value.trim()||'',clause:x.querySelector('[data-change-clause]')?.value.trim()||'',description:x.querySelector('[data-change-description]')?.value.trim()||''})).filter(x=>x.article||x.clause||x.description);return changeItems.length?{clientRelationKey:relationKey(),relationType,relatedDocumentId,changeItems}:null}
+function clearCurrent(wrap){const t=wrap.querySelector('[data-reltype]'),d=wrap.querySelector('[data-reldoc]');if(t)t.value='';if(d)d.value='';const rows=[...wrap.querySelectorAll('[data-change-item]')];rows.slice(1).forEach(x=>x.remove());rows[0]?.querySelectorAll('input,textarea').forEach(x=>x.value='');t?.dispatchEvent(new Event('change',{bubbles:true}))}
+function renderDrafts(form,wrap){let h=wrap.querySelector('[data-k990-relation-drafts]');if(!h){h=document.createElement('section');h.className='k990relation-drafts';h.dataset.k990RelationDrafts='1';wrap.querySelector('.k944items')?.insertAdjacentElement('beforebegin',h)}const a=form.__k990RelationDrafts||[];h.innerHTML=a.length?`<div class="k990draft-title"><b>ارتباط‌های حقوقی آماده ثبت</b><span>${toFa(a.length)} ارتباط مستقل</span></div>`+a.map((r,i)=>`<article><div><b>${toFa(i+1)}. ${esc(typeMap[r.relationType]||r.relationType)}</b><span>${toFa(r.changeItems.length)} محل حقوقی</span></div><button type="button" data-remove-draft="${i}">حذف</button></article>`).join(''):'';h.querySelectorAll('[data-remove-draft]').forEach(b=>b.onclick=()=>{a.splice(Number(b.dataset.removeDraft),1);renderDrafts(form,wrap)})}
 
 function configureRegistration(form){
  const wrap=form?.querySelector('.k94relationentry'); if(!wrap)return;
@@ -73,6 +79,7 @@ function configureRegistration(form){
    }).observe(itemsBody,{childList:true});
  }
  sync();
+ if(!wrap.querySelector('[data-add-legal-relation]')){const bar=document.createElement('div');bar.className='k990relation-actions';bar.innerHTML='<button type="button" data-add-legal-relation>+ افزودن ارتباط حقوقی دیگر</button><span>می‌توانید چند الحاقیه، اصلاحیه، ملغی یا استفسار مستقل تعریف کنید.</span>';wrap.querySelector('.k944items')?.insertAdjacentElement('afterend',bar);bar.querySelector('[data-add-legal-relation]').onclick=()=>{const snap=snapshotCurrent(wrap);if(!snap){alert('ابتدا نوع ارتباط، سند مرتبط و حداقل یک ماده/متن حقوقی را کامل کنید.');return}if(snap.changeItems.some(x=>!x.article||!x.description)){alert('برای هر مورد، ماده و متن کامل اثر حقوقی الزامی است.');return}form.__k990RelationDrafts=form.__k990RelationDrafts||[];form.__k990RelationDrafts.push(snap);renderDrafts(form,wrap);clearCurrent(wrap)}}renderDrafts(form,wrap);
 
  // Just before legacy listeners run, guarantee their hidden compatibility field has a value.
  form.addEventListener('submit',e=>{

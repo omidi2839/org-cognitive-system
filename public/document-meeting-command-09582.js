@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.5';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -504,7 +504,7 @@ function k962ArticleTargetNumber(article){
  return m?String(Number(m[0])):'';
 }
 function k970ArticleNumberFromBlock(el){
- const text=k961FaToEn(String(el?.textContent||'').replace(/\s+/g,' ').trim());
+ const text=k961FaToEn(String(el?.textContent||'').replace(/[\u200c\u200d\u200e\u200f\u2066-\u2069\ufeff]/g,' ').replace(/\s+/g,' ').trim());
  const m=text.match(/^[«»()\[\]\s\-–—]*ماده\s*[-–—:]?\s*([0-9]{1,4})(?![0-9])/);
  return m?m[1]:'';
 }
@@ -581,7 +581,7 @@ function k961LooksBoundary(t){
 }
 
 /* ---------- 0.9.7.5 — structural legal amendment extraction ---------- */
-function k975Norm(s){return String(s||'').replace(/\u200c/g,'‌').replace(/\s+/g,' ').trim()}
+function k975Norm(s){return String(s||'').replace(/[\u200c\u200d\u200e\u200f\u2066-\u2069\ufeff]/g,' ').replace(/\s+/g,' ').trim()}
 function k975En(s){return k961FaToEn(k975Norm(s))}
 function k975IsRole(t){
  return /^(?:رئیس|رییس|دبیر|نایب رئیس|نائب رئیس|معاون|مدیر|سرپرست|امضاء|امضا|شماره\s*مصوبه|تاریخ\s*مصوبه)/.test(k975Norm(t));
@@ -828,6 +828,23 @@ async function k961SourceLines(documentId){
 }
 
 
+
+function k990LooksLikeNextArticleTitle(el){
+ const text=k975Norm(el?.innerText||el?.textContent||'');
+ if(!text||text.length<2||text.length>90)return false;
+ if(k975LegalMarker(text))return false;
+ if(/[.!؟؛:：]/.test(text))return false;
+ if(/^[۰-۹٠-٩0-9\s()[\]\/.,٪%+\-–—]+$/.test(text))return false;
+ const words=text.split(/\s+/).filter(Boolean);
+ if(words.length>12)return false;
+ return true;
+}
+function k990ArticleEndBeforeNextTitle(blocks,nextArticleIndex){
+ if(nextArticleIndex<=0)return nextArticleIndex;
+ const candidate=blocks[nextArticleIndex-1];
+ return k990LooksLikeNextArticleTitle(candidate)?nextArticleIndex-1:nextArticleIndex;
+}
+
 function k975ArticleRange(full,article){
  const target=k962ArticleTargetNumber(article);
  if(!target)return null;
@@ -840,7 +857,7 @@ function k975ArticleRange(full,article){
    if(start<0&&(String(Number(raw))===target||String(Number(rev))===target)){
      start=i;continue;
    }
-   if(start>=0){end=i;break}
+   if(start>=0){end=k990ArticleEndBeforeNextTitle(blocks,i);break}
  }
  if(start<0)return null;
  return{blocks,start,end,before:blocks[end]||null};
@@ -938,7 +955,7 @@ function k992ArticleRangeFallback(full,article){
  for(let i=0;i<blocks.length;i++){
    const t=blocks[i].innerText||blocks[i].textContent||'';
    if(start<0&&k992TextHasArticle(t,n)){start=i;continue}
-   if(start>=0&&/^\\s*ماده\\s*[۰-۹٠-٩0-9]+/.test(k975Norm(t))){end=i;break}
+   if(start>=0&&/^\\s*ماده\\s*[۰-۹٠-٩0-9]+/.test(k975Norm(t))){end=k990ArticleEndBeforeNextTitle(blocks,i);break}
  }
  return start<0?null:{blocks,start,end,before:blocks[end]||null};
 }
@@ -1015,9 +1032,58 @@ function k990BlockMarker(el){
  const t=k975Norm(el?.innerText||el?.textContent||'');
  return k975LegalMarker(t);
 }
-function k990ApplyAtLocator(full,item,node){
- const article=item?.article||'';const range=k975ArticleRange(full,article)||k992ArticleRangeFallback(full,article);
- if(!range)return false;
+
+function k990ArticleNumber(raw){
+ const x=k975En(String(raw||''));
+ const m=x.match(/(?:ماده\s*)?([0-9]{1,4})/);
+ return m?Number(m[1]):null;
+}
+function k990OriginalArticleNumbers(full){
+ const nums=[];
+ for(const el of [...full.children]){
+   if(el.dataset?.k990AppendedArticle)continue;
+   const mk=k990BlockMarker(el);
+   if(mk?.kind==='article'&&/^\d+$/.test(String(mk.no)))nums.push(Number(mk.no));
+ }
+ return nums;
+}
+function k990AppendNewArticle(full,item,node,rel){
+ const target=k990ArticleNumber(item?.article||rel?.targetArticle||'');
+ if(!Number.isFinite(target))return false;
+
+ const originalNums=k990OriginalArticleNumbers(full);
+ const originalMax=originalNums.length?Math.max(...originalNums):0;
+
+ // Only an addendum may create a brand-new numbered article beyond the original last article.
+ // An amendment/repeal/interpretation that points to a non-existing article is still treated as an error.
+ if(rel?.relationType!=='extends'||target<=originalMax)return false;
+
+ node.dataset.k990AppendedArticle=String(target);
+ node.classList.add('k990-new-article');
+ const title=document.createElement('div');
+ title.className='k990-new-article-title';
+ title.textContent=`ماده ${target} — الحاقی`;
+ node.prepend(title);
+
+ // Keep newly-added articles in numeric order even if relations arrive out of order
+ // (e.g. article 27 is loaded before article 26).
+ const appended=[...full.children].filter(x=>x.dataset?.k990AppendedArticle);
+ const next=appended.find(x=>Number(x.dataset.k990AppendedArticle)>target);
+ if(next)full.insertBefore(node,next);
+ else full.appendChild(node);
+
+ node.classList.add('k990-located','k990-appended-after-last-article');
+ return true;
+}
+
+function k990ApplyAtLocator(full,item,node,rel){
+ const article=item?.article||'';
+ const range=k975ArticleRange(full,article)||k992ArticleRangeFallback(full,article);
+ if(!range){
+   // If the requested article number is greater than the last original article and this is
+   // an addendum, it represents a new article and belongs at the legal end of the document.
+   return k990AppendNewArticle(full,item,node,rel);
+ }
  const spec=k990ClauseSpec(item?.clause||'');
  if(!spec)return k992ApplyNode(full,article,node,'append');
 
@@ -1083,7 +1149,7 @@ async function k961ApplyInlineAmendments(full,id){
        // No semantic guessing/extraction is performed when explicit text exists.
        const explicit=k990ExplicitNode(rel,item);
        if(explicit){
-         if(!k990ApplyAtLocator(full,item,explicit)){
+         if(!k990ApplyAtLocator(full,item,explicit,rel)){
            console.warn('EXPLICIT_LEGAL_TARGET_NOT_FOUND',{article,clause:item?.clause,relationId:rel.id});
          }
          continue;

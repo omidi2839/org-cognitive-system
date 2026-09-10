@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.0.2';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0.5';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -256,14 +256,9 @@ async function k984InitRelationEditor(root,currentId){
   if(!docSel.value){status.textContent='انتخاب سند مرتبط الزامی است.';return}
   status.textContent='در حال ثبت ارتباط حقوقی…';
   try{
-   // POST endpoint is an upsert for same canonical relation. If relation type/doc changes while editing,
-   // delete the old relation first so the edit does not leave a duplicate historical edge.
    const editing=root.dataset.k984EditingRelation||'';
-   if(editing){
-     try{await api('/api/v1/knowledge/document-relations',{method:'DELETE',body:JSON.stringify({relationId:editing})})}catch{}
-   }
    await api('/api/v1/knowledge/document-relations',{method:'POST',body:JSON.stringify({
-    documentId:currentId,relatedDocumentId:docSel.value,relationType:type.value,changeType:change.value,
+    relationId:editing||undefined,documentId:currentId,relatedDocumentId:docSel.value,relationType:type.value,changeType:change.value,
     changeItems:[{article:article.value,clause:clause.value,description:desc.value}],
     targetArticle:article.value,targetClause:clause.value,note:desc.value,effectiveFrom:effective.value
    })});
