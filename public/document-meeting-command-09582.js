@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.1';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -13,7 +13,7 @@ function enhanceUploadForm(form){
  grid.insertAdjacentElement('afterend',w);
 }
 const nativeFetch=window.fetch.bind(window);
-const K9885_SERVER_RAW_BUDGET=1800000;
+const K9885_SERVER_RAW_BUDGET=2600000;
 const k9885Sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function k9885Base64(file){
  const ab=await file.arrayBuffer();
@@ -1295,7 +1295,7 @@ function k958SubmitGuard(form){
      }
    };
    const o=new MutationObserver(()=>setTimeout(release,0));o.observe(st,{childList:true,subtree:true,characterData:true});
-   setTimeout(()=>{release(); if(btn.dataset.k958Busy==='1'){btn.dataset.k958Busy='0';btn.disabled=false;btn.textContent='ثبت سند'} o.disconnect()},30000);
+   setTimeout(()=>{release();if(btn.dataset.k958Busy==='1'){btn.dataset.k958Busy='0';btn.disabled=false;btn.textContent='ثبت سند';if(!(st.textContent||'').trim())st.textContent='پاسخ ثبت سند طولانی شد؛ می‌توانید دوباره تلاش کنید.'}o.disconnect()},75000);
  },true);
 }
 

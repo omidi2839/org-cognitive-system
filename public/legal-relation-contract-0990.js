@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.1';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.2';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
@@ -75,9 +75,20 @@ function configureRegistration(form){
  sync();
 
  // Just before legacy listeners run, guarantee their hidden compatibility field has a value.
- form.addEventListener('submit',()=>{
+ form.addEventListener('submit',e=>{
    const t=type.value||'';
    if(change)change.value=internalChange[t]||'';
+   if(!t)return;
+   const rows=[...wrap.querySelectorAll('[data-change-item]')];
+   const bad=rows.find(x=>{
+     const article=x.querySelector('[data-change-article]')?.value.trim()||'';
+     const text=x.querySelector('[data-change-description]')?.value.trim()||'';
+     return !article||!text;
+   });
+   if(bad){
+     e.preventDefault();e.stopImmediatePropagation();
+     alert('برای هر اثر حقوقی، شماره ماده و متن کامل اصلاحیه/الحاقیه/ملغی/استفسار را وارد کنید.');
+   }
  },true);
 }
 
