@@ -6,33 +6,29 @@ const inverse=t=>({amends:'amended_by',amended_by:'amends',supersedes:'supersede
 const labels={amends:'اصلاحیه',amended_by:'دارای اصلاحیه',supersedes:'جایگزین‌کننده',superseded_by:'جایگزین‌شده توسط',repeals:'ملغی',repealed_by:'ملغی‌شده توسط',extends:'الحاقیه',extended_by:'دارای الحاقیه',clarifies:'استفسار',clarified_by:'دارای استفسار',implements:'سند اجرایی',implemented_by:'دارای سند اجرایی',related_to:'سند مرتبط'};
 function canonical(current,related,type){const inv=new Set(['amended_by','superseded_by','repealed_by','extended_by','clarified_by','implemented_by']);return inv.has(type)?{source:related,target:current,type:inverse(type)}:{source:current,target:related,type}}
 const parseBody=req=>{if(typeof req.body==='string'){try{return JSON.parse(req.body||'{}')}catch{return {}}}return req.body||{}};
+const faToEn=v=>String(v??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+const legalSpace=v=>faToEn(v).replace(/[\u200c\u200d\u200e\u200f\u2066-\u2069\ufeff]/g,' ').replace(/\s+/g,' ').trim();
+const canonicalArticle=v=>{const x=legalSpace(v),m=x.match(/(?:ماده\s*)?([0-9]{1,4})/);return m?String(Number(m[1])):x};
+const canonicalClause=v=>{const x=legalSpace(v);let m=x.match(/تبصره\s*[-–—:.：]?\s*([0-9]{1,4})/);if(m)return `تبصره ${Number(m[1])}`;m=x.match(/بند\s*[-–—:.：]?\s*([0-9]{1,4}|[الف-یآ])/);if(m)return `بند ${m[1]}`;m=x.match(/جزء\s*[-–—:.：]?\s*([0-9]{1,4})/);if(m)return `جزء ${Number(m[1])}`;if(/^[0-9]+$/.test(x))return `تبصره ${Number(x)}`;return x};
 const normalizeItems=b=>{
  const raw=Array.isArray(b.changeItems)?b.changeItems:[];
- const items=raw.map((x,i)=>({id:String(x?.id||`CHG:${i+1}`),article:String(x?.article||'').trim()||null,clause:String(x?.clause||'').trim()||null,description:String(x?.description||'').trim()||null})).filter(x=>x.article||x.clause||x.description);
+ const items=raw.map((x,i)=>({id:String(x?.id||`CHG:${i+1}`),article:canonicalArticle(x?.article||'')||null,clause:canonicalClause(x?.clause||'')||null,description:String(x?.description||'').trim()||null})).filter(x=>x.article||x.clause||x.description);
  if(items.length)return items;
- const article=String(b.targetArticle||'').trim(),clause=String(b.targetClause||'').trim(),description=String(b.note||'').trim();
- return (article||clause)?[{id:'CHG:1',article:article||null,clause:clause||null,description:description||null}]:[];
+ const article=canonicalArticle(b.targetArticle||''),clause=canonicalClause(b.targetClause||''),description=String(b.note||'').trim();
+ return (article||clause||description)?[{id:'CHG:1',article:article||null,clause:clause||null,description:description||null}]:[];
 };
+const relationSignature=(org,c,items,b)=>JSON.stringify([org,c.source,c.target,c.type,items.map(x=>[canonicalArticle(x.article||''),canonicalClause(x.clause||''),String(x.description||'').replace(/\s+/g,' ').trim()]),String(b.effectiveFrom||'').trim()]);
+
 
 const numOf=v=>{const m=String(v||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/\d+/);return m?Number(m[0]):null};
 const legalDateOf=d=>Date.parse(d?.promulgationDate||d?.issuedAt||d?.meetingDate||'')||0;
 const createdDateOf=d=>Date.parse(d?.createdAt||'')||0;
-function looksLegacyReversedAmendment(r,docs){
- if(r?.relationType!=='amends'||r?.legacyOrientationRepairedAt)return false;
+function looksLegacyReversedLegalRelation(r,docs){
+ if(!['amends','extends','repeals','clarifies'].includes(r?.relationType)||r?.legacyOrientationRepairedAt)return false;
  const a=docs.get(r.sourceDocumentRef),b=docs.get(r.targetDocumentRef);if(!a||!b)return false;
- const ad=legalDateOf(a),bd=legalDateOf(b),ac=createdDateOf(a),bc=createdDateOf(b),an=numOf(a.documentNumber),bn=numOf(b.documentNumber);
- const hasLegalLocator=Boolean(r.targetArticle||r.targetClause||(Array.isArray(r.changeItems)&&r.changeItems.some(x=>x?.article||x?.clause)));
- const change=String(r.changeType||'')+' '+String(r.note||'');
- const legalChange=hasLegalLocator||/(اصلاح|الحاق|جایگزین|تبصره|ماده)/.test(change);
- // Legacy upload form encoded «اصلاحیه سند قبلی» as amended_by and the old canonicalizer reversed it.
- // A legal amendment should not chronologically precede its mother document.
- const aLooksMother=!/(اصلاحیه|الحاقیه|متمم)/.test(String(a.title||''));
- const bLooksAmendment=/(اصلاحیه|الحاقیه|متمم)/.test(String(b.title||''));
- return legalChange && (
-   (aLooksMother&&bLooksAmendment) ||
-   (ad&&bd&&ad<bd) ||
-   (an!=null&&bn!=null&&an<bn&&(!ad||!bd||ad<=bd))
- );
+ const ad=legalDateOf(a),bd=legalDateOf(b),an=numOf(a.documentNumber),bn=numOf(b.documentNumber);
+ const derivative=/(اصلاحیه|الحاقیه|متمم|استفسار|لغو|ابطال)/;
+ return (!derivative.test(String(a.title||''))&&derivative.test(String(b.title||'')))||(ad&&bd&&ad<bd)||(an!=null&&bn!=null&&an<bn&&(!ad||!bd||ad<=bd));
 }
 
 export default async function handler(req,res){
@@ -41,8 +37,8 @@ export default async function handler(req,res){
   const repo=createRepository(),org=String((req.headers||{})['x-org-id']||'ORG:SYN-001');
   if(req.method==='GET'){
    const u=new URL(req.url,'https://local'),id=u.searchParams.get('documentId')||'',db=await repo.all(),docsArr=(db.documents||[]).filter(d=>d.organizationId===org),docs=new Map(docsArr.map(d=>[d.id,d]));
-   const repairs=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted'&&looksLegacyReversedAmendment(r,docs)).map(r=>r.id);
-   if(repairs.length){await repo.mutate(state=>{for(const r of (state.documentRelations||[])){if(!repairs.includes(r.id))continue;const x=r.sourceDocumentRef;r.sourceDocumentRef=r.targetDocumentRef;r.targetDocumentRef=x;r.legacyOrientationRepairedAt=now();r.legacyOrientationRepairReason='legacy-amended-by-upload-form';}});const refreshed=await repo.all();db.documentRelations=refreshed.documentRelations||[];}
+   const repairs=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted'&&looksLegacyReversedLegalRelation(r,docs)).map(r=>r.id);
+   if(repairs.length){await repo.mutate(state=>{for(const r of (state.documentRelations||[])){if(!repairs.includes(r.id))continue;const x=r.sourceDocumentRef;r.sourceDocumentRef=r.targetDocumentRef;r.targetDocumentRef=x;r.legacyOrientationRepairedAt=now();r.legacyOrientationRepairReason='legacy-reversed-legal-relation';}});const refreshed=await repo.all();db.documentRelations=refreshed.documentRelations||[];}
    const rels=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted');
    if(!docs.has(id))return send(res,404,{message:'سند پیدا نشد.'});
    const items=rels.filter(r=>r.sourceDocumentRef===id||r.targetDocumentRef===id).map(r=>{
@@ -61,18 +57,16 @@ export default async function handler(req,res){
    const db=await repo.all(),docs=(db.documents||[]).filter(d=>d.organizationId===org);
    if(!docs.some(d=>d.id===current)||!docs.some(d=>d.id===related))return send(res,404,{message:'یکی از اسناد مرتبط پیدا نشد.'});
    const c=canonical(current,related,type),changeItems=normalizeItems(b);let relation;
-   await repo.mutate(s=>{
-     s.documentRelations=Array.isArray(s.documentRelations)?s.documentRelations:[];
-     const existing=s.documentRelations.find(r=>r.organizationId===org&&r.status!=='deleted'&&r.sourceDocumentRef===c.source&&r.targetDocumentRef===c.target&&r.relationType===c.type);
+   const requestedRelationId=String(b.relationId||'').trim(),clientRelationKey=String(b.clientRelationKey||'').trim(),signature=relationSignature(org,c,changeItems,b);
+   await repo.mutate(state=>{
+     state.documentRelations=Array.isArray(state.documentRelations)?state.documentRelations:[];
+     let existing=requestedRelationId?state.documentRelations.find(r=>r.id===requestedRelationId&&r.organizationId===org&&r.status!=='deleted'):null;
+     if(!existing&&clientRelationKey)existing=state.documentRelations.find(r=>r.organizationId===org&&r.status!=='deleted'&&r.clientRelationKey===clientRelationKey);
+     if(!existing)existing=state.documentRelations.find(r=>r.organizationId===org&&r.status!=='deleted'&&r.signature===signature);
      if(existing){
-       existing.changeType=String(b.changeType||existing.changeType||'').trim()||null;
-       existing.note=String(b.note||existing.note||'').trim()||null;
-       existing.effectiveFrom=String(b.effectiveFrom||existing.effectiveFrom||'').trim()||null;
-       if(changeItems.length)existing.changeItems=changeItems;
-       if(changeItems[0]){existing.targetArticle=changeItems[0].article;existing.targetClause=changeItems[0].clause}
-       existing.updatedAt=now(); relation=existing; return;
+       existing.sourceDocumentRef=c.source;existing.targetDocumentRef=c.target;existing.relationType=c.type;existing.changeType=String(b.changeType||existing.changeType||'').trim()||null;existing.note=String(b.note||changeItems[0]?.description||existing.note||'').trim()||null;existing.effectiveFrom=String(b.effectiveFrom||existing.effectiveFrom||'').trim()||null;existing.changeItems=changeItems;existing.targetArticle=changeItems[0]?.article||null;existing.targetClause=changeItems[0]?.clause||null;existing.signature=signature;if(clientRelationKey)existing.clientRelationKey=clientRelationKey;existing.updatedAt=now();relation=existing;return;
      }
-     relation={id:rid(),organizationId:org,sourceDocumentRef:c.source,targetDocumentRef:c.target,relationType:c.type,targetArticle:changeItems[0]?.article||String(b.targetArticle||'').trim()||null,targetClause:changeItems[0]?.clause||String(b.targetClause||'').trim()||null,targetSection:String(b.targetSection||'').trim()||null,changeType:String(b.changeType||'').trim()||null,changeItems,effectiveFrom:String(b.effectiveFrom||'').trim()||null,note:String(b.note||'').trim()||null,status:'active',createdAt:now()};s.documentRelations.push(relation)
+     relation={id:rid(),organizationId:org,sourceDocumentRef:c.source,targetDocumentRef:c.target,relationType:c.type,targetArticle:changeItems[0]?.article||canonicalArticle(b.targetArticle||'')||null,targetClause:changeItems[0]?.clause||canonicalClause(b.targetClause||'')||null,targetSection:String(b.targetSection||'').trim()||null,changeType:String(b.changeType||'').trim()||null,changeItems,effectiveFrom:String(b.effectiveFrom||'').trim()||null,note:String(b.note||changeItems[0]?.description||'').trim()||null,clientRelationKey:clientRelationKey||null,signature,status:'active',createdAt:now()};state.documentRelations.push(relation);
    });
    return send(res,201,{ok:true,relation});
   }
