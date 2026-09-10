@@ -203,9 +203,12 @@ export default async function handler(req,res){
  try{
   if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
   const b=typeof req.body==='object'?req.body:JSON.parse(req.body||'{}');
-  if(!b.contentBase64||!b.fileName)return send(res,400,{message:'فایل برای تحلیل موضوعی ارسال نشده است.'});
-  const parsed=await parseArtifact({buffer:Buffer.from(b.contentBase64,'base64'),mimeType:b.mimeType||'application/octet-stream',fileName:b.fileName});
-  const body=norm(parsed.text),title=norm(b.title||'');
+  if(!b.fileName&&!b.title)return send(res,400,{message:'عنوان یا نام فایل برای پیشنهاد موضوع لازم است.'});
+  const metadataOnly=!b.contentBase64;
+  const parsed=metadataOnly
+    ?{text:'',units:[],structure:{kind:'metadata-only',blocks:[],readingOrderLines:[]}}
+    :await parseArtifact({buffer:Buffer.from(b.contentBase64,'base64'),mimeType:b.mimeType||'application/octet-stream',fileName:b.fileName});
+  const body=norm(parsed.text),title=norm(`${b.title||''} ${b.fileName||''}`);
   const blocks=parsed.structure?.kind==='docx'&&Array.isArray(parsed.structure.blocks)?parsed.structure.blocks:[];
   const headingTexts=blocks.filter(x=>x.type==='paragraph').slice(0,12).map(x=>x.text).filter(Boolean);
   const headings=norm(headingTexts.join(' '));
@@ -237,7 +240,8 @@ export default async function handler(req,res){
     analysis:{
       characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',
       priorityOrder:['primary_taxonomy','subtopic_rules','document_title'],
-      detectedTitle:dyn.detectedTitle,firstLines:dyn.firstLines
+      detectedTitle:dyn.detectedTitle,firstLines:dyn.firstLines,
+      mode:metadataOnly?'metadata-fast':'content-analysis'
     }
   });
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}

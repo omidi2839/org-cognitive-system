@@ -427,17 +427,65 @@ async function handleAuthSession(req,res){
  if(req.method==='DELETE'){clearSessionCookie(res);return send(res,200,{authenticated:false});}
  return send(res,405,{message:'Method not allowed'});
 }
+
+function k994ArtifactFor(db,artifactId,actor){
+ return (db.artifacts||[]).find(x=>x.id===artifactId&&x.organizationId===actor.organizationId&&x.status==='committed')||null;
+}
+function k994ArtifactPath(artifact){
+ return String(artifact?.storage?.objectKey||'').replace(/^\/+/, '');
+}
+function k994DispositionName(name){
+ return String(name||'file').replace(/[\r\n"]/g,'_').slice(0,180);
+}
+async function handleDocumentFileContent(req,res,repo,actor,u){
+ if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
+ const artifactId=String(u.searchParams.get('artifactId')||'');
+ if(!artifactId)return send(res,400,{message:'شناسه پیوست الزامی است.'});
+ const db=await repo.all(),artifact=k994ArtifactFor(db,artifactId,actor);
+ if(!artifact)return send(res,404,{message:'فایل پیوست پیدا نشد.'});
+ const pathname=k994ArtifactPath(artifact);
+ if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
+ try{
+   const {get}=await import('@vercel/blob');
+   const result=await get(pathname,{access:'private',useCache:false});
+   if(!result?.stream)return send(res,404,{message:'محتوای پیوست در فضای ذخیره‌سازی پیدا نشد.'});
+   const mime=String(artifact.mimeType||result?.blob?.contentType||'application/octet-stream');
+   const name=k994DispositionName(artifact.fileName);
+   res.statusCode=200;
+   res.setHeader('content-type',mime);
+   res.setHeader('cache-control','private, no-store, max-age=0');
+   res.setHeader('x-content-type-options','nosniff');
+   const disposition=mime==='application/pdf'?'inline':'attachment';
+   res.setHeader('content-disposition',`${disposition}; filename="attachment"; filename*=UTF-8''${encodeURIComponent(name)}`);
+   const reader=result.stream.getReader?result.stream.getReader():null;
+   if(reader){
+     while(true){
+       const {done,value}=await reader.read();if(done)break;
+       if(value?.length)res.write(Buffer.from(value));
+     }
+     return res.end();
+   }
+   const ab=await new Response(result.stream).arrayBuffer();
+   return res.end(Buffer.from(ab));
+ }catch(e){
+   console.error('ATTACHMENT_CONTENT_ERROR',{code:e?.code||e?.name||'ATTACHMENT_CONTENT_FAILED',artifactId,detail:e?.message||String(e)});
+   return send(res,503,{message:'دریافت محتوای پیوست در حال حاضر ممکن نیست.',code:'ATTACHMENT_CONTENT_FAILED'});
+ }
+}
+
 async function handleDocumentFileAccess(req,res,repo,actor,u){
  if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
  const artifactId=String(u.searchParams.get('artifactId')||'');if(!artifactId)return send(res,400,{message:'شناسه پیوست الزامی است.'});
- const db=await repo.all();const artifact=(db.artifacts||[]).find(x=>x.id===artifactId&&x.organizationId===actor.organizationId&&x.status==='committed');
+ const db=await repo.all(),artifact=k994ArtifactFor(db,artifactId,actor);
  if(!artifact)return send(res,404,{message:'فایل پیوست پیدا نشد.'});
- const pathname=String(artifact.storage?.objectKey||'').replace(/^\/+/, '');if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
- try{
-   const validUntil=Date.now()+5*60*1000;const {issueSignedToken,presignUrl}=await import('@vercel/blob');
-   const token=await issueSignedToken({pathname,operations:['get'],validUntil});const out=await presignUrl(token,{pathname,operation:'get',validUntil,useCache:false});
-   return send(res,200,{url:out.presignedUrl,fileName:artifact.fileName,mimeType:artifact.mimeType,size:artifact.size||0,validUntil});
- }catch(e){console.error('ATTACHMENT_ACCESS_ERROR',e);return send(res,503,{message:'باز کردن پیوست در حال حاضر ممکن نیست.',code:'ATTACHMENT_ACCESS_FAILED'});}
+ const pathname=k994ArtifactPath(artifact);if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
+ // Use a same-origin authenticated streaming URL. This avoids making the UI depend
+ // on a second signed-GET exchange and keeps each document's files authorization-bound.
+ return send(res,200,{
+   url:`/api/v1/knowledge/document-file-content?artifactId=${encodeURIComponent(artifactId)}`,
+   fileName:artifact.fileName,mimeType:artifact.mimeType,size:artifact.size||0,
+   delivery:'authenticated-stream'
+ });
 }
 
 export default async function handler(req,res){
@@ -457,6 +505,9 @@ export default async function handler(req,res){
     }
     if(pathname.endsWith('/document-file-access')){
       return handleDocumentFileAccess(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/document-file-content')){
+      return handleDocumentFileContent(req,res,repo,actor,u);
     }
     if(pathname.endsWith('/document-governance')){
       return handleGovernance(req,res,repo,actor,u);
