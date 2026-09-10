@@ -26,6 +26,14 @@
       "destination": "/api/document-structure.js"
     },
     {
+      "source": "/api/v1/auth/session",
+      "destination": "/api/knowledge-documents.js"
+    },
+    {
+      "source": "/api/v1/knowledge/document-file-access",
+      "destination": "/api/knowledge-documents.js"
+    },
+    {
       "source": "/api/v1/knowledge/documents",
       "destination": "/api/knowledge-documents.js"
     },
@@ -54,8 +62,12 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
+      "source": "/api/index.js",
+      "destination": "/api/auth-proxy.js"
+    },
+    {
       "source": "/api/(.*)",
-      "destination": "/api/index.js"
+      "destination": "/api/auth-proxy.js"
     }
   ]
 }
