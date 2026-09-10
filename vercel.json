@@ -34,6 +34,10 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
+      "source": "/api/v1/knowledge/document-file-content",
+      "destination": "/api/knowledge-documents.js"
+    },
+    {
       "source": "/api/v1/knowledge/documents",
       "destination": "/api/knowledge-documents.js"
     },
