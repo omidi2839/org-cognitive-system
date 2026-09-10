@@ -28,19 +28,42 @@ export class KnowledgeCognitiveService extends CognitiveService {
     };
   }
 
-  async _materializeIncomingFile(file){
+  _directBlobPrefix(actor){
+    // Must stay identical to the server-side pathname convention used by the presign endpoint.
+    const segment=String(actor?.organizationId||'')
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9._-]+/g,'-')
+      .replace(/^-+|-+$/g,'')
+      .slice(0,80)||'org';
+    return `${segment}/direct/`;
+  }
+
+  _validatedDirectBlobPath(actor,file){
+    const pathname=String(file?.blobPathname||'').trim().replace(/^\/+/, '');
+    assert(pathname,'BLOB_PATH_REQUIRED','مسیر Blob برای فایل مستقیم ثبت نشده است.');
+    assert(!pathname.includes('\\')&&!pathname.split('/').includes('..'),'BLOB_PATH_INVALID','مسیر Blob معتبر نیست.');
+    assert(pathname.startsWith(this._directBlobPrefix(actor)),'BLOB_SCOPE_INVALID','مرجع Blob خارج از محدوده سازمان است.');
+    assert(/\/(?:primary|attachment)-[A-Za-z0-9._-]+\.(?:docx|pdf)$/i.test(pathname),'BLOB_PATH_INVALID','ساختار مسیر Blob معتبر نیست.');
+    return pathname;
+  }
+
+  async _materializeIncomingFile(actor,file){
     const fileName=String(file?.fileName||'').trim();
     const mimeType=String(file?.mimeType||'application/octet-stream');
     assert(fileName,'FILE_NAME_REQUIRED','نام فایل الزامی است.');
-    if(file?.blobUrl){
-      const url=String(file.blobUrl);
-      let host='';
-      try{host=new URL(url).hostname}catch{}
-      assert(host.endsWith('.blob.vercel-storage.com'),'BLOB_URL_INVALID','مرجع Blob معتبر نیست.');
-      const buffer=await this.storage.get(url);
+
+    // Private Vercel Blob: blobPathname is the trusted storage locator. The public-looking
+    // URL shape is intentionally NOT validated because Private Blob URL hosts can evolve.
+    // We only read from the project's connected private store through @vercel/blob + OIDC.
+    if(file?.blobPathname||file?.blobUrl){
+      const objectKey=this._validatedDirectBlobPath(actor,file);
+      const buffer=await this.storage.get(objectKey);
+      const declaredSize=Math.max(0,Number(file?.size||0));
+      if(declaredSize)assert(buffer.length===declaredSize,'BLOB_SIZE_MISMATCH','اندازه فایل ذخیره‌شده با مرجع ثبت‌شده تطبیق ندارد.');
+      const url=String(file?.blobUrl||'');
       return {
         fileName,mimeType,buffer,
-        directStorage:{provider:'vercel-blob',objectKey:String(file.blobPathname||''),url,downloadUrl:url,size:buffer.length,mimeType,directUpload:true}
+        directStorage:{provider:'vercel-blob',objectKey,url:url||null,downloadUrl:url||null,size:buffer.length,mimeType,directUpload:true}
       };
     }
     assert(file?.contentBase64,'FILE_CONTENT_REQUIRED','محتوای فایل یا مرجع Blob الزامی است.');
@@ -48,7 +71,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
   }
 
   async _storeFileForDocument(actor,doc,file,{role='attachment',sourceVersion=null,replacePrimary=false}={}){
-    const incoming=await this._materializeIncomingFile(file);
+    const incoming=await this._materializeIncomingFile(actor,file);
     const {fileName,mimeType,buffer}=incoming;
     validateFile(fileName,mimeType,buffer.length);
     const parsed=await parseArtifact({buffer,mimeType,fileName});
@@ -102,7 +125,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
   }
 
   async _addAttachments(actor,doc,attachments=[]){
-    const list=Array.isArray(attachments)?attachments.filter(x=>x?.fileName&&x?.contentBase64):[];
+    const list=Array.isArray(attachments)?attachments.filter(x=>x?.fileName&&(x?.contentBase64||x?.blobPathname||x?.blobUrl)):[];
     const out=[];
     for(const file of list){
       out.push(await this._storeFileForDocument(actor,doc,file,{role:'attachment',sourceVersion:Number(doc.version||1)}));
@@ -127,7 +150,8 @@ export class KnowledgeCognitiveService extends CognitiveService {
       if(!doc)throw new Error('سند برای جایگزینی فایل پیدا نشد.');
       const nextVersion=Math.max(1,Number(doc.version||1)+1);
       const stored=await this._storeFileForDocument(actor,doc,{
-        fileName:input.fileName,mimeType:input.mimeType,contentBase64:input.contentBase64
+        fileName:input.fileName,mimeType:input.mimeType,contentBase64:input.contentBase64,
+        blobUrl:input.blobUrl,blobPathname:input.blobPathname,size:input.size
       },{role:'primary',sourceVersion:nextVersion,replacePrimary:true});
       const attachments=await this._addAttachments(actor,{...doc,version:nextVersion},input.attachments||[]);
       const after=await this.repo.all(),updated=(after.documents||[]).find(x=>x.id===doc.id);
@@ -140,7 +164,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
     }
 
     // New primary document already uploaded by browser directly to private Blob.
-    if(input?.blobUrl&&!input?.contentBase64){
+    if((input?.blobPathname||input?.blobUrl)&&!input?.contentBase64){
       const classification=input.classification||'internal',zone=input.knowledgeZone||'private';
       assert(zones.includes(zone),'DOC_ZONE_INVALID','ناحیه دانش نامعتبر است.');
       assert(classifications.includes(classification),'DOC_CLASS_INVALID','طبقه‌بندی نامعتبر است.');
@@ -156,7 +180,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
       });
       try{
         const stored=await this._storeFileForDocument(actor,doc,{
-          fileName:input.fileName,mimeType:input.mimeType,blobUrl:input.blobUrl,blobPathname:input.blobPathname
+          fileName:input.fileName,mimeType:input.mimeType,blobUrl:input.blobUrl,blobPathname:input.blobPathname,size:input.size
         },{role:'primary',sourceVersion:1,replacePrimary:true});
         const attachments=await this._addAttachments(actor,{...doc,version:1},input.attachments||[]);
         const db=await this.repo.all(),updated=(db.documents||[]).find(x=>x.id===doc.id)||doc;
