@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.8.2';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.8.3';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -276,7 +276,7 @@ async function k986BankDirectBlobRef(file,role='attachment'){
  const pre=await fetch('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
  const p=await pre.json().catch(()=>({}));
  if(!pre.ok)throw Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.');
- const put=await fetch(p.presignedUrl,{method:'PUT',headers:{'content-type':file.type||'application/octet-stream'},body:file});
+ const put=await fetch(p.presignedUrl,{method:'PUT',body:file});
  if(!put.ok)throw Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`);
  return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
 }

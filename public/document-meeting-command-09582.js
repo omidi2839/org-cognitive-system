@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.8.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.8.3';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -21,7 +21,7 @@ async function k986DirectBlobRef(file,role='attachment'){
  });
  const p=await pre.json().catch(()=>({}));
  if(!pre.ok)throw Object.assign(new Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.'),{code:p.code||'DIRECT_UPLOAD_FAILED'});
- const put=await nativeFetch(p.presignedUrl,{method:'PUT',headers:{'content-type':file.type||'application/octet-stream'},body:file});
+ const put=await nativeFetch(p.presignedUrl,{method:'PUT',body:file});
  if(!put.ok)throw Object.assign(new Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`),{code:'DIRECT_UPLOAD_FAILED'});
  return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
 }
