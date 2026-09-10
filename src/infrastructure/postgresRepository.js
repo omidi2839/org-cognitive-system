@@ -24,8 +24,8 @@ const countState = state => ({
 });
 
 export class PostgresRepository {
-  constructor(connectionString = process.env.DATABASE_URL){
-    if(!connectionString) throw new Error('DATABASE_URL is required for PostgresRepository');
+  constructor(connectionString = process.env.SUPABASE_DATABASE_URL || process.env.DATABASE_URL){
+    if(!connectionString) throw new Error('SUPABASE_DATABASE_URL or DATABASE_URL is required for PostgresRepository');
     this.connectionString=connectionString;
     this.sql=null;
     this.initialized=false;
