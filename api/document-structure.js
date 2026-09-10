@@ -1,6 +1,8 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(data))};
 export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;
  try{
   if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
   const u=new URL(req.url,'https://local'),documentId=String(u.searchParams.get('documentId')||''),org=String(req.headers['x-org-id']||'ORG:SYN-001');

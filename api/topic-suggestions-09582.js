@@ -1,6 +1,7 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
 import { parseArtifact, normalizePersianText } from '../src/processing/parser.js';
 
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(data))};
 const norm=s=>normalizePersianText(String(s??'')).toLowerCase().replace(/\s+/g,' ').trim();
 
@@ -198,6 +199,7 @@ function fallbackSubtopic(detTitle,parent){
  return x.replace(/^(آیین[\s‌-]*نامه|دستورالعمل|بخشنامه|مصوبه|شیوه[\s‌-]*نامه|ضوابط)\s+/,'').trim()||null;
 }
 export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;
  try{
   if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
   const b=typeof req.body==='object'?req.body:JSON.parse(req.body||'{}');

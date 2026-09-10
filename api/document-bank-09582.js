@@ -1,6 +1,7 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
 import { buildDocumentBankResponse, handleDocumentBankAction } from './document-bank-core.js';
 
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,status,data)=>{
   res.statusCode=status;
   res.setHeader('content-type','application/json; charset=utf-8');
@@ -10,6 +11,7 @@ const norm=s=>String(s||'').replace(/[\u200c\u200d\s]+/g,' ').trim().replace(/[Ù
 const uniq=a=>[...new Set(a.map(x=>String(x||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fa'));
 
 export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;
  try{
   const repo=createRepository();
   if(req.method==='POST') return send(res,200,await handleDocumentBankAction(req,repo));

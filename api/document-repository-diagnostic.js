@@ -1,6 +1,8 @@
 import { createRepository, repositoryMode } from '../src/infrastructure/repositoryFactory.js';
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,s,d)=>{res.statusCode=s;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(d))};
 export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;
  try{
   const repo=createRepository(),db=await repo.all();
   return send(res,200,{ok:true,persistence:repositoryMode(),shape:{

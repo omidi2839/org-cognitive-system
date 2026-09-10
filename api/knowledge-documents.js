@@ -1,6 +1,7 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
 import { PostgresRepository } from '../src/infrastructure/postgresRepository.js';
 
+import { requireAuthenticated, sessionOf, validateAdminLogin, createSession, setSessionCookie, clearSessionCookie } from '../src/infrastructure/authSession.js';
 const ORG='ORG:SYN-001';
 const send=(res,status,data)=>{
   res.statusCode=status;
@@ -414,10 +415,37 @@ async function handleBlobUploadUrl(req,res,actor){
   return send(res,503,{message:'آپلود مستقیم Blob در دسترس نیست. اتصال Vercel Blob/OIDC را بررسی کنید.',code:'DIRECT_UPLOAD_UNAVAILABLE',detail:e?.message||String(e)});
  }
 }
+
+async function handleAuthSession(req,res){
+ if(req.method==='GET'){
+   const session=sessionOf(req);return session?send(res,200,{authenticated:true,user:{username:session.u,role:'system_admin'}}):send(res,401,{authenticated:false,code:'AUTH_REQUIRED'});
+ }
+ if(req.method==='POST'){
+   const input=bodyOf(req);if(!validateAdminLogin(input.username,input.password))return send(res,401,{authenticated:false,message:'نام کاربری یا رمز عبور صحیح نیست.',code:'INVALID_CREDENTIALS'});
+   const token=createSession(String(input.username||'admin'));setSessionCookie(res,token);return send(res,200,{authenticated:true,user:{username:String(input.username||'admin'),role:'system_admin'}});
+ }
+ if(req.method==='DELETE'){clearSessionCookie(res);return send(res,200,{authenticated:false});}
+ return send(res,405,{message:'Method not allowed'});
+}
+async function handleDocumentFileAccess(req,res,repo,actor,u){
+ if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
+ const artifactId=String(u.searchParams.get('artifactId')||'');if(!artifactId)return send(res,400,{message:'شناسه پیوست الزامی است.'});
+ const db=await repo.all();const artifact=(db.artifacts||[]).find(x=>x.id===artifactId&&x.organizationId===actor.organizationId&&x.status==='committed');
+ if(!artifact)return send(res,404,{message:'فایل پیوست پیدا نشد.'});
+ const pathname=String(artifact.storage?.objectKey||'').replace(/^\/+/, '');if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
+ try{
+   const validUntil=Date.now()+5*60*1000;const {issueSignedToken,presignUrl}=await import('@vercel/blob');
+   const token=await issueSignedToken({pathname,operations:['get'],validUntil});const out=await presignUrl(token,{pathname,operation:'get',validUntil,useCache:false});
+   return send(res,200,{url:out.presignedUrl,fileName:artifact.fileName,mimeType:artifact.mimeType,size:artifact.size||0,validUntil});
+ }catch(e){console.error('ATTACHMENT_ACCESS_ERROR',e);return send(res,503,{message:'باز کردن پیوست در حال حاضر ممکن نیست.',code:'ATTACHMENT_ACCESS_FAILED'});}
+}
+
 export default async function handler(req,res){
   try{
     const u=new URL(req.url,'https://local');
     const pathname=u.pathname;
+    if(pathname.endsWith('/auth/session')) return handleAuthSession(req,res);
+    if(!requireAuthenticated(req,res)) return;
     const actor=actorOf(req);
     const repo=createRepository();
 
@@ -426,6 +454,9 @@ export default async function handler(req,res){
     }
     if(pathname.endsWith('/blob-upload-url')){
       return handleBlobUploadUrl(req,res,actor);
+    }
+    if(pathname.endsWith('/document-file-access')){
+      return handleDocumentFileAccess(req,res,repo,actor,u);
     }
     if(pathname.endsWith('/document-governance')){
       return handleGovernance(req,res,repo,actor,u);

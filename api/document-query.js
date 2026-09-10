@@ -1,4 +1,5 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,s,d)=>{res.statusCode=s;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(d))};
 const norm=s=>String(s??'').normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/[\u200c\u200d]/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 const digits=s=>String(s??'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
@@ -7,7 +8,8 @@ const scopes=[['چشم‌انداز',['چشم انداز','چشم‌انداز']
 const scopeOf=q=>{const n=norm(q);for(const [label,alts] of scopes)if(alts.some(a=>n.includes(norm(a))))return{label,alts};return null};
 const termsOf=(q,sc)=>{let n=norm(q);for(const a of(sc?.alts||[]))n=n.replaceAll(norm(a),' ');n=n.replace(/جلسه\s*(?:شماره)?\s*[۰-۹٠-٩0-9]+/g,' ');return[...new Set(n.split(/[^\p{L}\p{N}]+/u).filter(x=>x.length>1&&!stop.has(x)))]};
 const sentences=t=>String(t||'').replace(/\r/g,'\n').split(/(?<=[.!؟؛])\s+|\n+/u).map(x=>x.trim()).filter(x=>x.length>12);
-export default async function handler(req,res){try{
+export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;try{
  if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
  const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),u=new URL(req.url,'https://local'),question=String(u.searchParams.get('question')||u.searchParams.get('q')||''),mode=u.searchParams.get('mode')||'search',db=await repo.all();
  const textByDoc=new Map();for(const x of(db.normalizedDocuments||[])){const id=x.documentRef||x.documentId||x.sourceDocumentRef,txt=String(x.text||x.content||x.normalizedText||'');if(id&&txt.length>(textByDoc.get(id)||'').length)textByDoc.set(id,txt)}

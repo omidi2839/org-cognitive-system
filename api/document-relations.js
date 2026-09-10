@@ -1,4 +1,5 @@
 import { createRepository } from '../src/infrastructure/repositoryFactory.js';
+import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 const send=(res,status,data)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.end(JSON.stringify(data))};
 const now=()=>new Date().toISOString(),rid=()=>`DREL:${Date.now().toString(36)}:${Math.random().toString(36).slice(2,9)}`;
 const inverse=t=>({amends:'amended_by',amended_by:'amends',supersedes:'superseded_by',superseded_by:'supersedes',repeals:'repealed_by',repealed_by:'repeals',extends:'extended_by',extended_by:'extends',clarifies:'clarified_by',clarified_by:'clarifies',implements:'implemented_by',implemented_by:'implements',related_to:'related_to'})[t]||'related_to';
@@ -12,11 +13,31 @@ const normalizeItems=b=>{
  const article=String(b.targetArticle||'').trim(),clause=String(b.targetClause||'').trim(),description=String(b.note||'').trim();
  return (article||clause)?[{id:'CHG:1',article:article||null,clause:clause||null,description:description||null}]:[];
 };
+
+const numOf=v=>{const m=String(v||'').replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).match(/\d+/);return m?Number(m[0]):null};
+const legalDateOf=d=>Date.parse(d?.promulgationDate||d?.issuedAt||d?.meetingDate||'')||0;
+const createdDateOf=d=>Date.parse(d?.createdAt||'')||0;
+function looksLegacyReversedAmendment(r,docs){
+ if(r?.relationType!=='amends'||r?.legacyOrientationRepairedAt)return false;
+ const a=docs.get(r.sourceDocumentRef),b=docs.get(r.targetDocumentRef);if(!a||!b)return false;
+ const ad=legalDateOf(a),bd=legalDateOf(b),ac=createdDateOf(a),bc=createdDateOf(b),an=numOf(a.documentNumber),bn=numOf(b.documentNumber);
+ const hasLegalLocator=Boolean(r.targetArticle||r.targetClause||(Array.isArray(r.changeItems)&&r.changeItems.some(x=>x?.article||x?.clause)));
+ const change=String(r.changeType||'')+' '+String(r.note||'');
+ const legalChange=hasLegalLocator||/(اصلاح|الحاق|جایگزین|تبصره|ماده)/.test(change);
+ // Legacy upload form encoded «اصلاحیه سند قبلی» as amended_by and the old canonicalizer reversed it.
+ // A legal amendment should not chronologically precede its mother document.
+ return legalChange && ((ad&&bd&&ad<bd)||(an!=null&&bn!=null&&an<bn&&(!ad||!bd||ad<=bd)&&(!ac||!bc||ac<=bc)));
+}
+
 export default async function handler(req,res){
+ if(!requireAuthenticated(req,res)) return;
  try{
   const repo=createRepository(),org=String((req.headers||{})['x-org-id']||'ORG:SYN-001');
   if(req.method==='GET'){
-   const u=new URL(req.url,'https://local'),id=u.searchParams.get('documentId')||'',db=await repo.all(),docsArr=(db.documents||[]).filter(d=>d.organizationId===org),docs=new Map(docsArr.map(d=>[d.id,d])),rels=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted');
+   const u=new URL(req.url,'https://local'),id=u.searchParams.get('documentId')||'',db=await repo.all(),docsArr=(db.documents||[]).filter(d=>d.organizationId===org),docs=new Map(docsArr.map(d=>[d.id,d]));
+   const repairs=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted'&&looksLegacyReversedAmendment(r,docs)).map(r=>r.id);
+   if(repairs.length){await repo.mutate(state=>{for(const r of (state.documentRelations||[])){if(!repairs.includes(r.id))continue;const x=r.sourceDocumentRef;r.sourceDocumentRef=r.targetDocumentRef;r.targetDocumentRef=x;r.legacyOrientationRepairedAt=now();r.legacyOrientationRepairReason='legacy-amended-by-upload-form';}});const refreshed=await repo.all();db.documentRelations=refreshed.documentRelations||[];}
+   const rels=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted');
    if(!docs.has(id))return send(res,404,{message:'سند پیدا نشد.'});
    const items=rels.filter(r=>r.sourceDocumentRef===id||r.targetDocumentRef===id).map(r=>{
     const from=r.sourceDocumentRef===id,pt=from?r.relationType:inverse(r.relationType),other=from?r.targetDocumentRef:r.sourceDocumentRef,d=docs.get(other);
