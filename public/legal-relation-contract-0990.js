@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.1';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
@@ -17,7 +17,7 @@ const itemTitle={amends:'مورد اصلاح',extends:'مورد الحاق',repe
 function configureRegistration(form){
  const wrap=form?.querySelector('.k94relationentry'); if(!wrap)return;
  const type=wrap.querySelector('[data-reltype]'); if(!type)return;
- if(wrap.dataset.k990Contract==='1'){sync();return}
+ if(wrap.dataset.k990Contract==='1')return
  wrap.dataset.k990Contract='1';
  wrap.classList.add('k990legal-contract');
 
@@ -66,7 +66,12 @@ function configureRegistration(form){
    if(add)add.textContent='+ افزودن ماده / تبصره / بند';
  }
  type.addEventListener('change',sync);
- new MutationObserver(sync).observe(wrap,{childList:true,subtree:true});
+ const itemsBody=wrap.querySelector('.k944itemsbody');
+ if(itemsBody){
+   new MutationObserver(mutations=>{
+     if(mutations.some(m=>m.type==='childList'&&(m.addedNodes.length||m.removedNodes.length)))sync();
+   }).observe(itemsBody,{childList:true});
+ }
  sync();
 
  // Just before legacy listeners run, guarantee their hidden compatibility field has a value.

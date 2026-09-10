@@ -12,3 +12,6 @@
 .k990-doc-chips button{border:1px solid #e1eaf4;background:#fff;border-radius:13px;padding:10px 12px;text-align:right;cursor:pointer;font:inherit}.k990-doc-chips button:hover{border-color:#b9d4fa;background:#f8fbff}
 .k990-doc-chips b{display:block;color:#173961;font-size:12px}.k990-doc-chips small{display:block;color:#8090a4;margin-top:4px;font-size:10px}
 @media(max-width:760px){.k990-doc-chips{grid-template-columns:1fr}.k990-command-drop button{display:block}.k990-command-drop small{display:block;margin-top:4px}}
+
+/* 0.9.9.0.1 — suggestions live only in command autocomplete */
+.k990-doc-suggestions{display:none!important}

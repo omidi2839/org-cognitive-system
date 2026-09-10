@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_COMMAND_SUGGESTIONS_BUILD__='0.9.9.0';
+window.__DOCUMENT_COMMAND_SUGGESTIONS_BUILD__='0.9.9.0.1';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm=s=>String(s??'').normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\u200c/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 const uniq=a=>[...new Set(a.filter(Boolean))];
@@ -85,28 +85,25 @@ function execute(label){
 }
 let drop=null;
 function hide(){if(drop)drop.hidden=true}
+function personalActive(){
+ const hero=document.getElementById('personalHero');
+ if(!hero||hero.style.display==='none')return false;
+ const active=document.querySelector('[data-workspace="personal"].active');
+ return !!active || getComputedStyle(hero).display!=='none';
+}
 function mount(){
- const input=document.getElementById('commandInput'),hero=document.getElementById('personalHero'),area=document.getElementById('personalSuggestions');
+ const input=document.getElementById('commandInput'),hero=document.getElementById('personalHero');
  if(!input||!hero||hero.dataset.k990Suggestions)return;
  hero.dataset.k990Suggestions='1';
+
+ // Defensive cleanup for panels created by 0.9.9.0.
+ document.querySelectorAll('.k990-doc-suggestions').forEach(x=>x.remove());
 
  drop=document.createElement('div');drop.className='k990-command-drop';drop.hidden=true;
  input.closest('.command-row')?.appendChild(drop);
 
- const panel=document.createElement('section');panel.className='k990-doc-suggestions';
- panel.innerHTML=`<div class="k990-doc-head"><div><span>⌕</span><div><b>جستجو در بانک اسناد</b><small>نمونه فرمان‌های قابل استفاده؛ هنگام تایپ، سامانه نزدیک‌ترین حدس‌ها را پیشنهاد می‌دهد.</small></div></div><button type="button" data-more>پیشنهادهای بیشتر</button></div><div class="k990-doc-chips"></div>`;
- area?.insertAdjacentElement('afterend',panel);
-
- const renderPanel=(offset=0)=>{
-  const all=uniq([...dynamicTemplates(),...staticTemplates]);
-  const subset=all.slice(offset,offset+8);
-  panel.querySelector('.k990-doc-chips').innerHTML=subset.map(x=>`<button type="button" data-doc-command="${esc(x)}"><b>${esc(x)}</b><small>${esc(intentMeta(x))}</small></button>`).join('');
-  panel.querySelectorAll('[data-doc-command]').forEach(b=>b.onclick=()=>execute(b.dataset.docCommand));
-  panel.dataset.offset=String((offset+8)>=all.length?0:offset+8);
- };
- panel.querySelector('[data-more]').onclick=()=>renderPanel(Number(panel.dataset.offset||0));
-
  const renderDrop=()=>{
+  if(!personalActive()){hide();return}
   const q=input.value.trim(),arr=suggestions(q);
   if(!q||!arr.length){hide();return}
   drop.innerHTML=arr.map(x=>`<button type="button" data-guess="${esc(x.label)}"><span>${esc(x.label)}</span><small>${esc(intentMeta(x.label))}</small></button>`).join('');
@@ -115,13 +112,15 @@ function mount(){
  };
  input.addEventListener('input',renderDrop);
  input.addEventListener('focus',renderDrop);
- input.addEventListener('blur',()=>setTimeout(hide,150));
+ input.addEventListener('blur',()=>setTimeout(hide,120));
+ document.addEventListener('click',e=>{
+   if(!e.target.closest('.command-row'))hide();
+ },true);
 
- loadCatalog().then(()=>renderPanel(0));
- renderPanel(0);
+ loadCatalog();
 }
 function observe(){
- const run=()=>mount();
+ const run=()=>{document.querySelectorAll('.k990-doc-suggestions').forEach(x=>x.remove());mount()};
  new MutationObserver(run).observe(document.documentElement,{subtree:true,childList:true});
  run();
 }
