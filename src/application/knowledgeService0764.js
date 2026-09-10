@@ -134,6 +134,16 @@ export class KnowledgeCognitiveService extends CognitiveService {
   }
 
   async uploadDocument(actor,input){
+    // 0.9.9.0.2 — idempotent browser retries: the same logical registration request
+    // must return the already-created document instead of creating duplicates.
+    const clientRequestId=String(input?.clientRequestId||'').trim();
+    if(clientRequestId&&!input?.replaceDocumentId&&!input?.attachToDocumentId){
+      const existingDb=await this.repo.all();
+      const existing=(existingDb.documents||[]).find(x=>x.organizationId===actor.organizationId&&x.clientRequestId===clientRequestId&&x.status!=='deleted');
+      if(existing){
+        return {document:existing,replayed:true,attachments:[]};
+      }
+    }
     // Add attachments to an existing document without replacing its primary file.
     if(input?.attachToDocumentId){
       const db=await this.repo.all();
@@ -171,7 +181,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
       const doc={
         id:newId('DOC'),organizationId:actor.organizationId,title:(input.title||input.fileName).trim(),
         status:'registered',version:1,knowledgeZone:zone,classification,createdAt:now(),createdBy:actor.personId,
-        contentHash:null,artifactRef:null,normalizedRef:null,sourceFileName:input.fileName,exactDuplicateOf:null,
+        contentHash:null,artifactRef:null,normalizedRef:null,sourceFileName:input.fileName,exactDuplicateOf:null,clientRequestId:clientRequestId||null,
         ...this._metadataPatch(input)
       };
       await this.repo.mutate(db=>{
@@ -202,7 +212,7 @@ export class KnowledgeCognitiveService extends CognitiveService {
       const d=(db.documents||[]).find(x=>x.id===result.document.id&&x.organizationId===actor.organizationId);
       const a=(db.artifacts||[]).find(x=>x.id===result.document.artifactRef);
       const n=(db.normalizedDocuments||[]).find(x=>x.id===result.document.normalizedRef);
-      if(d)Object.assign(d,patch);
+      if(d){Object.assign(d,patch);if(clientRequestId)d.clientRequestId=clientRequestId;}
       if(a&&!a.role)a.role='primary';
       if(n&&!n.role)n.role='primary';
     });
