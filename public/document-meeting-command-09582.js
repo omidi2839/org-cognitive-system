@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.3';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -946,17 +946,20 @@ async function k961ApplyInlineAmendments(full,id){
  full.dataset.k961Amendments='loading';
  try{
    const d=await api('/api/v1/knowledge/document-relations?documentId='+encodeURIComponent(id));
-   const incoming=(d.items||[]).filter(r=>['amended_by','superseded_by','extended_by','clarified_by','amends','extends'].includes(r.perspectiveType));
+   // Consolidation is rendered ONLY on the legal target (mother document).
+   // A relation source is the amendment document and target is the document being amended.
+   // Never apply the mother document text back into the amendment document.
+   const incoming=(d.items||[]).filter(r=>
+     r.targetDocumentRef===id &&
+     ['amends','supersedes','extends','clarifies'].includes(r.relationType) &&
+     ['amended_by','superseded_by','extended_by','clarified_by'].includes(r.perspectiveType)
+   );
    for(const rel of incoming){
      const sourceId=rel.relatedDocument?.id||'';
      if(!sourceId)continue;
      const sourceLines=await k961SourceLines(sourceId);
      const items=Array.isArray(rel.changeItems)&&rel.changeItems.length
        ?rel.changeItems:[{article:rel.targetArticle,clause:rel.targetClause,description:rel.note}];
-     // Legacy relations may still be stored with the mother document on the source side.
-     // Only accept that reverse perspective when the related document itself reads like an amendment.
-     if(['amends','extends'].includes(rel.perspectiveType)&&!items.some(x=>k992LooksLikeAmendmentSource(sourceLines,x?.article||rel.targetArticle||'')))continue;
-
      for(const item of items){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;

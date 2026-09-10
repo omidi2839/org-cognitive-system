@@ -1,5 +1,5 @@
 
-/* 0.9.8.9.2 — unified stability, attachments, admin access gate */
+/* 0.9.8.9.3 — consolidation direction + attachment dedupe */
 html.auth-pending,html.auth-pending body{overflow:hidden}
 html.auth-pending .app-layout,html.auth-pending .history-rail{filter:blur(11px) saturate(.7);transform:scale(1.015);pointer-events:none;user-select:none}
 .k989-auth{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 20% 20%,rgba(80,122,255,.16),transparent 28%),radial-gradient(circle at 80% 70%,rgba(89,218,190,.16),transparent 30%),rgba(240,246,255,.68);backdrop-filter:blur(18px)}
