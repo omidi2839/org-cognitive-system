@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.9.1';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.9.2';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -350,7 +350,7 @@ async function k982OpenEdit(documentId){
      <div class="k985currentfile"><b>فایل اصلی فعلی</b><span>${esc(filesInfo.primary?.fileName||d.sourceFileName||'نام فایل ثبت نشده')}</span></div>
      <div class="k985fileeditgrid">
       <label>جایگزینی فایل اصلی<input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-replace-primary><small>با انتخاب فایل جدید، فایل قبلی از نسخه جاری خارج می‌شود و سابقه آن برای ممیزی حفظ خواهد شد.</small></label>
-      <label>افزودن پیوست‌های جدید<input type="file" multiple accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-edit-attachments><small>امکان انتخاب هم‌زمان چند فایل</small></label>
+      <div class="k992editattachments"><div class="k992editattachhead"><b>افزودن پیوست‌های جدید</b><button type="button" data-k992-edit-add>＋ افزودن پیوست دیگر</button></div><div data-k992-edit-rows class="k992attachmentrows"></div><small>برای هر پیوست یک فایل انتخاب کنید؛ تعداد پیوست‌ها محدود به یک فیلد نیست.</small></div>
      </div>
      <div class="k985existingattachments"><b>پیوست‌های فعلی</b>${(filesInfo.attachments||[]).length?`<div>${filesInfo.attachments.map((a,i)=>`<span>${toFa(i+1)}. ${esc(a.fileName)}</span>`).join('')}</div>`:'<small>پیوستی ثبت نشده است.</small>'}</div>
     </section>
@@ -372,6 +372,16 @@ async function k982OpenEdit(documentId){
   const syncValidity=()=>{const show=validity?.value!=='active';if(validWrap)validWrap.hidden=!show;if(!show){const vi=validWrap?.querySelector('input[name="validUntil"]');if(vi)vi.value=''}};
   if(validity)validity.onchange=syncValidity;syncValidity();
 
+  const editRows=w.querySelector('[data-k992-edit-rows]');
+  const addEditAttachmentRow=()=>{
+   if(!editRows)return;
+   const row=document.createElement('div');row.className='k992attachmentrow';
+   row.innerHTML=`<label><span>انتخاب فایل پیوست</span><input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-edit-attachment-input></label><button type="button" data-k992-edit-remove title="حذف این ردیف">×</button>`;
+   editRows.appendChild(row);
+   row.querySelector('[data-k992-edit-remove]').onclick=()=>{if(editRows.children.length===1){row.querySelector('input').value='';return}row.remove()};
+  };
+  w.querySelector('[data-k992-edit-add]')?.addEventListener('click',addEditAttachmentRow);addEditAttachmentRow();
+
   w.querySelector('#k983editform').onsubmit=async e=>{
    e.preventDefault();const fd=new FormData(e.currentTarget),patch={};
    ['title','documentType','issuer','versionLabel','issuedAt','validUntil','validityStatus','classification','scopeType','organizationalUnitRef','meetingType','meetingNumber','documentNumber','meetingDate','promulgationDate','subjectCategory','subjectArea'].forEach(k=>patch[k]=fd.get(k)||'');
@@ -382,7 +392,7 @@ async function k982OpenEdit(documentId){
    try{
     await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId),{method:'PATCH',body:JSON.stringify(patch)});
     const primary=w.querySelector('[data-k985-replace-primary]')?.files?.[0]||null;
-    const attFiles=w.querySelector('[data-k985-edit-attachments]')?.files||[];
+    const attFiles=[...w.querySelectorAll('[data-k985-edit-attachment-input]')].flatMap(x=>[...(x.files||[])]);
     const totalRaw=[...(primary?[primary]:[]),...attFiles].reduce((n,f)=>n+Number(f.size||0),0);
     const useServerFallback=totalRaw>0&&totalRaw<=K9885_BANK_SERVER_RAW_BUDGET;
     const attachments=attFiles.length?await k985BankFilesPayload(attFiles,'attachment',useServerFallback):[];

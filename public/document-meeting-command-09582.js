@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.1';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.9.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -57,8 +57,8 @@ window.fetch=async function(input,init={}){
    }
 
    const primary=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
-   const attachmentInput=form.querySelector('[data-k985-attachments]');
-   const attachments=[...(attachmentInput?.files||[])];
+   const attachmentInputs=[...form.querySelectorAll('[data-k985-attachment-input],[data-k985-attachments]')];
+   const attachments=attachmentInputs.flatMap(x=>[...(x.files||[])]);
    const all=[...(primary?[primary]:[]),...attachments];
    const rawBytes=all.reduce((n,f)=>n+Number(f.size||0),0);
    // Small document sets avoid the browser->Blob route entirely. Base64 expansion stays
@@ -894,28 +894,79 @@ function k961InlineText(rel,item,lines){
  return wrap;
 }
 
+function k992TextHasArticle(text,article){
+ const n=k962ArticleTargetNumber(article);if(!n)return false;
+ const en=k975En(text);return new RegExp(`ماده\\s*[-–—:.：]?\\s*${n}(?![0-9])`).test(en);
+}
+function k992LooksLikeAmendmentSource(lines,article){
+ const joined=(lines||[]).map(k983CanonAdmin).join(' '),hasArticle=!article||k992TextHasArticle(joined,article);
+ return hasArticle&&/(اصلاح|الحاق|اضافه|جایگزین|تبصره|ماده\\s+واحده)/.test(joined);
+}
+function k992FallbackPayload(lines,item,rel){
+ const raw=(lines||[]).map(k983CanonAdmin).filter(Boolean),article=item?.article||rel?.targetArticle||'';
+ let idx=-1;
+ for(let i=0;i<raw.length;i++){
+   const x=raw[i];if(k992TextHasArticle(x,article)&&/(اصلاح|الحاق|اضافه|جایگزین|به\\s+شرح|تبصره)/.test(x)){idx=i;break}
+ }
+ if(idx<0)idx=raw.findIndex(x=>k992TextHasArticle(x,article));
+ if(idx<0)return[];
+ const out=[];
+ for(let i=idx+1;i<raw.length&&out.length<8;i++){
+   let x=raw[i];if(k975IsRole(x)||k975IsProbableSigner(raw,i))break;
+   if(k983IsAdminHeading(x)||k975IsIntro(x))continue;
+   const marker=k975LegalMarker(x);if(marker?.kind==='article')break;
+   if(k961IsDirectiveLine(x)&&!marker)continue;
+   x=k982StripAmendmentAdminPrefix(x);if(!x)continue;out.push(x);
+ }
+ return out;
+}
+function k992ArticleRangeFallback(full,article){
+ const n=k962ArticleTargetNumber(article);if(!n)return null;const blocks=[...full.children];let start=-1,end=blocks.length;
+ for(let i=0;i<blocks.length;i++){
+   const t=blocks[i].innerText||blocks[i].textContent||'';
+   if(start<0&&k992TextHasArticle(t,n)){start=i;continue}
+   if(start>=0&&/^\\s*ماده\\s*[۰-۹٠-٩0-9]+/.test(k975Norm(t))){end=i;break}
+ }
+ return start<0?null:{blocks,start,end,before:blocks[end]||null};
+}
+function k992ApplyNode(full,article,node,mode){
+ if(k975ApplyNode(full,article,node,mode))return true;
+ const range=k992ArticleRangeFallback(full,article);if(!range)return false;
+ if(mode==='replace'){
+  for(let i=range.start;i<range.end;i++){const el=range.blocks[i];if(el?.parentNode===full)el.remove()}
+  if(range.before?.parentNode===full)full.insertBefore(node,range.before);else full.appendChild(node);node.classList.add('k975replacement');
+ }else{
+  if(range.before?.parentNode===full)full.insertBefore(node,range.before);else full.appendChild(node);node.classList.add('k975addition');
+ }
+ return true;
+}
+
 async function k961ApplyInlineAmendments(full,id){
  if(!full||!id||full.dataset.k961Amendments==='loading'||full.dataset.k961Amendments==='1')return;
  full.dataset.k961Amendments='loading';
  try{
    const d=await api('/api/v1/knowledge/document-relations?documentId='+encodeURIComponent(id));
-   const incoming=(d.items||[]).filter(r=>['amended_by','superseded_by','extended_by','clarified_by'].includes(r.perspectiveType));
+   const incoming=(d.items||[]).filter(r=>['amended_by','superseded_by','extended_by','clarified_by','amends','extends'].includes(r.perspectiveType));
    for(const rel of incoming){
      const sourceId=rel.relatedDocument?.id||'';
      if(!sourceId)continue;
      const sourceLines=await k961SourceLines(sourceId);
      const items=Array.isArray(rel.changeItems)&&rel.changeItems.length
        ?rel.changeItems:[{article:rel.targetArticle,clause:rel.targetClause,description:rel.note}];
+     // Legacy relations may still be stored with the mother document on the source side.
+     // Only accept that reverse perspective when the related document itself reads like an amendment.
+     if(['amends','extends'].includes(rel.perspectiveType)&&!items.some(x=>k992LooksLikeAmendmentSource(sourceLines,x?.article||rel.targetArticle||'')))continue;
 
      for(const item of items){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;
        const extraction=k975ExtractAmendmentRange(sourceLines,item,rel);
-       const exact=extraction.lines;
-       if(!exact.length)continue;
+       let exact=extraction.lines;
+       if(!exact.length)exact=k992FallbackPayload(sourceLines,item,rel);
+       if(!exact.length){console.warn('INLINE_AMENDMENT_TEXT_NOT_EXTRACTED',{article,relationId:rel.id,sourceId});continue}
 
        const node=k961InlineText(rel,item,exact);
-       if(!k975ApplyNode(full,article,node,extraction.mode)){
+       if(!k992ApplyNode(full,article,node,extraction.mode)){
          console.warn('INLINE_AMENDMENT_TARGET_NOT_FOUND',{article,relationId:rel.id,mode:extraction.mode});
          continue;
        }
@@ -1242,13 +1293,25 @@ function k985EnhanceAttachments(form){
  if(!form||form.dataset.k985Attachments)return;form.dataset.k985Attachments='1';
  const file=form.querySelector('.k76file');
  if(!file)return;
- const box=document.createElement('section');box.className='k985attachments';
- box.innerHTML=`<div><b>پیوست‌های سند</b><small>در صورت وجود، چند فایل Word یا PDF را هم‌زمان انتخاب کنید. فایل اصلی سند همچنان در بخش بالا انتخاب می‌شود.</small></div>
- <label>افزودن پیوست‌ها<input type="file" multiple accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-attachments></label>
+ const box=document.createElement('section');box.className='k985attachments k992attachments';
+ box.innerHTML=`<div class="k992attachhead"><div><b>پیوست‌های سند</b><small>برای هر پیوست یک فایل انتخاب کنید؛ هر تعداد پیوست که لازم باشد می‌توانید اضافه کنید.</small></div><button type="button" data-k992-add-attachment>＋ افزودن پیوست دیگر</button></div>
+ <div data-k992-attachment-rows class="k992attachmentrows"></div>
  <div data-k985-files class="k985filelist">پیوستی انتخاب نشده است.</div>`;
  file.insertAdjacentElement('afterend',box);
- const input=box.querySelector('[data-k985-attachments]'),list=box.querySelector('[data-k985-files]');
- input.addEventListener('change',()=>{const files=[...(input.files||[])];list.innerHTML=files.length?files.map((f,i)=>`<span>${toFa(i+1)}. ${esc(f.name)}</span>`).join(''):'پیوستی انتخاب نشده است.'});
+ const rows=box.querySelector('[data-k992-attachment-rows]'),list=box.querySelector('[data-k985-files]');
+ const renderList=()=>{
+   const files=[...box.querySelectorAll('[data-k985-attachment-input]')].flatMap(x=>[...(x.files||[])]);
+   list.innerHTML=files.length?files.map((f,i)=>`<span>📎 ${toFa(i+1)}. ${esc(f.name)}</span>`).join(''):'پیوستی انتخاب نشده است.';
+ };
+ const addRow=()=>{
+   const row=document.createElement('div');row.className='k992attachmentrow';
+   row.innerHTML=`<label><span>انتخاب فایل پیوست</span><input type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-k985-attachment-input></label><button type="button" title="حذف این ردیف" aria-label="حذف پیوست" data-k992-remove-attachment>×</button>`;
+   rows.appendChild(row);
+   row.querySelector('input').addEventListener('change',renderList);
+   row.querySelector('[data-k992-remove-attachment]').onclick=()=>{if(rows.children.length===1){row.querySelector('input').value='';renderList();return}row.remove();renderList()};
+ };
+ box.querySelector('[data-k992-add-attachment]').onclick=addRow;
+ addRow();
 }
 async function k985FilesPayload(files){return k986DirectBlobRefs(files,'attachment')}
 function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k985EnhanceAttachments(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}

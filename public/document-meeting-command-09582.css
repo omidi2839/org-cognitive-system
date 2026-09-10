@@ -324,3 +324,13 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 
 /* 0.9.8.8 — direct-to-Blob upload */
 .k985attachments:after{content:'فایل‌ها مستقیماً به فضای ذخیره‌سازی خصوصی ارسال می‌شوند و از API اصلی عبور نمی‌کنند.';font-size:9px;color:#5f7894}
+
+/* 0.9.8.9.2 — repeatable attachment rows */
+.k992attachments{padding:16px!important;border:1.5px dashed #b7d3ee!important;border-radius:18px!important;background:linear-gradient(145deg,#fbfdff,#f3f8fd)!important}
+.k992attachhead{display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.k992attachhead>div{display:grid;gap:4px}.k992attachhead>b{font-size:12px}.k992attachhead small{font-size:9.5px;color:#74869a}
+.k992attachhead button,[data-k992-edit-add]{border:1px solid #bed8f2;background:#fff;color:#2468a8;border-radius:11px;padding:8px 12px;font:inherit;font-size:10px;font-weight:800;cursor:pointer}
+.k992attachmentrows{display:grid;gap:8px;margin-top:10px}.k992attachmentrow{display:grid;grid-template-columns:1fr 34px;gap:8px;align-items:end}
+.k992attachmentrow label{display:grid;gap:5px}.k992attachmentrow label span{font-size:9.5px;color:#5f7185}.k992attachmentrow input[type=file]{width:100%;padding:10px;border:1px solid #d4e3f1;border-radius:11px;background:white}
+.k992attachmentrow>button{height:34px;border:1px solid #f0cfd4;background:#fff7f8;color:#a74855;border-radius:10px;font-size:18px;cursor:pointer}
+.k985filelist{margin-top:8px}.k985filelist span{display:inline-flex;align-items:center;gap:4px}
