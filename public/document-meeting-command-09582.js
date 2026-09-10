@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.8.4';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.8.8.5';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -13,17 +13,31 @@ function enhanceUploadForm(form){
  grid.insertAdjacentElement('afterend',w);
 }
 const nativeFetch=window.fetch.bind(window);
+const K9885_SERVER_RAW_BUDGET=2750000;
+const k9885Sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function k9885Base64(file){
+ const ab=await file.arrayBuffer();
+ const bytes=new Uint8Array(ab);let binary='';
+ const step=0x8000;for(let i=0;i<bytes.length;i+=step)binary+=String.fromCharCode(...bytes.subarray(i,i+step));
+ return btoa(binary);
+}
+async function k9885ServerRef(file){
+ return {fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,contentBase64:await k9885Base64(file),directUpload:false,transport:'function-fallback-v1'};
+}
 async function k986DirectBlobRef(file,role='attachment'){
- if(!file)throw Object.assign(new Error('فایل برای آپلود مستقیم انتخاب نشده است.'),{code:'DIRECT_UPLOAD_FAILED'});
- const pre=await nativeFetch('/api/v1/knowledge/blob-upload-url',{
-   method:'POST',headers:{'content-type':'application/json','x-org-id':ORG},
-   body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})
- });
- const p=await pre.json().catch(()=>({}));
- if(!pre.ok)throw Object.assign(new Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.'),{code:p.code||'DIRECT_UPLOAD_FAILED'});
- const put=await nativeFetch(p.presignedUrl,{method:'PUT',body:file});
- if(!put.ok)throw Object.assign(new Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`),{code:'DIRECT_UPLOAD_FAILED'});
- return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
+ if(!file)throw Object.assign(new Error('فایل برای آپلود انتخاب نشده است.'),{code:'DIRECT_UPLOAD_FAILED'});
+ let last;
+ for(let attempt=1;attempt<=3;attempt++){
+  try{
+   const pre=await nativeFetch('/api/v1/knowledge/blob-upload-url',{method:'POST',headers:{'content-type':'application/json','x-org-id':ORG},body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
+   const p=await pre.json().catch(()=>({}));
+   if(!pre.ok)throw Object.assign(new Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.'),{code:p.code||'DIRECT_UPLOAD_FAILED'});
+   const put=await nativeFetch(p.presignedUrl,{method:'PUT',body:file});
+   if(!put.ok)throw Object.assign(new Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`),{code:'DIRECT_UPLOAD_FAILED'});
+   return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true,transport:'direct-blob-v2'};
+  }catch(e){last=e;if(attempt<3)await k9885Sleep(450*attempt)}
+ }
+ throw last||Object.assign(new Error('آپلود مستقیم فایل ناموفق بود.'),{code:'DIRECT_UPLOAD_FAILED'});
 }
 async function k986DirectBlobRefs(files,role='attachment'){
  const out=[];for(const file of [...(files||[])])out.push(await k986DirectBlobRef(file,role));return out;
@@ -42,14 +56,19 @@ window.fetch=async function(input,init={}){
     b.metadata={...(b.metadata||{}),documentNumber:documentNumber||null,meetingNumber:meetingNumber||null,meetingDate:meetingDate||null,meetingRef:null};
    }
 
-   // Primary file goes browser -> private Vercel Blob. Do not send its Base64 through the Function.
    const primary=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
-   if(primary){
-    const ref=await k986DirectBlobRef(primary,'primary');
-    Object.assign(b,ref);delete b.contentBase64;
-   }
    const attachmentInput=form.querySelector('[data-k985-attachments]');
-   if(attachmentInput?.files?.length)b.attachments=await k986DirectBlobRefs(attachmentInput.files,'attachment');
+   const attachments=[...(attachmentInput?.files||[])];
+   const all=[...(primary?[primary]:[]),...attachments];
+   const rawBytes=all.reduce((n,f)=>n+Number(f.size||0),0);
+   // Small document sets avoid the browser->Blob route entirely. Base64 expansion stays
+   // safely below Vercel's 4.5 MB Function payload limit with this raw-byte budget.
+   const serverFallback=rawBytes>0&&rawBytes<=K9885_SERVER_RAW_BUDGET;
+   if(primary){
+    const ref=serverFallback?await k9885ServerRef(primary):await k986DirectBlobRef(primary,'primary');
+    Object.assign(b,ref);if(!ref.contentBase64)delete b.contentBase64;
+   }
+   if(attachments.length)b.attachments=serverFallback?await Promise.all(attachments.map(k9885ServerRef)):await k986DirectBlobRefs(attachments,'attachment');
    init={...init,body:JSON.stringify(b)};
   }
  }

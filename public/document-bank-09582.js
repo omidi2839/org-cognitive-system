@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.8.8.4';
+window.__DOCUMENT_BANK_BUILD__='0.9.8.8.5';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -272,17 +272,32 @@ async function k984InitRelationEditor(root,currentId){
  await load();
 }
 
+const K9885_BANK_SERVER_RAW_BUDGET=2750000;
+const k9885BankSleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function k9885BankBase64(file){
+ const bytes=new Uint8Array(await file.arrayBuffer());let binary='';
+ for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+ return btoa(binary);
+}
+async function k9885BankServerRef(file){return {fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,contentBase64:await k9885BankBase64(file),directUpload:false,transport:'function-fallback-v1'}}
 async function k986BankDirectBlobRef(file,role='attachment'){
- const pre=await fetch('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
- const p=await pre.json().catch(()=>({}));
- if(!pre.ok)throw Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.');
- const put=await fetch(p.presignedUrl,{method:'PUT',body:file});
- if(!put.ok)throw Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`);
- return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true};
+ let last;
+ for(let attempt=1;attempt<=3;attempt++){
+  try{
+   const pre=await fetch('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role})});
+   const p=await pre.json().catch(()=>({}));if(!pre.ok)throw Error(p.message||'دریافت مجوز آپلود مستقیم ناموفق بود.');
+   const put=await fetch(p.presignedUrl,{method:'PUT',body:file});if(!put.ok)throw Error(`ارسال مستقیم فایل به Blob ناموفق بود (${put.status}).`);
+   return {fileName:file.name,mimeType:file.type||'application/octet-stream',blobUrl:p.blobUrl,blobPathname:p.pathname,size:file.size,directUpload:true,transport:'direct-blob-v2'};
+  }catch(e){last=e;if(attempt<3)await k9885BankSleep(450*attempt)}
+ }
+ throw last||Error('آپلود مستقیم فایل ناموفق بود.');
 }
-async function k985BankFilesPayload(files,role='attachment'){
- const out=[];for(const file of [...(files||[])])out.push(await k986BankDirectBlobRef(file,role));return out;
+async function k985BankFilesPayload(files,role='attachment',forceServer=false){
+ const list=[...(files||[])],out=[];
+ for(const file of list)out.push(forceServer?await k9885BankServerRef(file):await k986BankDirectBlobRef(file,role));
+ return out;
 }
+
 async function k982OpenEdit(documentId){
  let existing=document.getElementById('k982editmodal');if(existing)existing.remove();
  const w=document.createElement('div');w.id='k982editmodal';w.className='k91modalbackdrop k982editbackdrop';
@@ -368,9 +383,11 @@ async function k982OpenEdit(documentId){
     await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(documentId),{method:'PATCH',body:JSON.stringify(patch)});
     const primary=w.querySelector('[data-k985-replace-primary]')?.files?.[0]||null;
     const attFiles=w.querySelector('[data-k985-edit-attachments]')?.files||[];
-    const attachments=attFiles.length?await k985BankFilesPayload(attFiles):[];
+    const totalRaw=[...(primary?[primary]:[]),...attFiles].reduce((n,f)=>n+Number(f.size||0),0);
+    const useServerFallback=totalRaw>0&&totalRaw<=K9885_BANK_SERVER_RAW_BUDGET;
+    const attachments=attFiles.length?await k985BankFilesPayload(attFiles,'attachment',useServerFallback):[];
     if(primary){
-      const primaryPayload=(await k985BankFilesPayload([primary],'primary'))[0];
+      const primaryPayload=(await k985BankFilesPayload([primary],'primary',useServerFallback))[0];
       await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
         replaceDocumentId:documentId,...primaryPayload,attachments
       })});
