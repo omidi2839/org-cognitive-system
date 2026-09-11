@@ -694,7 +694,7 @@ export default async function handler(req,res){
     if(pathname.endsWith('/collaborative-analysis')){
       return handleCollaborative(req,res,repo,actor,u);
     }
-    if(pathname.endsWith('/macro-knowledge')){
+    if(pathname.endsWith('/macro-knowledge') || pathname==='macro-knowledge' || pathname==='/macro-knowledge'){
       return handleMacroKnowledge(req,res,repo,actor,u);
     }
     return handleKnowledgeDocuments(req,res,repo,actor,u);
