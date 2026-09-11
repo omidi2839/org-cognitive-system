@@ -369,6 +369,114 @@ async function handleCollaborative(req,res,repo,actor,u){
   return send(res,405,{message:'Method not allowed'});
 }
 
+
+const macroNorm=v=>String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
+const macroTokens=v=>new Set(macroNorm(v).replace(/[^\u0600-\u06FFa-zA-Z0-9\s]/g,' ').split(/\s+/).filter(x=>x.length>2&&!['این','آن','برای','است','شود','شده','مفهوم','سازمان','سازمانی','در','از','به','با','که','را','و','یا'].includes(x)));
+const macroSimilarity=(a,b)=>{
+  const A=macroTokens(a),B=macroTokens(b); if(!A.size||!B.size)return 0;
+  let n=0; for(const x of A)if(B.has(x))n++;
+  return n/(A.size+B.size-n||1);
+};
+async function handleMacroKnowledge(req,res,repo,actor,u){
+  const db=await repo.all();
+  const finals=(db.collaborativeFinalConcepts||[]).filter(x=>x.organizationId===actor.organizationId&&x.status==='reliable_synthesis');
+  const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId);
+  const canonical=(db.macroKnowledgeConcepts||[]).filter(x=>x.organizationId===actor.organizationId);
+  const links=(db.macroKnowledgeSourceLinks||[]).filter(x=>x.organizationId===actor.organizationId);
+  const conflicts=(db.macroKnowledgeIssues||[]).filter(x=>x.organizationId===actor.organizationId&&x.status!=='resolved');
+
+  if(req.method==='GET'){
+    const sourceItems=finals.map(f=>{
+      const d=docs.find(x=>x.id===f.documentRef)||{};
+      const link=links.find(x=>x.sourceConceptRef===f.id)||null;
+      const ranked=canonical.map(c=>({
+        id:c.id,title:c.title,definition:c.definition,
+        similarity:macroSimilarity(`${f.concept} ${f.finalStatement}`,`${c.title} ${c.definition}`)
+      })).filter(x=>x.similarity>=.12).sort((a,b)=>b.similarity-a.similarity).slice(0,3);
+      return {
+        id:f.id,concept:f.concept,definition:f.finalStatement,evidence:f.evidence||'',
+        documentRef:f.documentRef,documentTitle:d.title||'سند بالادستی',documentType:d.documentType||'',
+        finalizedAt:f.finalizedAt||null,status:link?'linked':'new',canonicalRef:link?.canonicalRef||null,
+        suggestions:ranked
+      };
+    });
+    const canonicalItems=canonical.map(c=>({
+      ...c,
+      sourceCount:links.filter(x=>x.canonicalRef===c.id).length,
+      sources:links.filter(x=>x.canonicalRef===c.id).map(l=>{
+        const f=finals.find(x=>x.id===l.sourceConceptRef)||{};
+        const d=docs.find(x=>x.id===f.documentRef)||{};
+        return {sourceConceptRef:l.sourceConceptRef,concept:f.concept||'',documentRef:f.documentRef||'',documentTitle:d.title||'',relation:l.relation||'source_of'};
+      })
+    }));
+    return send(res,200,{
+      summary:{
+        validatedConcepts:finals.length,
+        newForReview:sourceItems.filter(x=>x.status==='new').length,
+        canonicalConcepts:canonical.length,
+        openIssues:conflicts.length
+      },
+      sourceConcepts:sourceItems,
+      canonicalConcepts:canonicalItems,
+      issues:conflicts,
+      contract:{
+        layer:'semantic_consolidation',
+        excludes:['concept_network','quantification','macro_indicators','realization_references'],
+        handoff:'canonical_organizational_concept'
+      }
+    });
+  }
+
+  if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
+  const input=bodyOf(req),action=String(input.action||'');
+  let result=null;
+  await repo.mutate(state=>{
+    state.macroKnowledgeConcepts??=[];
+    state.macroKnowledgeSourceLinks??=[];
+    state.macroKnowledgeHistory??=[];
+    state.macroKnowledgeIssues??=[];
+    const now=new Date().toISOString();
+    const final=(state.collaborativeFinalConcepts||[]).find(x=>x.id===input.sourceConceptId&&x.organizationId===actor.organizationId);
+
+    if(action==='create_canonical'){
+      if(!final)return;
+      const title=String(input.title||final.concept||'').trim();
+      const definition=String(input.definition||final.finalStatement||'').trim();
+      const c={
+        id:`MKC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+        organizationId:actor.organizationId,title,definition,
+        alternativeTerms:[],semanticScope:'',status:'canonical',version:1,
+        confidence:Number(input.confidence||1),createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+      };
+      state.macroKnowledgeConcepts.push(c);
+      state.macroKnowledgeSourceLinks.push({
+        id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+        organizationId:actor.organizationId,canonicalRef:c.id,sourceConceptRef:final.id,
+        relation:'source_of',createdAt:now,createdBy:actor.personRef
+      });
+      state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'canonical_created',sourceConceptRef:final.id,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
+      result=c;
+    }else if(action==='link_existing'){
+      if(!final)return;
+      const c=state.macroKnowledgeConcepts.find(x=>x.id===input.canonicalId&&x.organizationId===actor.organizationId);
+      if(!c)return;
+      let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===final.id);
+      if(!link){
+        link={id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,sourceConceptRef:final.id,relation:String(input.relation||'same_as'),createdAt:now,createdBy:actor.personRef};
+        state.macroKnowledgeSourceLinks.push(link);
+        state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'source_linked',sourceConceptRef:final.id,relation:link.relation,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
+      }
+      result={canonical:c,link};
+    }else if(action==='flag_issue'){
+      if(!final)return;
+      const issue={id:`MKI:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,sourceConceptRef:final.id,canonicalRef:String(input.canonicalId||''),issueType:String(input.issueType||'requires_review_with'),note:String(input.note||'نیازمند بررسی معنایی'),status:'open',createdAt:now,createdBy:actor.personRef,createdByName:actor.name};
+      state.macroKnowledgeIssues.push(issue); result=issue;
+    }
+  });
+  if(!result)return send(res,404,{message:'مفهوم یا مفهوم سازمانی موردنظر پیدا نشد'});
+  return send(res,200,{ok:true,result});
+}
+
 async function handleKnowledgeDocuments(req,res,repo,actor,u){
   if(req.method!=='GET') return send(res,405,{message:'Method not allowed'});
   const documentClass=u.searchParams.get('class')||null;
@@ -585,6 +693,9 @@ export default async function handler(req,res){
     }
     if(pathname.endsWith('/collaborative-analysis')){
       return handleCollaborative(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/macro-knowledge')){
+      return handleMacroKnowledge(req,res,repo,actor,u);
     }
     return handleKnowledgeDocuments(req,res,repo,actor,u);
   }catch(e){
