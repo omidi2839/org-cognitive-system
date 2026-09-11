@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_COMMAND_SUGGESTIONS_BUILD__='0.9.9.0.8';
+window.__DOCUMENT_COMMAND_SUGGESTIONS_BUILD__='0.9.9.0.9';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const norm=s=>String(s??'').normalize('NFKC').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\u200c/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
 const uniq=a=>[...new Set(a.filter(Boolean))];
