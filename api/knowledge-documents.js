@@ -215,7 +215,9 @@ async function handleCollaborative(req,res,repo,actor,u){
       const item=items.find(x=>x.document.id===documentId);
       if(!item) return send(res,404,{message:'سند بالادستی پیدا نشد'});
       const rs=item.case?responses.filter(x=>x.caseRef===item.case.id).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))):[];
-      return send(res,200,{...item,responses:rs});
+      const history=item.case?(db.collaborativeConceptHistory||[]).filter(x=>x.caseRef===item.case.id).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))):[];
+      const finalConcepts=item.case?(db.collaborativeFinalConcepts||[]).filter(x=>x.caseRef===item.case.id):[];
+      return send(res,200,{...item,responses:rs,conceptHistory:history,finalConcepts});
     }
     return send(res,200,{items,policy:{analyzableClass:'upstream',generalDocuments:'reference_only'}});
   }
@@ -260,7 +262,9 @@ async function handleCollaborative(req,res,repo,actor,u){
       const c=s.collaborativeAnalysisCases.find(x=>x.id===input.caseId&&x.organizationId===actor.organizationId);
       if(!c) return;
       if(input.action==='respond'){
-        s.collaborativeAnalysisResponses.push({
+        const now=new Date().toISOString();
+        const concept=String(input.concept||'').trim();
+        const response={
           id:`CAR:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
           organizationId:actor.organizationId,
           caseRef:c.id,
@@ -268,19 +272,86 @@ async function handleCollaborative(req,res,repo,actor,u){
           expertRef:input.expertRef||actor.personRef,
           expertName:input.expertName||actor.name,
           groupLabel:input.groupLabel||'گروه خبرگان تحلیل اسناد بالادستی',
-          concept:String(input.concept||'').trim(),
+          concept,
           analysis:String(input.analysis||'').trim(),
           evidence:String(input.evidence||'').trim(),
+          sourceSentence:String(input.sourceSentence||'').trim(),
+          systemAnalysis:String(input.systemAnalysis||'').trim(),
+          reviewBasisIds:Array.isArray(input.reviewBasisIds)?input.reviewBasisIds.map(String).slice(0,100):[],
           audioDataUrl:String(input.audioDataUrl||'').slice(0,2200000),
-          createdAt:new Date().toISOString()
+          createdAt:now
+        };
+        s.collaborativeAnalysisResponses.push(response);
+        s.collaborativeConceptHistory??=[];
+        const eventType=c.stage==='independent_analysis'?'independent_expert_view':
+          c.stage==='complementary_review'?'senior_expert_critique':
+          c.stage==='final_synthesis'?'reliable_synthesis_candidate':'expert_response';
+        s.collaborativeConceptHistory.push({
+          id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,
+          caseRef:c.id,
+          documentRef:c.documentRef,
+          concept,
+          stage:c.stage,
+          eventType,
+          responseRef:response.id,
+          actorRef:actor.personRef,
+          actorName:actor.name,
+          createdAt:now
         });
       }else if(input.action==='advance'){
+        const previousStage=c.stage;
         const i=stages.indexOf(c.stage);
         if(i>=0&&i<stages.length-1) c.stage=stages[i+1];
         if(c.stage==='approved'){
+          const now=new Date().toISOString();
           c.status='approved';
-          c.approvedAt=new Date().toISOString();
+          c.approvedAt=now;
           c.approvedBy=actor.personRef;
+          s.collaborativeFinalConcepts??=[];
+          s.collaborativeConceptHistory??=[];
+          const all=s.collaborativeAnalysisResponses.filter(x=>x.caseRef===c.id);
+          const finals=all.filter(x=>x.stage==='final_synthesis'&&String(x.concept||'').trim());
+          const norm=v=>String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
+          const latest=new Map();
+          for(const r of finals) latest.set(norm(r.concept),r);
+          for(const r of latest.values()){
+            const key=norm(r.concept);
+            const prior=all.filter(x=>norm(x.concept)===key);
+            const existing=s.collaborativeFinalConcepts.find(x=>x.caseRef===c.id&&norm(x.concept)===key);
+            const snapshot={
+              organizationId:actor.organizationId,
+              caseRef:c.id,
+              documentRef:c.documentRef,
+              concept:r.concept,
+              finalStatement:r.analysis,
+              evidence:r.evidence||r.sourceSentence||'',
+              status:'reliable_synthesis',
+              finalizedBy:actor.personRef,
+              finalizedByName:actor.name,
+              finalizedAt:now,
+              basis:{
+                independentResponseIds:prior.filter(x=>x.stage==='independent_analysis').map(x=>x.id),
+                complementaryResponseIds:prior.filter(x=>x.stage==='complementary_review').map(x=>x.id),
+                finalResponseId:r.id
+              }
+            };
+            if(existing) Object.assign(existing,snapshot,{updatedAt:now});
+            else s.collaborativeFinalConcepts.push({id:`CFC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,...snapshot});
+            s.collaborativeConceptHistory.push({
+              id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+              organizationId:actor.organizationId,
+              caseRef:c.id,
+              documentRef:c.documentRef,
+              concept:r.concept,
+              stage:'approved',
+              eventType:'reliable_synthesis_approved',
+              responseRef:r.id,
+              actorRef:actor.personRef,
+              actorName:actor.name,
+              createdAt:now
+            });
+          }
         }
       }
       c.updatedAt=new Date().toISOString();
