@@ -1,5 +1,5 @@
 (()=>{
-const VERSION='0.9.9.0.10';
+const VERSION='0.9.9.0.11';
 document.documentElement.classList.add('auth-pending');
 const scripts=[
  './app.js','./workspace-shell-075.js','./knowledge-workspace-076.js',
