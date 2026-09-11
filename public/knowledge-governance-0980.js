@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.9';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.10';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -14,8 +14,12 @@ const api=async(p,o={})=>{
 
 async function counters(){
  try{
-  const d=await api('/api/v1/knowledge/documents'),a=d.items||[],m={'اسناد بالادستی':a.filter(x=>x.documentClass==='upstream').length,'اسناد عمومی':a.filter(x=>x.documentClass==='general').length,'بانک اسناد':a.length};
-  document.querySelectorAll('.capability-card').forEach(c=>{const n=c.dataset.capability||c.querySelector('b')?.textContent?.trim();if(!(n in m))return;let b=c.querySelector('.k980count');if(!b){b=document.createElement('span');b.className='k980count';c.appendChild(b)}b.textContent=fa(m[n])+' سند'})
+  const d=await api('/api/v1/knowledge/documents'),a=d.items||[];
+  let analyzed=0,canonical=0;
+  try{const r=await api('/api/v1/knowledge/collaborative-analysis');analyzed=(r.items||[]).filter(x=>x.case).length}catch{}
+  try{const k=await api('/api/v1/knowledge/macro-knowledge');canonical=Number(k.summary?.canonicalConcepts||0)}catch{}
+  const m={'اسناد بالادستی':a.filter(x=>x.documentClass==='upstream').length,'اسناد عمومی':a.filter(x=>x.documentClass==='general').length,'بانک اسناد':a.length,'تحلیل اسناد':analyzed,'دانش کلان':canonical};
+  document.querySelectorAll('.capability-card').forEach(c=>{const n=c.dataset.capability||c.querySelector('b')?.textContent?.trim();if(!(n in m))return;let b=c.querySelector('.k980count');if(!b){b=document.createElement('span');b.className='k980count';c.appendChild(b)}b.textContent=fa(m[n])+(n==='دانش کلان'?' مفهوم':' سند')})
  }catch{}
 }
 let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).observe(document.documentElement,{childList:true,subtree:true});counters();
@@ -168,7 +172,7 @@ function k999StageCards(models,stage){
 function shell(){
  let x=document.getElementById('knowledge076');
  if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
- x.innerHTML=`<div class="k76head k998research-head"><div class="k998research-nav"><button type="button" class="k91back" data-k983-back>← بازگشت به دانش و اسناد سازمان</button><div><small>محیط پژوهشی تحلیل اسناد · 0.9.9.0.9</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفاهیم دارای دیدگاه را در خود متن می‌بیند و می‌تواند پس از مطالعه نظرات دیگر خبرگان، تحلیل تکمیلی خود را ثبت کند.</p></div></div></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
+ x.innerHTML=`<div class="k76head k998research-head"><div class="k998research-nav"><button type="button" class="k91back" data-k983-back>← بازگشت به دانش و اسناد سازمان</button><div><small>محیط پژوهشی تحلیل اسناد · 0.9.9.0.10</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفاهیم دارای دیدگاه را در خود متن می‌بیند و می‌تواند پس از مطالعه نظرات دیگر خبرگان، تحلیل تکمیلی خود را ثبت کند.</p></div></div></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
  const back=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};
  x.querySelector('[data-k983-back]').onclick=back;return x
 }
@@ -178,7 +182,7 @@ async function openAnalysis(){
  try{
   const d=await api('/api/v1/knowledge/collaborative-analysis');
   b.innerHTML=`<div class="k983analysistop"><div><b>گروه خبرگان تحلیل اسناد بالادستی</b><span>هویت هر نظر از کاربر واردشده سامانه ثبت می‌شود؛ نیازی به ورود نام خبره یا نام کارگروه نیست.</span></div><div class="k983rule">فقط اسناد بالادستی</div></div>
-  <div class="k983cases">${(d.items||[]).length?(d.items||[]).map(i=>{const c=i.case;return `<article><div><small>${esc(i.document.documentType||'سند بالادستی')}</small><b>${esc(i.document.title)}</b><span>${c?`${esc(c.stageLabel)} · ${fa(c.summary?.total||0)} یادداشت خبرگانی`:'آماده ایجاد پرونده تحلیل'}</span></div><button data-k983-case="${esc(i.document.id)}">${c?'ورود به میز پژوهش':'شروع تحلیل'}</button></article>`}).join(''):'<div class="k76empty">سند بالادستی برای تحلیل وجود ندارد.</div>'}</div><div id="k983detail"></div>`;
+  <div class="k983cases">${(d.items||[]).length?(d.items||[]).map(i=>{const c=i.case;return `<article><div><small>${esc(i.document.documentType||'سند بالادستی')}</small><b>${esc(i.document.title)}</b><span>${c?`${esc(c.stageLabel)} · ${fa(c.summary?.total||0)} یادداشت خبرگانی`:'آماده ایجاد پرونده تحلیل'}</span></div><button data-k983-case="${esc(i.document.id)}">${c?.stage==='approved'?'مشاهده سوابق مفهوم‌سازی':c?'ورود به میز پژوهش':'شروع تحلیل'}</button></article>`}).join(''):'<div class="k76empty">سند بالادستی برای تحلیل وجود ندارد.</div>'}</div><div id="k983detail"></div>`;
   b.querySelectorAll('[data-k983-case]').forEach(q=>q.onclick=()=>openCase(q.dataset.k983Case));
  }catch(e){b.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
@@ -316,6 +320,44 @@ async function openCase(id){
  };
  z.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+function k9910MacroShell(){
+ document.getElementById('workspaceContext')?.classList.add('k91-hidden-workspace');
+ let x=document.getElementById('knowledge076');if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
+ x.innerHTML=`<div class="k76head k9910macro-head"><div class="k998research-nav"><button type="button" class="k91back" data-k9910-back>← بازگشت به دانش و اسناد سازمان</button><div><small>دانش کلان · تثبیت معنایی بین‌اسنادی · ۰.۹.۹.۰.۱۰</small><h2>دانش مفهومی معتبر سازمان</h2><p>مفاهیم نهایی‌شده اسناد در اینجا با دانش موجود سازمان تطبیق داده و به مفهوم سازمانی Canonical تبدیل می‌شوند؛ شبکه مفاهیم، کمّی‌سازی، شاخص و تحقق در محیط «جهت‌گیری سازمان» انجام می‌شود.</p></div></div></div><div id="k9910macrobody"><div class="k76loading">در حال آماده‌سازی دانش کلان…</div></div>`;
+ x.querySelector('[data-k9910-back]').onclick=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};return x
+}
+function k9910SourceCard(x){
+ const sug=(x.suggestions||[])[0];
+ return `<article class="k9910source ${x.status==='linked'?'linked':''}">
+  <header><div><small>${esc(x.documentType||'سند بالادستی')}</small><h4>${esc(x.concept)}</h4></div><span>${x.status==='linked'?'تطبیق‌شده':'نیازمند تطبیق'}</span></header>
+  <p>${esc(x.definition||'تعریف نهایی ثبت نشده است.')}</p>
+  <div class="k9910origin">منشأ: ${esc(x.documentTitle)}</div>
+  ${sug&&x.status!=='linked'?`<div class="k9910suggest"><b>پیشنهاد سامانه</b><span>شباهت احتمالی با «${esc(sug.title)}» · ${fa(Math.round(sug.similarity*100))}٪</span></div>`:''}
+  ${x.status!=='linked'?`<footer><button type="button" data-k9910-new="${esc(x.id)}">ایجاد مفهوم سازمانی</button>${sug?`<button type="button" data-k9910-link="${esc(x.id)}" data-canonical="${esc(sug.id)}">تطبیق با «${esc(sug.title)}»</button>`:''}<button type="button" class="ghost" data-k9910-issue="${esc(x.id)}" data-canonical="${esc(sug?.id||'')}">نیازمند بررسی</button></footer>`:''}
+ </article>`;
+}
+function k9910CanonicalCard(c){
+ return `<article class="k9910canonical"><header><div><small>Canonical Organizational Concept</small><h4>${esc(c.title)}</h4></div><span>${fa(c.sourceCount||0)} منشأ</span></header><p>${esc(c.definition||'')}</p><div class="k9910sources">${(c.sources||[]).slice(0,5).map(x=>`<span>${esc(x.documentTitle||x.concept)}</span>`).join('')||'<span>بدون منشأ نمایشی</span>'}</div><footer><small>وضعیت: مفهوم معتبر سازمانی · آماده بررسی برای ورود به محیط جهت‌گیری</small></footer></article>`;
+}
+async function openMacroKnowledge(){
+ const x=k9910MacroShell(),b=x.querySelector('#k9910macrobody');
+ try{
+  const d=await api('/api/v1/knowledge/macro-knowledge'),sm=d.summary||{},src=d.sourceConcepts||[],can=d.canonicalConcepts||[],issues=d.issues||[];
+  b.innerHTML=`<section class="k9910contract"><b>مرز این محیط</b><span>دانش کلان فقط «معنای معتبر سازمانی» را تثبیت می‌کند.</span><em>Canonical Concept ≠ Directional Concept</em></section>
+   <section class="k9910stats"><article><b>${fa(sm.validatedConcepts||0)}</b><span>مفهوم معتبر اسناد</span></article><article><b>${fa(sm.newForReview||0)}</b><span>نیازمند تطبیق</span></article><article><b>${fa(sm.canonicalConcepts||0)}</b><span>مفهوم سازمانی تثبیت‌شده</span></article><article><b>${fa(sm.openIssues||0)}</b><span>ابهام یا تعارض باز</span></article></section>
+   <div class="k9910tabs"><button class="on" data-k9910-tab="new">مفاهیم جدید برای تطبیق</button><button data-k9910-tab="canonical">مفاهیم سازمانی تثبیت‌شده</button><button data-k9910-tab="issues">ابهام‌ها و تعارض‌ها</button></div>
+   <section data-k9910-pane="new" class="k9910pane">${src.filter(x=>x.status==='new').length?src.filter(x=>x.status==='new').map(k9910SourceCard).join(''):'<div class="k76empty">همه مفاهیم نهایی‌شده فعلی تعیین تکلیف شده‌اند.</div>'}</section>
+   <section data-k9910-pane="canonical" class="k9910pane" hidden>${can.length?can.map(k9910CanonicalCard).join(''):'<div class="k76empty">هنوز مفهوم سازمانی Canonical تثبیت نشده است.</div>'}</section>
+   <section data-k9910-pane="issues" class="k9910pane" hidden>${issues.length?issues.map(i=>`<article class="k9910issue"><b>${esc(i.issueType||'نیازمند بررسی')}</b><p>${esc(i.note||'')}</p></article>`).join(''):'<div class="k76empty">ابهام یا تعارض باز ثبت نشده است.</div>'}</section>`;
+  b.querySelectorAll('[data-k9910-tab]').forEach(btn=>btn.onclick=()=>{b.querySelectorAll('[data-k9910-tab]').forEach(q=>q.classList.toggle('on',q===btn));b.querySelectorAll('[data-k9910-pane]').forEach(q=>q.hidden=q.dataset.k9910Pane!==btn.dataset.k9910Tab)});
+  b.querySelectorAll('[data-k9910-new]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'create_canonical',sourceConceptId:btn.dataset.k9910New})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
+  b.querySelectorAll('[data-k9910-link]').forEach(btn=>btn.onclick=async()=>{if(!confirm('این مفهوم به مفهوم سازمانی پیشنهادی متصل شود؟ مفهوم سندی و سابقه آن حذف نخواهد شد.'))return;btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'link_existing',sourceConceptId:btn.dataset.k9910Link,canonicalId:btn.dataset.canonical,relation:'same_as'})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
+  b.querySelectorAll('[data-k9910-issue]').forEach(btn=>btn.onclick=async()=>{const note=prompt('دلیل نیاز به بررسی معنایی را ثبت کنید:','شباهت یا تفاوت معنایی نیازمند بررسی انسانی است.');if(note===null)return;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'flag_issue',sourceConceptId:btn.dataset.k9910Issue,canonicalId:btn.dataset.canonical,note})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
+ }catch(e){b.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
+}
+
 window.addEventListener('click',e=>{const c=e.target.closest?.('[data-capability="تحلیل اسناد"]');if(!c)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openAnalysis()},true);
 let replacing=false;new MutationObserver(()=>{if(replacing)return;const x=document.getElementById('knowledge076');if(x&&x.querySelector('#k76body')&&!x.querySelector('#k983body')&&/تحلیل شناختی اسناد/.test(x.textContent||'')){replacing=true;Promise.resolve(openAnalysis()).finally(()=>setTimeout(()=>replacing=false,100))}}).observe(document.documentElement,{childList:true,subtree:true});
+window.addEventListener('click',e=>{const c=e.target.closest?.('[data-capability="دانش کلان"]');if(!c)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openMacroKnowledge()},true);
 })();
