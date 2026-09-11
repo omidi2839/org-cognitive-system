@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.5';
+window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.6';
 const ORG='ORG:SYN-001';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const base64=async file=>{
