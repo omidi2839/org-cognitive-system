@@ -1,5 +1,5 @@
 (()=>{
-window.__UI_PERSIAN_POLISH_BUILD__='0.9.9.0.6';
+window.__UI_PERSIAN_POLISH_BUILD__='0.9.9.0.7';
 
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/[0-9]/g,d=>FA[d]);
