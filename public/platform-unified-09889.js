@@ -1,5 +1,5 @@
 (()=>{
-window.__PLATFORM_UNIFIED_BUILD__='0.9.9.0.7';
+window.__PLATFORM_UNIFIED_BUILD__='0.9.9.0.8';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const api=async(p,o={})=>{const r=await fetch(p,{...o,credentials:'same-origin',headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001',...(o.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||'خطا'),{code:d.code,status:r.status});return d};
@@ -20,6 +20,32 @@ function fixWorkspaceNavigation(){
    if(e.target?.closest?.('[data-workspace]'))document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace');
  },true);
 }
+
+function k998WorkspaceTitle(ctx){
+ const h=ctx?.querySelector('h1,h2,h3,.workspace-title')?.textContent?.trim();
+ if(h)return h;
+ const t=ctx?.textContent||'';
+ if(t.includes('دانش و اسناد سازمان'))return 'دانش و اسناد سازمان';
+ return 'بخش قبل';
+}
+function k998ChildNavigation(){
+ const ctx=document.getElementById('workspaceContext'),child=document.getElementById('knowledge076');
+ if(!ctx)return;
+ if(!child||!child.isConnected){ctx.classList.remove('k91-hidden-workspace');return}
+ ctx.classList.add('k91-hidden-workspace');
+ const head=child.querySelector('.k76head');
+ if(!head||head.querySelector('.k91back,[data-k998-workspace-back]'))return;
+ const row=document.createElement('div');row.className='k998-auto-nav';
+ const b=document.createElement('button');b.type='button';b.className='k91back';b.dataset.k998WorkspaceBack='1';b.textContent='← بازگشت به '+k998WorkspaceTitle(ctx);
+ b.onclick=()=>{child.remove();ctx.classList.remove('k91-hidden-workspace')};row.appendChild(b);head.prepend(row);
+}
+function observeWorkspaceChildren(){
+ let timer;const run=()=>{clearTimeout(timer);timer=setTimeout(k998ChildNavigation,20)};
+ new MutationObserver(run).observe(document.documentElement,{subtree:true,childList:true});
+ document.addEventListener('click',e=>{if(e.target?.closest?.('[data-capability]'))setTimeout(k998ChildNavigation,25)},true);
+ run();
+}
+
 function beautifyFileInputs(root=document){
  root.querySelectorAll('.k985attachments,.k985fileedit,[data-k985-edit-attachments],[data-k985-replace-primary]').forEach(x=>{
    const zone=x.closest('label')||x.closest('.k985attachments')||x;if(zone)zone.classList.add('k989-file-zone');
@@ -92,5 +118,5 @@ function observePreview(){
  new MutationObserver(probe).observe(document.documentElement,{subtree:true,childList:true});
 }
 function observeUi(){const run=()=>{beautifyFileInputs();};new MutationObserver(run).observe(document.documentElement,{subtree:true,childList:true});run()}
-fixWorkspaceNavigation();observePreview();observeUi();
+fixWorkspaceNavigation();observePreview();observeUi();observeWorkspaceChildren();
 })();

@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.8.4';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.8';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -20,13 +20,87 @@ async function counters(){
 }
 let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).observe(document.documentElement,{childList:true,subtree:true});counters();
 
+function k998ConceptKey(v){
+ return String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function k998ConceptGroups(responses){
+ const m=new Map();
+ for(const r of (responses||[])){
+  const raw=String(r.concept||'').trim();if(!raw)continue;
+  const key=k998ConceptKey(raw);if(!key)continue;
+  if(!m.has(key))m.set(key,{key,label:raw,responses:[]});
+  m.get(key).responses.push(r);
+ }
+ return [...m.values()].sort((a,b)=>b.label.length-a.label.length);
+}
+function k998RegexForConcept(raw){
+ const norm=String(raw||'').trim();if(!norm)return null;
+ const chars=[...norm];
+ const body=chars.map(ch=>{
+  if(/[\s\u200c\u200d\u200e\u200f]/.test(ch))return '[\\s\\u200c\\u200d\\u200e\\u200f]+';
+  if(/[یيى]/.test(ch))return '[یيى]';
+  if(/[کك]/.test(ch))return '[کك]';
+  return ch.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+ }).join('');
+ try{return new RegExp(body,'giu')}catch{return null}
+}
+function k998HighlightConcepts(root,groups){
+ if(!root||!groups?.length)return;
+ const walkers=[];const w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+ while(w.nextNode())walkers.push(w.currentNode);
+ for(const node of walkers){
+  const text=node.nodeValue||'';if(!text.trim())continue;
+  const matches=[];
+  for(const g of groups){
+   const rx=k998RegexForConcept(g.label);if(!rx)continue;let m;
+   while((m=rx.exec(text))){matches.push({start:m.index,end:m.index+m[0].length,g,text:m[0]});if(!m[0].length)rx.lastIndex++}
+  }
+  if(!matches.length)continue;
+  matches.sort((a,b)=>a.start-b.start||(b.end-b.start)-(a.end-a.start));
+  const picked=[];let end=-1;
+  for(const m of matches){if(m.start<end)continue;picked.push(m);end=m.end}
+  if(!picked.length)continue;
+  const frag=document.createDocumentFragment();let pos=0;
+  for(const m of picked){
+   if(m.start>pos)frag.appendChild(document.createTextNode(text.slice(pos,m.start)));
+   const mark=document.createElement('button');mark.type='button';mark.className='k998-commented-concept';mark.dataset.k998Concept=m.g.key;
+   mark.title=`${fa(m.g.responses.length)} دیدگاه خبرگانی`;mark.textContent=text.slice(m.start,m.end);
+   const badge=document.createElement('span');badge.textContent=fa(m.g.responses.length);mark.appendChild(badge);frag.appendChild(mark);pos=m.end;
+  }
+  if(pos<text.length)frag.appendChild(document.createTextNode(text.slice(pos)));
+  node.parentNode.replaceChild(frag,node);
+ }
+}
+function k998ExpertView(r){
+ const audio=r.audioDataUrl?`<audio controls preload="metadata" src="${esc(r.audioDataUrl)}"></audio>`:'';
+ const when=r.createdAt?new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}).format(new Date(r.createdAt)):'';
+ return `<article class="k998expert-comment"><header><div><b>${esc(r.expertName||'کاربر واردشده')}</b><small>${esc(r.stage==='independent_analysis'?'تحلیل مستقل':r.stage==='complementary_review'?'تکمیل و نقد':r.stage==='final_synthesis'?'جمع‌بندی':'دیدگاه خبرگانی')}</small></div>${when?`<time>${esc(when)}</time>`:''}</header>${r.analysis?`<p>${esc(r.analysis)}</p>`:''}${r.evidence?`<blockquote>${esc(r.evidence)}</blockquote>`:''}${audio}</article>`;
+}
+function k998OpenConceptDialog(group,form,matchedText){
+ document.querySelector('.k998concept-popover')?.remove();
+ const pop=document.createElement('section');pop.className='k998concept-popover';pop.setAttribute('role','dialog');pop.setAttribute('aria-modal','true');
+ pop.innerHTML=`<div class="k998concept-card"><header><div><small>دیدگاه‌های خبرگان درباره مفهوم</small><h4>«${esc(group.label)}»</h4></div><button type="button" data-k998-close aria-label="بستن">×</button></header><div class="k998concept-summary"><b>${fa(group.responses.length)} دیدگاه</b><span>دیدگاه‌های ثبت‌شده برای این مفهوم در همین پرونده پژوهشی</span></div><div class="k998concept-comments">${group.responses.map(k998ExpertView).join('')}</div>${form?`<footer><button type="button" data-k998-comment>ثبت نظر درباره همین مفهوم</button><button type="button" data-k998-dismiss>بستن</button></footer>`:''}</div>`;
+ document.body.appendChild(pop);
+ const close=()=>pop.remove();
+ pop.querySelector('[data-k998-close]')?.addEventListener('click',close);pop.querySelector('[data-k998-dismiss]')?.addEventListener('click',close);
+ pop.addEventListener('click',e=>{if(e.target===pop)close()});
+ document.addEventListener('keydown',function escClose(e){if(e.key==='Escape'&&pop.isConnected){close();document.removeEventListener('keydown',escClose)}},{capture:true});
+ const use=pop.querySelector('[data-k998-comment]');if(use)use.onclick=()=>{
+  const concept=form.querySelector('[data-concept]'),evidence=form.querySelector('[data-evidence]');
+  if(concept)concept.value=group.label;if(evidence&&!evidence.value)evidence.value=matchedText||group.label;
+  close();form.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(()=>form.querySelector('textarea[name="analysis"]')?.focus(),350);
+ };
+}
+
 function shell(){
  let x=document.getElementById('knowledge076');
  if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
- x.innerHTML=`<div class="k76head"><div><small>محیط پژوهشی تحلیل اسناد · 0.9.8.4</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفهوم را مستقیماً از متن انتخاب می‌کند و یادداشت متنی یا صوتی خود را به همان شاهد متصل می‌کند.</p></div><button data-k983-close>×</button></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
- x.querySelector('[data-k983-close]').onclick=()=>x.remove();return x
+ x.innerHTML=`<div class="k76head k998research-head"><div class="k998research-nav"><button type="button" class="k91back" data-k983-back>← بازگشت به دانش و اسناد سازمان</button><div><small>محیط پژوهشی تحلیل اسناد · 0.9.9.0.8</small><h2>تحلیل خبرگانی اسناد بالادستی</h2><p>خبره متن سند را می‌خواند، مفاهیم دارای دیدگاه را در خود متن می‌بیند و می‌تواند پس از مطالعه نظرات دیگر خبرگان، تحلیل تکمیلی خود را ثبت کند.</p></div></div></div><div id="k983body"><div class="k76loading">در حال دریافت اسناد بالادستی…</div></div>`;
+ const back=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};
+ x.querySelector('[data-k983-back]').onclick=back;return x
 }
 async function openAnalysis(){
+ document.getElementById('workspaceContext')?.classList.add('k91-hidden-workspace');
  const x=shell(),b=x.querySelector('#k983body');
  try{
   const d=await api('/api/v1/knowledge/collaborative-analysis');
@@ -51,13 +125,13 @@ async function openCase(id){
  if(!d.case){await api('/api/v1/knowledge/collaborative-analysis',{method:'POST',body:JSON.stringify({documentId:id})});d=await api('/api/v1/knowledge/collaborative-analysis?documentId='+encodeURIComponent(id))}
  let docText='';
  try{const bd=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(id)+'&detail=1');docText=String((bd.items||[])[0]?.fullText||'').trim()}catch{}
- const c=d.case,rs=d.responses||[],ix=['independent_analysis','complementary_review','final_synthesis','approved'].indexOf(c.stage);
+ const c=d.case,rs=d.responses||[],conceptGroups=k998ConceptGroups(rs),ix=['independent_analysis','complementary_review','final_synthesis','approved'].indexOf(c.stage);
  z.innerHTML=`<section class="k983research">
   <div class="k983researchhead"><div><small>پرونده تحلیل · ${esc(currentUserName())}</small><h3>${esc(d.document.title)}</h3></div><span>${esc(stageLabel(c.stage))}</span></div>
   <div class="k983steps">${['تحلیل مستقل خبرگان','تکمیل و نقد','جمع‌بندی','تأیید نهایی'].map((s,i)=>`<span class="${i<=ix?'on':''}">${fa(i+1)}. ${s}</span>`).join('')}</div>
   <div class="k983researchgrid">
    <main class="k983paper">
-    <div class="k983paperbar"><b>متن سند بالادستی</b><span>بخشی از متن را با ماوس انتخاب کنید تا به‌عنوان مفهوم/شاهد وارد یادداشت شود.</span></div>
+    <div class="k983paperbar"><div><b>متن سند بالادستی</b><span>مفاهیم دارای دیدگاه خبرگانی با رنگ مجزا مشخص شده‌اند؛ برای مشاهده نظرات روی آن‌ها کلیک کنید.</span></div><em>${conceptGroups.length?`${fa(conceptGroups.length)} مفهوم دارای دیدگاه`:'هنوز مفهومی دارای دیدگاه نیست'}</em></div>
     <div class="k983doctext" tabindex="0">${docText?esc(docText).replace(/\n+/g,'</p><p>'):'متن استخراج‌شده سند در دسترس نیست.'}</div>
    </main>
    <aside class="k983annotation">
@@ -76,11 +150,16 @@ async function openCase(id){
      </form>`:`<div class="k983approved">✓ نسخه نهایی این پرونده تأیید شده است.</div>`}
    </aside>
   </div>
-  <section class="k983history"><header><div><b>حاشیه‌ها و دیدگاه‌های خبرگان</b><span>${fa(rs.length)} یادداشت ثبت‌شده</span></div></header>${rs.length?rs.map(responseHtml).join(''):'<div class="k983empty">هنوز یادداشتی برای این سند ثبت نشده است.</div>'}</section>
+  <section class="k998history-summary"><div><b>دیدگاه‌های خبرگان در متن سند</b><span>${rs.length?`${fa(rs.length)} یادداشت روی ${fa(conceptGroups.length)} مفهوم ثبت شده است. برای مشاهده هر مجموعه، روی مفهوم رنگی در متن کلیک کنید.`:'هنوز دیدگاهی ثبت نشده است. با انتخاب یک مفهوم از متن، اولین یادداشت را ثبت کنید.'}</span></div>${conceptGroups.length?`<div class="k998concept-index">${conceptGroups.slice(0,8).map(g=>`<button type="button" data-k998-index="${esc(g.key)}">${esc(g.label)} <small>${fa(g.responses.length)}</small></button>`).join('')}${conceptGroups.length>8?`<em>+ ${fa(conceptGroups.length-8)} مفهوم دیگر در متن</em>`:''}</div>`:''}</section>
   ${c.stage!=='approved'?`<div class="k983advance"><button data-k983-advance>${c.stage==='final_synthesis'?'تأیید نسخه نهایی':'پایان این مرحله و ورود به مرحله بعد'}</button><small>همه یادداشت‌های مراحل قبلی و دیدگاه‌های اقلیت در پرونده باقی می‌مانند.</small></div>`:''}
  </section>`;
 
  const textBox=z.querySelector('.k983doctext'),form=z.querySelector('#k983annotationform');
+ if(textBox&&conceptGroups.length){
+  const groupMap=new Map(conceptGroups.map(g=>[g.key,g]));k998HighlightConcepts(textBox,conceptGroups);
+  textBox.addEventListener('click',e=>{const hit=e.target.closest?.('[data-k998-concept]');if(!hit)return;e.preventDefault();e.stopPropagation();const g=groupMap.get(hit.dataset.k998Concept);if(g)k998OpenConceptDialog(g,form,hit.childNodes?.[0]?.nodeValue||hit.textContent)});
+  z.querySelectorAll('[data-k998-index]').forEach(btn=>btn.onclick=()=>{const g=groupMap.get(btn.dataset.k998Index);if(!g)return;const hit=[...textBox.querySelectorAll('[data-k998-concept]')].find(x=>x.dataset.k998Concept===g.key);hit?.scrollIntoView({behavior:'smooth',block:'center'});if(hit){hit.classList.add('k998-pulse');setTimeout(()=>hit.classList.remove('k998-pulse'),1100)}k998OpenConceptDialog(g,form,hit?.childNodes?.[0]?.nodeValue||g.label)});
+ }
  if(textBox&&form){
   const pullSelection=()=>{
    const sel=window.getSelection(),txt=String(sel||'').replace(/\s+/g,' ').trim();

@@ -11,3 +11,6 @@ html.auth-pending .app-layout,html.auth-pending .history-rail{filter:blur(11px) 
 
 /* 0.9.8.9.2 — attachment strip pinned above document text */
 .k989-attach-top{position:relative;z-index:2;margin:0 0 12px!important;padding:12px 14px!important;border:1px solid #cfe1f2!important;border-radius:14px!important;background:linear-gradient(135deg,#f8fbff,#f3fbf8)!important;display:flex!important;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.k989-paperclip{width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:#eaf4ff}.k989-attach-list{display:flex;gap:7px;flex-wrap:wrap}.k989-attach-btn{border:1px solid #c7dbed;background:white;border-radius:10px;padding:7px 10px;font:inherit;font-size:9.5px;color:#2468a8;cursor:pointer}
+
+/* 0.9.9.0.8 — child workspace navigation */
+.k998-auto-nav{display:flex;align-items:center;margin-bottom:10px}.k998-auto-nav .k91back{width:auto}
