@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.11';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.12';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -324,7 +324,7 @@ async function openCase(id){
 function k9910MacroShell(){
  document.getElementById('workspaceContext')?.classList.add('k91-hidden-workspace');
  let x=document.getElementById('knowledge076');if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
- x.innerHTML=`<div class="k76head k9910macro-head"><div class="k998research-nav"><button type="button" class="k91back" data-k9910-back>← بازگشت به دانش و اسناد سازمان</button><div><small>دانش کلان · تثبیت معنایی بین‌اسنادی · ۰.۹.۹.۰.۱۱</small><h2>دانش مفهومی معتبر سازمان</h2><p>مفاهیم نهایی‌شده اسناد در اینجا با دانش موجود سازمان تطبیق داده و به مفهوم سازمانی Canonical تبدیل می‌شوند؛ شبکه مفاهیم، کمّی‌سازی، شاخص و تحقق در محیط «جهت‌گیری سازمان» انجام می‌شود.</p></div></div></div><div id="k9910macrobody"><div class="k76loading">در حال آماده‌سازی دانش کلان…</div></div>`;
+ x.innerHTML=`<div class="k76head k9910macro-head"><div class="k998research-nav"><button type="button" class="k91back" data-k9910-back>← بازگشت به دانش و اسناد سازمان</button><div><small>دانش کلان · تثبیت معنایی بین‌اسنادی · ۰.۹.۹.۰.۱۲</small><h2>دانش مفهومی معتبر سازمان</h2><p>مفاهیم نهایی‌شده اسناد در اینجا با دانش موجود سازمان تطبیق داده و به مفهوم سازمانی Canonical تبدیل می‌شوند؛ شبکه مفاهیم، کمّی‌سازی، شاخص و تحقق در محیط «جهت‌گیری سازمان» انجام می‌شود.</p></div></div></div><div id="k9910macrobody"><div class="k76loading">در حال آماده‌سازی دانش کلان…</div></div>`;
  x.querySelector('[data-k9910-back]').onclick=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};return x
 }
 function k9910SourceCard(x){
