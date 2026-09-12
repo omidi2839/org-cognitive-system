@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.0.24';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0.25';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -445,8 +445,8 @@ async function openDocumentModal(documentId,q=lastSearchQuery,navMode='auto'){
   const d=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(documentId)+'&detail=1'),x=(d.items||[])[0]||{};
   if(!x.id)throw Error('سند پیدا نشد یا دسترسی مجاز نیست.');
   const body=String(x.fullText||'').trim(),rendered=q?highlightText(body,q):esc(body);
-  const back=k9924DocumentNavStack.length?`<button class="k9924modalback" type="button">← بازگشت به سند قبلی</button>`:'';
-  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><div class="k9924modalnav">${back}<button class="k91modalclose" type="button">×</button></div></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div><div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
+  const back=k9924DocumentNavStack.length?`<div class="k9925relationnav"><button class="k9924modalback" type="button">← بازگشت به سند قبلی</button></div>`:'';
+  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><button class="k91modalclose" type="button">×</button></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div>${back}<div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
   w.querySelector('.k91modalclose').onclick=()=>closeDocumentModal(true);
   const backBtn=w.querySelector('.k9924modalback');
   if(backBtn)backBtn.onclick=()=>{
@@ -454,6 +454,8 @@ async function openDocumentModal(documentId,q=lastSearchQuery,navMode='auto'){
     if(prev)openDocumentModal(prev.documentId,prev.q,'back');
   };
   persianize(w);
+  const notify=()=>document.dispatchEvent(new CustomEvent('k9925:document-opened',{detail:{documentId,navMode}}));
+  setTimeout(notify,0);setTimeout(notify,90);setTimeout(notify,260);
   if(q)setTimeout(()=>w.querySelector('.k91highlight')?.scrollIntoView({block:'center',behavior:'smooth'}),80);
  }catch(e){
    w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;

@@ -202,3 +202,10 @@
 .k9924modalnav{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .k9924modalback{border:1px solid #bfd3e8;background:#f5f9fd;color:#245f97;border-radius:9px;padding:7px 10px;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
 .k9924modalback:hover{background:#eaf4fd}
+
+/* 0.9.9.0.25 — relation back navigation is outside the toolbar */
+.k9925relationnav{display:flex;align-items:center;justify-content:flex-start;padding:7px 14px;border-bottom:1px solid #e7edf3;background:#fbfdff}
+.k9924modalback{border:1px solid #bfd3e8;background:#f5f9fd;color:#245f97;border-radius:9px;padding:6px 10px;font:inherit;font-size:8.8px;font-weight:800;cursor:pointer}
+.k9924modalback:hover{background:#eaf4fd}
+.k91modalhead{min-width:0}
+.k91modalhead>div:first-child{min-width:0;flex:1}

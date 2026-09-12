@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.24';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.25';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -1526,6 +1526,26 @@ async function k985FilesPayload(files){return k986DirectBlobRefs(files,'attachme
 function enhance(){document.querySelectorAll('#k76form').forEach(f=>{enhanceUploadForm(f);k953EnhanceMetadata(f);k955ComposeForm(f);k985EnhanceAttachments(f);k957SimplifyRegisterStatus();k958SubmitGuard(f)});const modal=document.getElementById('k91docmodal');if(modal){collapseRelations(modal.querySelector('.k944relations'));addPopupTools(modal);k955RenderStructuredDoc();const id=window.__K950_ACTIVE_DOC_ID||'';if(id)k972RenderRelationPerspective(modal,id)}}
 new MutationObserver(enhance).observe(document.documentElement,{subtree:true,childList:true});enhance();
 document.addEventListener('k958:document-preview',()=>setTimeout(()=>{try{k955RenderStructuredDoc()}catch{}},30));
+document.addEventListener('k9925:document-opened',e=>{
+ const id=e?.detail?.documentId||document.getElementById('k91docmodal')?.dataset.documentId||'';
+ if(id){window.__K951_ACTIVE_DOC_ID=id;window.__K950_ACTIVE_DOC_ID=id;window.__K992_ACTIVE_DOC_ID=id}
+ const rerun=()=>{
+   try{
+     const modal=document.getElementById('k91docmodal');
+     if(!modal)return;
+     const full=modal.querySelector('.k91fulltext');
+     if(full){
+       // A freshly-created modal must be allowed to rebuild all derived views.
+       if(full.dataset.k955Structured==='loading')delete full.dataset.k955Structured;
+       if(full.dataset.k961Amendments==='0')delete full.dataset.k961Amendments;
+     }
+     enhance();
+     k955RenderStructuredDoc();
+     if(id)k972RenderRelationPerspective(modal,id);
+   }catch(err){console.warn('DOCUMENT_REENRICH_AFTER_NAVIGATION_FAILED',err)}
+ };
+ setTimeout(rerun,0);setTimeout(rerun,120);setTimeout(rerun,320);
+});
 /* ---------- 0.9.7.0 — Persian digits in repository/workspace surfaces ---------- */
 function k970PersianizeRepositoryDigits(root=document.getElementById('knowledge076')){
  if(!root)return;
