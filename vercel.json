@@ -82,6 +82,10 @@
       "destination": "/api/document-query.js"
     },
     {
+      "source": "/api/v1/ai/command",
+      "destination": "/api/document-query.js"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "/api/index.js"
     }
