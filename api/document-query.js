@@ -110,6 +110,245 @@ async function k9910RunSinaAI(prompt){
   };
 }
 
+
+/* ---------- SINA Evidence & Tool Calling V1 / 0.9.9.1.1 ---------- */
+function k9911BuildIndex(db,org){
+  const textByDoc=new Map();
+  for(const x of(db.normalizedDocuments||[])){
+    const id=x.documentRef||x.documentId||x.sourceDocumentRef;
+    const txt=String(x.text||x.content||x.normalizedText||'');
+    if(id&&txt.length>(textByDoc.get(id)||'').length)textByDoc.set(id,txt);
+  }
+  const docs=(db.documents||[]).filter(d=>d.organizationId===org);
+  const byId=new Map(docs.map(d=>[d.id,d]));
+  return{docs,byId,textByDoc};
+}
+function k9911DocItem(d,text=''){
+  const m=metaOf(d);
+  return{
+    id:d.id,title:d.title||'بدون عنوان',
+    documentType:field(d,m,'documentType'),subjectCategory:field(d,m,'subjectCategory'),
+    subjectArea:field(d,m,'subjectArea'),issuer:field(d,m,'issuer'),
+    documentNumber:field(d,m,'documentNumber'),meetingNumber:field(d,m,'meetingNumber'),
+    meetingDate:field(d,m,'meetingDate'),promulgationDate:field(d,m,'promulgationDate'),
+    validityStatus:field(d,m,'validityStatus'),
+    excerpt:String(text||'').slice(0,900)
+  };
+}
+function k9911Search(db,org,query,mode='qa',limit=8){
+  const {docs,textByDoc}=k9911BuildIndex(db,org),nq=norm(query);
+  const issuers=[...new Set(docs.map(d=>field(d,metaOf(d),'issuer')).filter(Boolean))];
+  const topics=[...new Set(docs.flatMap(d=>[field(d,metaOf(d),'subjectCategory'),field(d,metaOf(d),'subjectArea')]).filter(Boolean))];
+  const issuerHit=issuerMatch(query,issuers),matchedIssuer=issuerHit?.issuer||null;
+  const matchedTopic=topics.sort((a,b)=>String(b).length-String(a).length).find(x=>nq.includes(norm(x)))||null;
+  const dno=explicitNumber(query),mno=meetingNumber(query),yrs=yearsOf(query);
+  const type=typeHints.find(x=>nq.includes(norm(x)))||null;
+  const known=[matchedTopic,matchedIssuer,issuerHit?.mention,type,'اصلاحیه','الحاقیه','استفسار','ملغی','لغو','معتبر'];
+  const terms=termsOf(query,known);
+
+  const ranked=[];
+  for(const d of docs){
+    const m=metaOf(d),text=textByDoc.get(d.id)||String(d.content||'');
+    if(dno&&digits(docNoOf(d,m))!==dno)continue;
+    if(mno&&digits(field(d,m,'meetingNumber')||'')!==mno)continue;
+    if(matchedIssuer){
+      const a=norm(field(d,m,'issuer')),b=norm(matchedIssuer);
+      if(!(a===b||a.includes(b)||b.includes(a)))continue;
+    }
+    if(matchedTopic){
+      const ok=[field(d,m,'subjectCategory'),field(d,m,'subjectArea')].some(v=>v&&(norm(v).includes(norm(matchedTopic))||norm(matchedTopic).includes(norm(v))));
+      if(!ok)continue;
+    }
+    if(type&&!norm(field(d,m,'documentType')).includes(norm(type)))continue;
+    if(yrs.length){
+      const y=yearOfDate(field(d,m,'promulgationDate')||field(d,m,'issuedAt')||field(d,m,'meetingDate'));
+      if(!y||y<Math.min(...yrs)||y>Math.max(...yrs))continue;
+    }
+
+    const hayMeta=norm([d.title,field(d,m,'documentType'),field(d,m,'subjectCategory'),field(d,m,'subjectArea'),field(d,m,'issuer'),docNoOf(d,m)].join(' '));
+    let score=0;
+    if(dno)score+=30;if(mno)score+=25;if(matchedIssuer)score+=20;if(matchedTopic)score+=16;if(type)score+=8;
+    for(const term of terms){
+      if(hayMeta.includes(term))score+=7;
+      if(norm(text).includes(term))score+=3;
+    }
+    const ev=[];
+    for(const [i,st] of sentences(text).entries()){
+      const ns=norm(st);let h=0;
+      for(const term of terms)if(ns.includes(term))h++;
+      if(h){
+        ev.push({text:st.slice(0,1200),location:`بخش ${i+1}`,score:h*4+(terms.length&&h===terms.length?8:0)});
+      }
+    }
+    ev.sort((a,b)=>b.score-a.score);
+    if(!score&&!ev.length&&terms.length)continue;
+    score+=ev[0]?.score||0;
+    ranked.push({score,document:k9911DocItem(d,text),evidence:ev.slice(0,3)});
+  }
+  ranked.sort((a,b)=>b.score-a.score);
+  return{
+    query,
+    parsed:{topic:matchedTopic,issuer:matchedIssuer,documentNumber:dno||null,meetingNumber:mno||null,years:yrs,residualTerms:terms},
+    results:ranked.slice(0,Math.max(1,Math.min(12,Number(limit)||8)))
+  };
+}
+function k9911GetDocument(db,org,id){
+  const {byId,textByDoc}=k9911BuildIndex(db,org),d=byId.get(id);
+  if(!d)return{found:false,id};
+  const text=textByDoc.get(id)||String(d.content||'');
+  return{found:true,document:k9911DocItem(d,text),content:text.slice(0,9000),contentTruncated:text.length>9000};
+}
+function k9911GetRelations(db,org,id){
+  const {byId}=k9911BuildIndex(db,org);
+  const rels=(db.documentRelations||[]).filter(r=>r.organizationId===org&&r.status!=='deleted'&&(r.sourceDocumentRef===id||r.targetDocumentRef===id));
+  return{
+    documentId:id,
+    relations:rels.slice(0,30).map(r=>{
+      const otherId=r.sourceDocumentRef===id?r.targetDocumentRef:r.sourceDocumentRef;
+      const other=byId.get(otherId);
+      return{
+        relationType:r.relationType,
+        direction:r.sourceDocumentRef===id?'outgoing':'incoming',
+        relatedDocumentId:otherId,
+        relatedDocumentTitle:other?.title||null,
+        targetArticle:r.targetArticle||null,targetClause:r.targetClause||null,
+        effectiveFrom:r.effectiveFrom||null,legalEffect:r.legalEffect||null,
+        evidence:r.evidence||null,confidence:r.confidence??null
+      };
+    })
+  };
+}
+const k9911Tools=[
+  {
+    type:'function',name:'search_documents',
+    description:'جستجو در بانک اسناد سازمان و بازیابی اسناد و شواهد متنی مرتبط. برای هر پرسش درباره اطلاعات سازمان ابتدا از این ابزار استفاده کن.',
+    parameters:{
+      type:'object',additionalProperties:false,
+      properties:{
+        query:{type:'string',description:'عبارت یا پرسش فارسی برای جستجو در بانک اسناد'},
+        mode:{type:'string',enum:['search','qa'],description:'برای پرسش تحلیلی qa و برای یافتن سند search'},
+        limit:{type:'integer',minimum:1,maximum:12}
+      },
+      required:['query','mode','limit']
+    },strict:true
+  },
+  {
+    type:'function',name:'get_document',
+    description:'متن و فراداده یک سند مشخص را با شناسه سند می‌خواند. فقط برای اسنادی استفاده کن که از جستجو به دست آمده‌اند.',
+    parameters:{
+      type:'object',additionalProperties:false,
+      properties:{document_id:{type:'string'}},
+      required:['document_id']
+    },strict:true
+  },
+  {
+    type:'function',name:'get_document_relations',
+    description:'روابط حقوقی و نسخه‌ای یک سند با اسناد دیگر، مانند اصلاحیه، الحاقیه، استفسار و لغو را برمی‌گرداند.',
+    parameters:{
+      type:'object',additionalProperties:false,
+      properties:{document_id:{type:'string'}},
+      required:['document_id']
+    },strict:true
+  }
+];
+async function k9911OpenAI(body){
+  const key=process.env.OPENAI_API_KEY;
+  if(!key)throw Object.assign(new Error('OPENAI_API_KEY_REQUIRED'),{code:'OPENAI_API_KEY_REQUIRED'});
+  const base=String(process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'');
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),Math.max(5000,Math.min(120000,Number(process.env.SINA_AI_TIMEOUT_MS||45000))));
+  try{
+    const response=await fetch(base+'/responses',{
+      method:'POST',signal:controller.signal,
+      headers:{'content-type':'application/json','authorization':'Bearer '+key},
+      body:JSON.stringify(body)
+    });
+    if(!response.ok){
+      const detail=(await response.text()).slice(0,1600);
+      throw Object.assign(new Error('OPENAI_PROVIDER_ERROR '+response.status+' '+detail),{code:'OPENAI_PROVIDER_ERROR',status:response.status});
+    }
+    return await response.json();
+  }finally{clearTimeout(timer)}
+}
+function k9911EvidenceFromTool(toolResults){
+  const out=[],seen=new Set();
+  for(const tr of toolResults){
+    if(tr.name==='search_documents'){
+      for(const r of tr.result?.results||[]){
+        const d=r.document;if(!d?.id)continue;
+        for(const ev of r.evidence||[]){
+          const key=d.id+'|'+ev.text;
+          if(seen.has(key))continue;seen.add(key);
+          out.push({documentId:d.id,documentTitle:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null,location:ev.location||null,text:ev.text});
+        }
+        if(!(r.evidence||[]).length){
+          const key=d.id+'|excerpt';
+          if(!seen.has(key)&&d.excerpt){seen.add(key);out.push({documentId:d.id,documentTitle:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null,location:null,text:d.excerpt})}
+        }
+      }
+    }
+    if(tr.name==='get_document'&&tr.result?.found){
+      const d=tr.result.document,key=d.id+'|document';
+      if(!seen.has(key)){seen.add(key);out.push({documentId:d.id,documentTitle:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null,location:'متن سند',text:String(tr.result.content||'').slice(0,1200)})}
+    }
+  }
+  return out.slice(0,12).map((x,i)=>({...x,sourceIndex:i+1}));
+}
+async function k9911RunEvidenceCommand(db,org,question){
+  const model=String(process.env.SINA_AI_MODEL||'gpt-5.6-terra');
+  const maxOut=Math.max(256,Math.min(5000,Number(process.env.SINA_AI_MAX_OUTPUT_TOKENS||1600)));
+  const instructions=`تو «سینا»، دستیار هوش شناختی سازمان هستی.
+برای هر ادعای مربوط به سازمان فقط از ابزارهای داخلی ارائه‌شده استفاده کن و ابتدا search_documents را فراخوانی کن.
+اگر لازم بود سند خاص را با get_document یا روابط آن را با get_document_relations بررسی کن.
+هیچ داده سازمانی را از حافظه عمومی خودت نساز.
+بین «شاهد مستقیم»، «استنباط»، «پیشنهاد» و «مجهول» تمایز بگذار.
+اگر شواهد کافی نیست صریح بگو «شواهد کافی در بانک اسناد پیدا نشد».
+پاسخ را فارسی، مدیریتی و موجز بنویس.
+در متن پاسخ برای ارجاع از عنوان سند/شماره سند استفاده کن؛ سامانه فهرست شواهد را جداگانه نمایش می‌دهد.`;
+
+  let input=[{role:'user',content:[{type:'input_text',text:String(question).slice(0,12000)}]}];
+  const toolResults=[];
+  let totalUsage={input:0,output:0,total:0},last=null;
+
+  for(let round=0;round<4;round++){
+    last=await k9911OpenAI({
+      model,instructions,input,tools:k9911Tools,tool_choice:'auto',
+      store:false,max_output_tokens:maxOut
+    });
+    const u=last.usage||{};
+    totalUsage.input+=Number(u.input_tokens||0);
+    totalUsage.output+=Number(u.output_tokens||0);
+    totalUsage.total+=Number(u.total_tokens||0);
+
+    const calls=(last.output||[]).filter(x=>x.type==='function_call');
+    if(!calls.length)break;
+
+    input=[...input,...(last.output||[])];
+    for(const call of calls){
+      let args={};try{args=JSON.parse(call.arguments||'{}')}catch{}
+      let result;
+      if(call.name==='search_documents')result=k9911Search(db,org,args.query||question,args.mode||'qa',args.limit||8);
+      else if(call.name==='get_document')result=k9911GetDocument(db,org,args.document_id);
+      else if(call.name==='get_document_relations')result=k9911GetRelations(db,org,args.document_id);
+      else result={error:'UNKNOWN_TOOL'};
+      toolResults.push({name:call.name,args,result});
+      input.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(result)});
+    }
+  }
+
+  let text=k9910AiOutputText(last||{});
+  if(!text){
+    const evidence=k9911EvidenceFromTool(toolResults);
+    text=evidence.length?'شواهد مرتبط بازیابی شد، اما مدل پاسخ نهایی تولید نکرد.':'شواهد کافی در بانک اسناد پیدا نشد.';
+  }
+  return{
+    ok:true,provider:'openai-responses',model,text,
+    evidence:k9911EvidenceFromTool(toolResults),
+    toolTrace:toolResults.map(x=>({tool:x.name,args:x.args,resultCount:x.name==='search_documents'?(x.result?.results?.length||0):x.name==='get_document_relations'?(x.result?.relations?.length||0):(x.result?.found?1:0)})),
+    usage:totalUsage
+  };
+}
+
 export default async function handler(req,res){
  if(!requireAuthenticated(req,res))return;
  try{
@@ -124,6 +363,14 @@ export default async function handler(req,res){
     const prompt=String(req.body?.prompt||'').trim();
     if(!prompt)return send(res,400,{code:'PROMPT_REQUIRED',message:'متن آزمایش الزامی است.'});
     return send(res,200,await k9910RunSinaAI(prompt));
+  }
+  if(u.pathname==='/api/v1/ai/command'&&req.method==='POST'){
+    if(String(process.env.SINA_AI_ENABLED||'false').toLowerCase()!=='true')return send(res,503,{code:'SINA_AI_DISABLED',message:'هوش مصنوعی سینا غیرفعال است.'});
+    if(String(process.env.SINA_AI_PROVIDER||'openai').toLowerCase()!=='openai')return send(res,503,{code:'SINA_AI_PROVIDER_UNSUPPORTED',message:'ارائه‌دهنده هوش مصنوعی پشتیبانی نمی‌شود.'});
+    const question=String(req.body?.question||req.body?.prompt||'').trim();
+    if(!question)return send(res,400,{code:'QUESTION_REQUIRED',message:'پرسش الزامی است.'});
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),db=await repo.all();
+    return send(res,200,await k9911RunEvidenceCommand(db,org,question));
   }
   if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
   const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
