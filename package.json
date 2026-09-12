@@ -1,6 +1,6 @@
 {
   "name": "org-cognitive-system",
-  "version": "0.9.9.0.13",
+  "version": "0.9.9.0.15",
   "type": "module",
   "scripts": {
     "dev": "node local-server.js",
