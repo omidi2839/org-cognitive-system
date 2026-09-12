@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.22';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.23';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -29,17 +29,21 @@ function k9922CardName(card){
 }
 function k9922DirectRegistration(card,kind){
  if(!card)return;
- // Allow the legacy workspace handler exactly once so we reuse the mature registration form.
  card.dataset.k9922Bypass='1';
  card.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
  delete card.dataset.k9922Bypass;
- let tries=0;
- const openAdd=()=>{
-   tries++;
-   const child=document.getElementById('knowledge076');
-   const add=child?.querySelector('[data-kadd]');
-   if(add){
-     add.click();
+
+ let done=false,observer=null;
+ const openForm=()=>{
+   if(done)return;
+   const child=document.getElementById('knowledge076'),body=child?.querySelector('#k76body'),add=child?.querySelector('[data-kadd]');
+   if(!child||!body||!add)return;
+   // panel(kind) fires repo() asynchronously; a late repo response used to overwrite the form.
+   // Open the form only after that loading cycle has completed.
+   if(body.querySelector('.k76loading'))return;
+   done=true;observer?.disconnect();
+   add.click();
+   requestAnimationFrame(()=>{
      child.classList.add('k9922-direct-registration');
      const head=child.querySelector('.k76head h2');
      if(head)head.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
@@ -47,12 +51,24 @@ function k9922DirectRegistration(card,kind){
      note.className='k9922-direct-note';
      note.textContent=kind==='upstream'?'ثبت مستقیم سند بالادستی':'ثبت مستقیم سند عمومی';
      child.querySelector('.k76head')?.appendChild(note);
-     return;
-   }
-   if(tries<12)setTimeout(openAdd,35*tries);
+   });
  };
- setTimeout(openAdd,0);
+ const attach=()=>{
+   const child=document.getElementById('knowledge076');
+   if(!child){setTimeout(attach,40);return}
+   observer=new MutationObserver(openForm);
+   observer.observe(child,{childList:true,subtree:true});
+   openForm();
+ };
+ attach();
+ // Network safety fallback.
+ setTimeout(()=>{
+   if(done)return;
+   const child=document.getElementById('knowledge076'),add=child?.querySelector('[data-kadd]');
+   if(add){done=true;observer?.disconnect();add.click();child.classList.add('k9922-direct-registration')}
+ },8000);
 }
+
 function k9922DecorateKnowledgeCards(){
  const ctx=document.getElementById('workspaceContext');
  if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;

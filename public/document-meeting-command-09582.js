@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.22';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.23';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -1130,8 +1130,8 @@ async function k961ApplyInlineAmendments(full,id){
    // Never apply the mother document text back into the amendment document.
    const incoming=(d.items||[]).filter(r=>
      r.targetDocumentRef===id &&
-     ['amends','supersedes','extends','clarifies','implements'].includes(r.relationType) &&
-     ['amended_by','superseded_by','extended_by','clarified_by','implemented_by'].includes(r.perspectiveType)
+     ['amends','supersedes','extends','repeals','clarifies','implements'].includes(r.relationType) &&
+     ['amended_by','superseded_by','extended_by','repealed_by','clarified_by','implemented_by'].includes(r.perspectiveType)
    );
    for(const rel of incoming){
      const sourceId=rel.relatedDocument?.id||'';
@@ -1145,6 +1145,16 @@ async function k961ApplyInlineAmendments(full,id){
        const article=item?.article||rel.targetArticle||'';
        if(!article)continue;
 
+       // Explicit legal text entered by the user is authoritative for legal effects.
+       // Apply it at the exact article/clause locator before source-document heuristics.
+       const explicit=k990ExplicitNode(rel,item);
+       if(explicit&&['amends','extends','repeals','clarifies','supersedes'].includes(rel.relationType)){
+         if(!k990ApplyAtLocator(full,item,explicit,rel)){
+           console.warn('EXPLICIT_LEGAL_TARGET_NOT_FOUND',{article,clause:item?.clause,relationId:rel.id});
+         }
+         continue;
+       }
+
        // Detailed independent instruments remain reference-only.
        if(profile.referenceOnly||rel.relationType==='implements'){
          const key=String(k962ArticleTargetNumber(article)||article);
@@ -1153,16 +1163,6 @@ async function k961ApplyInlineAmendments(full,id){
          const node=k994ReferenceNode(rel,article,profile);
          if(!k992ApplyNode(full,article,node,'append')){
            console.warn('LINKED_INSTRUMENT_TARGET_NOT_FOUND',{article,relationId:rel.id,sourceId});
-         }
-         continue;
-       }
-
-       // For amendment/addendum/repeal/interpretation the user-entered legal text is authoritative.
-       // No semantic guessing/extraction is performed when explicit text exists.
-       const explicit=k990ExplicitNode(rel,item);
-       if(explicit){
-         if(!k990ApplyAtLocator(full,item,explicit,rel)){
-           console.warn('EXPLICIT_LEGAL_TARGET_NOT_FOUND',{article,clause:item?.clause,relationId:rel.id});
          }
          continue;
        }

@@ -356,3 +356,8 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 /* 0.9.9.0.20 — structured command interpretation */
 .k9920parsed{display:flex;gap:7px;flex-wrap:wrap;padding:8px 10px;margin:0 0 8px;border:1px solid #d9e8f5;border-radius:10px;background:#f7fbff}
 .k9920parsed span{font-size:8.8px;color:#63798d}.k9920parsed b{color:#1f629d}
+
+/* 0.9.9.0.23 — explicit repeal visual */
+.k990-explicit-change.k990-repeal{border-right:4px solid #c93232!important;background:#fff3f3!important;color:#7d2020!important}
+.k990-explicit-change.k990-repeal .k990-explicit-head b{color:#a51f1f!important}
+.k990-explicit-change.k990-repeal .k990-explicit-text p{color:#7d2020!important;font-weight:700}
