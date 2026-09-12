@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.26';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.29';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
@@ -115,7 +115,7 @@ function configureRegistration(form){
    }).observe(itemsBody,{childList:true});
  }
  sync();
- if(!wrap.querySelector('[data-add-legal-relation]')){const bar=document.createElement('div');bar.className='k990relation-actions';bar.innerHTML='<button type="button" data-add-legal-relation>+ افزودن ارتباط حقوقی دیگر</button><span>می‌توانید چند الحاقیه، اصلاحیه، ملغی یا استفسار مستقل تعریف کنید.</span>';wrap.querySelector('.k944items')?.insertAdjacentElement('afterend',bar);bar.querySelector('[data-add-legal-relation]').onclick=()=>{const snap=snapshotCurrent(wrap);if(!snap){alert('ابتدا نوع ارتباط، سند مرتبط و حداقل یک ماده/متن حقوقی را کامل کنید.');return}if(snap.changeItems.some(x=>!x.article||!x.description)){alert('برای هر مورد، ماده و متن کامل اثر حقوقی الزامی است.');return}form.__k990RelationDrafts=form.__k990RelationDrafts||[];form.__k990RelationDrafts.push(snap);renderDrafts(form,wrap);clearCurrent(wrap)}}renderDrafts(form,wrap);
+ if(!wrap.querySelector('[data-add-legal-relation]')){const bar=document.createElement('div');bar.className='k990relation-actions';bar.innerHTML='<button type="button" data-add-legal-relation>+ افزودن ارتباط حقوقی دیگر</button><span>می‌توانید چند الحاقیه، اصلاحیه، ملغی یا استفسار مستقل تعریف کنید.</span>';wrap.querySelector('.k944items')?.insertAdjacentElement('afterend',bar);bar.querySelector('[data-add-legal-relation]').onclick=async()=>{const snap=snapshotCurrent(wrap);if(!snap){await SinaDialog.alert('ابتدا نوع ارتباط، سند مرتبط و حداقل یک ماده/متن حقوقی را کامل کنید.',{title:'ارتباط حقوقی ناقص'});return}if(snap.changeItems.some(x=>!x.article||!x.description)){await SinaDialog.alert('برای هر مورد، ماده و متن کامل اثر حقوقی الزامی است.',{title:'اطلاعات الزامی'});return}form.__k990RelationDrafts=form.__k990RelationDrafts||[];form.__k990RelationDrafts.push(snap);renderDrafts(form,wrap);clearCurrent(wrap)}}renderDrafts(form,wrap);
 
  // Just before legacy listeners run, guarantee their hidden compatibility field has a value.
  form.addEventListener('submit',e=>{
@@ -130,7 +130,7 @@ function configureRegistration(form){
    });
    if(bad){
      e.preventDefault();e.stopImmediatePropagation();
-     alert('برای هر اثر حقوقی، شماره ماده و متن کامل اصلاحیه/الحاقیه/ملغی/استفسار را وارد کنید.');
+     void SinaDialog.alert('برای هر اثر حقوقی، شماره ماده و متن کامل اصلاحیه/الحاقیه/ملغی/استفسار را وارد کنید.',{title:'اطلاعات الزامی'});
    }
  },true);
 }

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.26';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.29';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -98,14 +98,14 @@ function collapseRelations(box){
 const favKey='orgCog.favoriteDocuments.v1';
 const getFavs=()=>{try{return JSON.parse(localStorage.getItem(favKey)||'[]')}catch{return[]}};
 const saveFavs=x=>localStorage.setItem(favKey,JSON.stringify([...new Set(x)]));
-function printHtml(title,html){const w=window.open('','_blank','width=900,height=700');if(!w)return alert('مرورگر اجازه باز کردن پنجره چاپ را نداده است.');w.document.write(`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Vazirmatn,Tahoma,sans-serif;line-height:2.1;padding:35px}h1{font-size:20px;border-bottom:1px solid #ddd;padding-bottom:12px}pre{white-space:pre-wrap;font:inherit}</style></head><body><h1>${esc(title)}</h1>${html}</body></html>`);w.document.close();setTimeout(()=>w.print(),250)}
+function printHtml(title,html){const w=window.open('','_blank','width=900,height=700');if(!w){void SinaDialog.alert('مرورگر اجازه باز کردن پنجره چاپ را نداده است.',{title:'چاپ سند'});return}w.document.write(`<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title><style>body{font-family:Vazirmatn,Tahoma,sans-serif;line-height:2.1;padding:35px}h1{font-size:20px;border-bottom:1px solid #ddd;padding-bottom:12px}pre{white-space:pre-wrap;font:inherit}</style></head><body><h1>${esc(title)}</h1>${html}</body></html>`);w.document.close();setTimeout(()=>w.print(),250)}
 function renderFav(btn,id){const on=getFavs().includes(id);btn.classList.toggle('active',on);btn.textContent=on?'★ ذخیره‌شده در اسناد من':'☆ افزودن به اسناد من'}
 function addPopupTools(modal){
  if(!modal||modal.dataset.k950Tools)return;const head=modal.querySelector('.k91modalhead'),full=modal.querySelector('.k91fulltext');if(!head||!full)return;
  modal.dataset.k950Tools='1';const id=window.__K950_ACTIVE_DOC_ID||'',title=head.querySelector('h3')?.textContent||'سند';
  const tools=document.createElement('div');tools.className='k950tools';tools.innerHTML=`<button type="button" data-k950-print>🖨 چاپ کامل</button><button type="button" data-k950-print-selection>▣ چاپ بخش انتخاب‌شده</button><button type="button" data-k950-fav></button>`;head.appendChild(tools);
  tools.querySelector('[data-k950-print]').onclick=()=>printHtml(title,`<pre>${esc(full.innerText)}</pre>`);
- tools.querySelector('[data-k950-print-selection]').onclick=()=>{const s=window.getSelection(),text=String(s||'').trim();if(!text)return alert('ابتدا بخشی از متن سند را انتخاب کنید.');if(!full.contains(s.anchorNode)||!full.contains(s.focusNode))return alert('انتخاب باید از داخل متن همین سند باشد.');printHtml(`${title} — بخش انتخاب‌شده`,`<pre>${esc(text)}</pre>`)};
+ tools.querySelector('[data-k950-print-selection]').onclick=()=>{const s=window.getSelection(),text=String(s||'').trim();if(!text){void SinaDialog.alert('ابتدا بخشی از متن سند را انتخاب کنید.',{title:'چاپ بخش انتخاب‌شده'});return}if(!full.contains(s.anchorNode)||!full.contains(s.focusNode)){void SinaDialog.alert('انتخاب باید از داخل متن همین سند باشد.',{title:'چاپ بخش انتخاب‌شده'});return}printHtml(`${title} — بخش انتخاب‌شده`,`<pre>${esc(text)}</pre>`)};
  const fb=tools.querySelector('[data-k950-fav]');renderFav(fb,id);fb.onclick=()=>{let f=getFavs(),on=f.includes(id);f=on?f.filter(x=>x!==id):[...f,id];saveFavs(f);renderFav(fb,id)};
 }
 window.addEventListener('click',e=>{const p=e.target?.closest?.('[data-doc-preview]');if(p?.dataset.docPreview)window.__K950_ACTIVE_DOC_ID=p.dataset.docPreview},true);
@@ -1404,8 +1404,8 @@ function k952AdminPanel(){
  }
  panel.querySelector('[data-k952-refresh]').onclick=load;
  del.onclick=async()=>{
-   if(!confirm('آیا مطمئن هستید تمام داده‌های آزمایشی این سازمان پاک شوند؟'))return;
-   const typed=prompt('برای تأیید نهایی عبارت DELETE TEST DATA را دقیقاً وارد کنید:');
+   if(!await SinaDialog.confirm('آیا مطمئن هستید تمام داده‌های آزمایشی این سازمان پاک شوند؟',{title:'حذف داده‌های آزمایشی',danger:true,confirmText:'ادامه'}))return;
+   const typed=await SinaDialog.prompt('برای تأیید نهایی عبارت DELETE TEST DATA را دقیقاً وارد کنید:',{title:'تأیید نهایی حذف',multiline:false,placeholder:'DELETE TEST DATA',confirmText:'تأیید'});
    if(typed!=='DELETE TEST DATA'){status.textContent='عبارت تأیید صحیح نبود؛ عملیات لغو شد.';return}
    del.disabled=true;status.textContent='در حال پاک‌سازی کنترل‌شده داده‌ها…';
    try{

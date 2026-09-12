@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.26';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.27';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -98,10 +98,19 @@ function decorate(){
    const kind=kindOf(card);
    if(!kind)return;
 
-   // Remove previous attempts from 0.9.9.0.22–0.9.9.0.25.
-   card.querySelectorAll('[data-k9922-register],[data-k9925-register],[data-k9926-register]').forEach(x=>x.remove());
+   // Remove only old legacy CTAs. Reuse the current CTA so MutationObserver cannot make it blink.
+   card.querySelectorAll('[data-k9922-register],[data-k9925-register]').forEach(x=>x.remove());
 
-   const btn=document.createElement('button');
+   let btn=card.querySelector('[data-k9926-register]');
+   if(btn){
+     const desired=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
+     if(btn.dataset.k9926Register!==kind)btn.dataset.k9926Register=kind;
+     if(btn.textContent!==desired)btn.textContent=desired;
+     card.classList.add('k9926-source-card');
+     return;
+   }
+
+   btn=document.createElement('button');
    btn.type='button';
    btn.className='k9926-register';
    btn.dataset.k9926Register=kind;

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.0.26';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0.29';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -248,7 +248,7 @@ async function k984InitRelationEditor(root,currentId){
    status.textContent='اطلاعات رابطه برای ویرایش در فرم قرار گرفت.';
   });
   list.querySelectorAll('[data-del-rel]').forEach(b=>b.onclick=async()=>{
-   if(!confirm('این ارتباط حقوقی حذف شود؟'))return;
+   if(!await SinaDialog.confirm('این ارتباط حقوقی حذف شود؟',{title:'حذف ارتباط حقوقی',danger:true,confirmText:'حذف'}))return;
    try{await api('/api/v1/knowledge/document-relations',{method:'DELETE',body:JSON.stringify({relationId:b.dataset.delRel})});status.textContent='ارتباط حذف شد.';await load()}catch(e){status.textContent=e.message}
   });
  }

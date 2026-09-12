@@ -1,0 +1,16 @@
+
+.sina-dialog-open{overflow:hidden}
+.sina-dialog-backdrop{position:fixed;inset:0;z-index:100000;background:rgba(20,38,58,.34);backdrop-filter:blur(3px);display:grid;place-items:center;padding:22px;animation:sinaDialogFade .14s ease}
+.sina-dialog-backdrop.closing{opacity:0;transition:opacity .12s ease}
+.sina-dialog-card{width:min(560px,calc(100vw - 32px));background:#fff;border:1px solid #dbe6ef;border-radius:20px;box-shadow:0 24px 70px rgba(24,47,72,.22);padding:18px;direction:rtl}
+.sina-dialog-brand{display:flex;align-items:center;gap:11px;padding-bottom:12px;border-bottom:1px solid #edf1f5}
+.sina-dialog-brand img{width:44px;height:44px;object-fit:contain}
+.sina-dialog-brand>div{display:grid;gap:1px}.sina-dialog-brand b{font-size:17px;color:#153d65}.sina-dialog-brand span{font-size:10px;color:#6c7f91}
+.sina-dialog-body{padding:16px 2px 8px}.sina-dialog-body p{margin:0;color:#344d64;font-size:11px;line-height:2}
+.sina-dialog-body textarea,.sina-dialog-body input{width:100%;box-sizing:border-box;margin-top:12px;border:1px solid #cbd9e6;border-radius:12px;background:#fbfdff;color:#21394f;font:inherit;font-size:10.5px;line-height:1.9;padding:11px 12px;outline:none}
+.sina-dialog-body textarea{min-height:120px;resize:vertical}.sina-dialog-body textarea:focus,.sina-dialog-body input:focus{border-color:#6aa0d2;box-shadow:0 0 0 3px rgba(55,121,183,.10)}
+.sina-dialog-actions{display:flex;justify-content:flex-start;gap:8px;padding-top:10px}
+.sina-dialog-actions button{border-radius:10px;padding:8px 15px;font:inherit;font-size:9.5px;font-weight:800;cursor:pointer}
+.sina-dialog-actions .primary{border:1px solid #1d66a5;background:#1f6db0;color:#fff}.sina-dialog-actions .secondary{border:1px solid #d4dee7;background:#fff;color:#5c6f81}
+.sina-dialog-card.danger .sina-dialog-actions .primary{background:#b64040;border-color:#a83939}
+@keyframes sinaDialogFade{from{opacity:0}to{opacity:1}}

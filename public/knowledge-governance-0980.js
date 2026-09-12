@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.26';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.29';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -246,14 +246,25 @@ function k999StageCards(models,stage){
  if(!models.length)return `<div class="k983empty">هنوز مفهومی از مرحله تحلیل مستقل برای بررسی وجود ندارد.</div>`;
  return models.map(g=>{
    const latestFinal=g.final[g.final.length-1];
-   return `<article class="k999concept-review" data-k999-model="${esc(g.key)}">
-    <header><div><small>مفهوم</small><h4>${esc(g.label)}</h4></div><span>${fa(g.independent.length)} دیدگاه مرحله اول</span></header>
-    <section class="k999source-sentence"><small>جمله کامل مبنا در سند</small><p>${esc(g.sentence||'جمله کامل این مفهوم در متن استخراج‌شده پیدا نشد؛ شاهدهای ثبت‌شده خبرگان مبنای بررسی است.')}</p></section>
-    <details ${stage==='final_synthesis'?'open':''}><summary>دیدگاه‌های مرحله اول (${fa(g.independent.length)})</summary><div class="k999responses">${g.independent.map(k999MiniResponse).join('')||'<div class="k983empty">دیدگاهی ثبت نشده است.</div>'}</div></details>
-    <section class="k999system-analysis"><header><b>تحلیل و جمع‌بندی سامانه</b><span>تحلیل ساختاری از دیدگاه‌های ثبت‌شده</span></header><p>${esc(g.systemAnalysis)}</p></section>
-    ${stage==='final_synthesis'?`<section class="k999senior-review"><header><b>نقد نهایی خبره ارشد</b><span>${fa(g.complementary.length)} نقد ثبت‌شده</span></header><div class="k999responses">${g.complementary.map(k999MiniResponse).join('')||'<div class="k983empty">نقد خبره ارشد برای این مفهوم ثبت نشده است.</div>'}</div></section>`:''}
-    ${latestFinal?`<section class="k999final-existing"><b>آخرین جمع‌بندی ثبت‌شده</b><p>${esc(latestFinal.analysis||'')}</p></section>`:''}
-    <footer><button type="button" data-k999-select="${esc(g.key)}">${stage==='complementary_review'?'نقد نهایی این مفهوم':stage==='final_synthesis'?'ثبت/ویرایش جمع‌بندی قابل اتکا':'مشاهده'}</button></footer>
+   const stage3=stage==='final_synthesis';
+   const stateBits=[
+     `<span>${fa(g.independent.length)} دیدگاه مرحله اول</span>`,
+     stage3?`<span>${fa(g.complementary.length)} نقد خبره ارشد</span>`:'',
+     latestFinal?`<span class="done">جمع‌بندی ثبت شده</span>`:''
+   ].filter(Boolean).join('');
+   return `<article class="k999concept-review k999concept-accordion" data-k999-model="${esc(g.key)}">
+    <button type="button" class="k999concept-toggle" data-k999-toggle="${esc(g.key)}" aria-expanded="false">
+      <div class="k999concept-toggle-main"><small>مفهوم</small><h4>${esc(g.label)}</h4><div class="k999concept-state">${stateBits}</div></div>
+      <span class="k999concept-chevron" aria-hidden="true">⌄</span>
+    </button>
+    <div class="k999concept-body" data-k999-body="${esc(g.key)}" hidden>
+      <section class="k999source-sentence"><small>جمله کامل مبنا در سند</small><p>${esc(g.sentence||'جمله کامل این مفهوم در متن استخراج‌شده پیدا نشد؛ شاهدهای ثبت‌شده خبرگان مبنای بررسی است.')}</p></section>
+      <details><summary>دیدگاه‌های مرحله اول (${fa(g.independent.length)})</summary><div class="k999responses">${g.independent.map(k999MiniResponse).join('')||'<div class="k983empty">دیدگاهی ثبت نشده است.</div>'}</div></details>
+      <section class="k999system-analysis"><header><b>تحلیل و جمع‌بندی سامانه</b><span>تحلیل ساختاری از دیدگاه‌های ثبت‌شده</span></header><p>${esc(g.systemAnalysis)}</p></section>
+      ${stage3?`<section class="k999senior-review"><header><b>نقد نهایی خبره ارشد</b><span>${fa(g.complementary.length)} نقد ثبت‌شده</span></header><div class="k999responses">${g.complementary.map(k999MiniResponse).join('')||'<div class="k983empty">نقد خبره ارشد برای این مفهوم ثبت نشده است.</div>'}</div></section>`:''}
+      ${latestFinal?`<section class="k999final-existing"><b>آخرین جمع‌بندی ثبت‌شده</b><p>${esc(latestFinal.analysis||'')}</p></section>`:''}
+      <footer><button type="button" data-k999-select="${esc(g.key)}">${stage==='complementary_review'?'نقد نهایی این مفهوم':stage3?'ثبت/ویرایش جمع‌بندی قابل اتکا':'مشاهده'}</button></footer>
+    </div>
    </article>`;
  }).join('');
 }
@@ -335,7 +346,7 @@ async function openCase(id){
   </div>
   ${stage1?`<section class="k998history-summary"><div><b>دیدگاه‌های خبرگان در متن سند</b><span>${rs.length?`${fa(rs.length)} یادداشت روی ${fa(conceptGroups.length)} مفهوم ثبت شده است. برای مشاهده هر مجموعه، روی مفهوم رنگی در متن کلیک کنید.`:'هنوز دیدگاهی ثبت نشده است. با انتخاب یک مفهوم از متن، اولین یادداشت را ثبت کنید.'}</span></div>${conceptGroups.length?`<div class="k998concept-index">${conceptGroups.slice(0,8).map(g=>`<button type="button" data-k998-index="${esc(g.key)}">${esc(g.label)} <small>${fa(g.responses.length)}</small></button>`).join('')}${conceptGroups.length>8?`<em>+ ${fa(conceptGroups.length-8)} مفهوم دیگر در متن</em>`:''}</div>`:''}</section>`:
   `<section class="k999lineage-note"><b>ردپای نهایی‌شدن مفهوم</b><span>تحلیل مستقل، جمع‌بندی سامانه، نقد خبره ارشد و جمع‌بندی نهایی به‌صورت مرحله‌ای در پرونده نگهداری می‌شوند؛ تأیید نهایی، نسخه قابل اتکای هر مفهوم را به‌همراه ارجاع به پاسخ‌های مبنا ثبت می‌کند.</span></section>`}
-  ${!approved?`<div class="k983advance"><button data-k983-advance>${stage3?'تأیید نسخه نهایی و ثبت مفاهیم قابل اتکا':'پایان این مرحله و ورود به مرحله بعد'}</button><small>${stage3?'با تأیید، آخرین جمع‌بندی هر مفهوم به‌عنوان نسخه قابل اتکا ثبت می‌شود و تمام سوابق قبلی باقی می‌ماند.':'همه یادداشت‌های مراحل قبلی و دیدگاه‌های اقلیت در پرونده باقی می‌مانند.'}</small></div>`:''}
+  ${(!approved&&stage3)?`<div class="k983advance k9929-finalize"><button data-k983-advance>تأیید نهایی مفهوم‌سازی و پایان میز پژوهش</button><small>پس از ثبت جمع‌بندی‌های نهایی، مفاهیم قابل اتکا برای ورود به دانش کلان تثبیت می‌شوند و همه سوابق قبلی باقی می‌مانند.</small></div>`:''}
  </section>`;
 
  const textBox=z.querySelector('.k983doctext'),form=z.querySelector('#k983annotationform');
@@ -347,6 +358,22 @@ async function openCase(id){
  if(form){
   const modelMap=new Map(models.map(g=>[g.key,g]));
   if(!stage1){
+   z.querySelectorAll('[data-k999-toggle]').forEach(toggle=>toggle.onclick=()=>{
+    const key=toggle.dataset.k999Toggle;
+    const body=z.querySelector(`[data-k999-body="${CSS.escape(key)}"]`);
+    const open=toggle.getAttribute('aria-expanded')==='true';
+    z.querySelectorAll('[data-k999-toggle]').forEach(other=>{
+      other.setAttribute('aria-expanded','false');
+      other.closest('.k999concept-accordion')?.classList.remove('open');
+    });
+    z.querySelectorAll('[data-k999-body]').forEach(other=>other.hidden=true);
+    if(!open&&body){
+      toggle.setAttribute('aria-expanded','true');
+      body.hidden=false;
+      toggle.closest('.k999concept-accordion')?.classList.add('open');
+      setTimeout(()=>toggle.scrollIntoView({behavior:'smooth',block:'nearest'}),30);
+    }
+   });
    z.querySelectorAll('[data-k999-select]').forEach(btn=>btn.onclick=()=>{
     const g=modelMap.get(btn.dataset.k999Select);if(!g)return;
     form.querySelector('[data-concept]').value=g.label;
@@ -400,8 +427,8 @@ async function openCase(id){
    form.dataset.clientResponseKey=clientResponseKey;
    const payload={caseId:c.id,action:'respond',concept,analysis,evidence,sourceSentence:g?.sentence||evidence,
       systemAnalysis:g?.systemAnalysis||'',reviewBasisIds,audioDataUrl,clientResponseKey,
-      groupLabel:'گروه خبرگان تحلیل اسناد بالادستی'};
-   const label=stage3?'جمع‌بندی قابل اتکا':stage2?'نقد خبره ارشد':'یادداشت خبرگانی';
+      groupLabel:'گروه خبرگان تحلیل اسناد بالادستی',expertRole:(window.__CURRENT_USER__?.role||window.__CURRENT_USER__?.roleLabel||'')};
+   const label=stage3?'جمع‌بندی قابل اتکا':stage2?'نقد خبره ارشد':'نظر خبرگانی';
    const request=async()=>{
      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
      try{return await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',signal:controller.signal,body:JSON.stringify(payload)})}
@@ -438,13 +465,17 @@ async function openCase(id){
  };
  const reopen=z.querySelector('[data-k9914-reopen]');
  if(reopen)reopen.onclick=async()=>{
-   if(!confirm('پرونده برای ویرایش باز شود؟ همه سوابق قبلی حفظ می‌شوند و نسخه نهایی فعلی تا تأیید مجدد از دانش کلان کنار گذاشته خواهد شد.'))return;
+   if(!await SinaDialog.confirm('پرونده برای ویرایش باز شود؟ همه سوابق قبلی حفظ می‌شوند و نسخه نهایی فعلی تا تأیید مجدد از دانش کلان کنار گذاشته خواهد شد.',{title:'بازگشایی پرونده پژوهش'}))return;
    reopen.disabled=true;
-   try{await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'reopen_for_edit'})});await openCase(id);counters()}catch(err){reopen.disabled=false;alert(err.message)}
+   try{await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'reopen_for_edit'})});await openCase(id);counters()}catch(err){reopen.disabled=false;await SinaDialog.alert(err.message,{title:'خطا'})}
  };
  const adv=z.querySelector('[data-k983-advance]');if(adv)adv.onclick=async()=>{
-  const msg=stage3?'نسخه نهایی تأیید شود و آخرین جمع‌بندی هر مفهوم به‌عنوان «جمع‌بندی قابل اتکا» ثبت گردد؟':'مرحله جاری پایان یابد و پرونده به مرحله بعد منتقل شود؟';
-  if(confirm(msg)){await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'advance'})});openCase(id)}
+  if(!stage3)return;
+  const msg='پس از این تأیید، مفهوم‌سازی پرونده نهایی می‌شود و مفاهیم قابل اتکا وارد دانش کلان خواهند شد. ادامه می‌دهید؟';
+  if(await SinaDialog.confirm(msg,{title:'تأیید نهایی مفهوم‌سازی',confirmText:'تأیید نهایی'})){
+    await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'advance'})});
+    openCase(id)
+  }
  };
  z.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -568,17 +599,17 @@ async function openMacroKnowledgeV13(){
    </section>`;
 
   b.querySelectorAll('[data-k9913-tab]').forEach(btn=>btn.onclick=()=>{b.querySelectorAll('[data-k9913-tab]').forEach(q=>q.classList.toggle('on',q===btn));b.querySelectorAll('[data-k9913-pane]').forEach(q=>q.hidden=q.dataset.k9913Pane!==btn.dataset.k9913Tab)});
-  b.querySelectorAll('[data-k9913-new]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'create_canonical',sourceConceptId:btn.dataset.k9913New})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
-  b.querySelectorAll('[data-k9913-link]').forEach(btn=>btn.onclick=async()=>{if(!confirm('این مفهوم همان مفهوم سازمانی پیشنهادی تلقی شود؟ سابقه سندی حذف نمی‌شود.'))return;btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'link_existing',sourceConceptId:btn.dataset.k9913Link,canonicalId:btn.dataset.canonical,relation:'same_as'})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
-  b.querySelectorAll('[data-k9913-issue]').forEach(btn=>btn.onclick=async()=>{const note=prompt('علت ابهام، همانندی یا تعارض احتمالی را ثبت کنید:','شباهت یا تفاوت معنایی نیازمند بررسی انسانی است.');if(note===null)return;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'flag_issue',sourceConceptId:btn.dataset.k9913Issue,canonicalId:btn.dataset.canonical,note})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
+  b.querySelectorAll('[data-k9913-new]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'create_canonical',sourceConceptId:btn.dataset.k9913New})});await openMacroKnowledgeV13();counters()}catch(e){await SinaDialog.alert(e.message,{title:'خطا'})}});
+  b.querySelectorAll('[data-k9913-link]').forEach(btn=>btn.onclick=async()=>{if(!await SinaDialog.confirm('این مفهوم همان مفهوم سازمانی پیشنهادی تلقی شود؟ سابقه سندی حذف نمی‌شود.',{title:'تأیید تطبیق مفهوم'}))return;btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'link_existing',sourceConceptId:btn.dataset.k9913Link,canonicalId:btn.dataset.canonical,relation:'same_as'})});await openMacroKnowledgeV13();counters()}catch(e){await SinaDialog.alert(e.message,{title:'خطا'})}});
+  b.querySelectorAll('[data-k9913-issue]').forEach(btn=>btn.onclick=async()=>{const note=await SinaDialog.prompt('علت ابهام، همانندی یا تعارض احتمالی را ثبت کنید:',{title:'ثبت دلیل بررسی معنایی',value:'شباهت یا تفاوت معنایی نیازمند بررسی انسانی است.',confirmText:'ثبت'});if(note===null)return;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'flag_issue',sourceConceptId:btn.dataset.k9913Issue,canonicalId:btn.dataset.canonical,note})});await openMacroKnowledgeV13();counters()}catch(e){await SinaDialog.alert(e.message,{title:'خطا'})}});
 
   b.querySelectorAll('[data-k9913-resolve]').forEach(btn=>btn.onclick=async()=>{
     const labels={same_as:'هم‌معنا و ادغام',narrower_than:'خاص‌تر',broader_than:'عام‌تر',overlaps_with:'مستقل ولی همپوشان',independent:'مستقل و بدون تعارض',semantic_conflict:'تعارض واقعی'};
     const decision=btn.dataset.decision;
-    const note=prompt(`توضیح تصمیم «${labels[decision]||decision}» را ثبت کنید:`,decision==='semantic_conflict'?'تعارض معنایی تأیید شد و تا رفع تعارض وارد تولید دانش نمی‌شود.':'');
+    const note=await SinaDialog.prompt(`توضیح تصمیم «${labels[decision]||decision}» را ثبت کنید:`,{title:'ثبت تصمیم معنایی',value:decision==='semantic_conflict'?'تعارض معنایی تأیید شد و تا رفع تعارض وارد تولید دانش نمی‌شود.':'',confirmText:'ثبت تصمیم'});
     if(note===null)return;
     btn.disabled=true;
-    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'resolve_issue',issueId:btn.dataset.k9913Resolve,decision,note})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}
+    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'resolve_issue',issueId:btn.dataset.k9913Resolve,decision,note})});await openMacroKnowledgeV13();counters()}catch(e){await SinaDialog.alert(e.message,{title:'خطا'})}
   });
 
   const byId=new Map([...st,...knowledge].map(x=>[x.id,x]));
@@ -594,9 +625,9 @@ async function openMacroKnowledgeV13(){
 
   b.querySelectorAll('[data-k9913-accept-knowledge]').forEach(btn=>btn.onclick=async()=>{
     const k=knowledge.find(x=>x.id===btn.dataset.k9913AcceptKnowledge);if(!k)return;
-    const edited=prompt('متن دانش ترکیبی را در صورت نیاز اصلاح و سپس تأیید کنید:',k.synthesis||'');if(edited===null)return;
+    const edited=await SinaDialog.prompt('متن دانش ترکیبی را در صورت نیاز اصلاح و سپس تأیید کنید:',{title:'تثبیت دانش کلان',value:k.synthesis||'',confirmText:'تأیید و تثبیت'});if(edited===null)return;
     btn.disabled=true;
-    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'accept_knowledge',candidate:k,synthesis:edited})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}
+    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'accept_knowledge',candidate:k,synthesis:edited})});await openMacroKnowledgeV13();counters()}catch(e){await SinaDialog.alert(e.message,{title:'خطا'})}
   });
  }catch(e){b.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }

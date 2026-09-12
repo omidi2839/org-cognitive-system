@@ -157,3 +157,28 @@
 .k9926-source-card .k980count{left:10px!important;right:auto!important;bottom:8px!important;opacity:1!important;visibility:visible!important;display:inline-flex!important;z-index:8!important}
 .k9926-card-disarmed{position:relative!important}
 .k9926-direct-registration .k76tabs{display:none!important}
+
+/* 0.9.9.0.28 — compact concept accordions in stages 2 and 3 */
+.k999concept-list{display:grid;gap:9px!important}
+.k999concept-review.k999concept-accordion{padding:0!important;overflow:hidden;border-radius:14px}
+.k999concept-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:right;border:0;background:#fff;padding:13px 15px;font:inherit;cursor:pointer}
+.k999concept-toggle:hover{background:#f8fbfe}
+.k999concept-toggle-main{min-width:0;display:grid;gap:3px;flex:1}
+.k999concept-toggle-main>small{font-size:8px;color:#8293a3}
+.k999concept-toggle-main h4{margin:0;font-size:12.5px;line-height:1.7;color:#183f63}
+.k999concept-state{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}
+.k999concept-state span{font-size:7.8px;padding:3px 6px;border-radius:999px;background:#f1f5f8;color:#6b7d8d}
+.k999concept-state span.done{background:#edf8f1;color:#3f7757}
+.k999concept-chevron{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#eef5fb;color:#3973a7;font-size:18px;line-height:1;transition:transform .18s ease,background .18s ease}
+.k999concept-toggle[aria-expanded="true"] .k999concept-chevron{transform:rotate(180deg);background:#e2f0fb}
+.k999concept-accordion.open{border-color:#bfd7eb;box-shadow:0 8px 24px rgba(33,82,120,.07)}
+.k999concept-body{border-top:1px solid #e8eef3;padding:12px 15px 14px;background:#fff}
+.k999concept-body[hidden]{display:none!important}
+.k999concept-body>.k999source-sentence{margin-top:0}
+.k999concept-body>details{margin-top:9px}
+.k999concept-body>footer{margin-top:11px}
+
+/* 0.9.9.0.29 — role-aware research workflow */
+.k9929-finalize{margin-top:18px!important;padding:13px 14px!important;border:1px solid #c9dfd1!important;border-radius:14px!important;background:#f6fbf8!important}
+.k9929-finalize small{font-size:8.8px!important;line-height:1.9!important;color:#657b6c!important}
+.k9929-finalize button{background:#2e7b55!important;border-color:#2e7b55!important;color:#fff!important;font-weight:900!important}

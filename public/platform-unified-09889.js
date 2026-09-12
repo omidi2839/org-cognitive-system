@@ -1,5 +1,5 @@
 (()=>{
-window.__PLATFORM_UNIFIED_BUILD__='0.9.9.0.26';
+window.__PLATFORM_UNIFIED_BUILD__='0.9.9.0.29';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const api=async(p,o={})=>{const r=await fetch(p,{...o,credentials:'same-origin',headers:{'content-type':'application/json','x-org-id':'ORG:SYN-001',...(o.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||'خطا'),{code:d.code,status:r.status});return d};
@@ -104,7 +104,7 @@ async function attachmentPanel(modal,docId){
       else window.location.href=f.url;
     }catch(e){
       try{popup?.close()}catch{}
-      alert(e.message||'باز کردن پیوست ممکن نشد.');
+      await SinaDialog.alert(e.message||'باز کردن پیوست ممکن نشد.',{title:'باز کردن پیوست'});
     }finally{btn.disabled=false;btn.textContent=oldText}
   });
  }catch(e){console.warn('ATTACHMENT_PANEL_ERROR',e)}
