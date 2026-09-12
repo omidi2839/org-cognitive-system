@@ -299,6 +299,7 @@ async function handleCollaborative(req,res,repo,actor,u){
           stage:c.stage,
           expertRef:input.expertRef||actor.personRef,
           expertName:input.expertName||actor.name,
+          expertRole:input.expertRole||actor.role||'',
           groupLabel:input.groupLabel||'گروه خبرگان تحلیل اسناد بالادستی',
           concept,
           analysis:String(input.analysis||'').trim(),
@@ -327,8 +328,24 @@ async function handleCollaborative(req,res,repo,actor,u){
           responseRef:response.id,
           actorRef:actor.personRef,
           actorName:actor.name,
+          actorRole:actor.role||'',
           createdAt:now
         });
+
+        // Experts submit their own work; they do not operate a separate workflow button.
+        // The case is handed to the next research layer immediately after submission.
+        // Final synthesis still requires explicit final approval.
+        if(c.stage==='independent_analysis'){
+          c.stage='complementary_review';
+          c.status='in_progress';
+          c.autoAdvancedAt=now;
+          c.autoAdvancedReason='expert_response_submitted';
+        }else if(c.stage==='complementary_review'){
+          c.stage='final_synthesis';
+          c.status='in_progress';
+          c.autoAdvancedAt=now;
+          c.autoAdvancedReason='senior_expert_critique_submitted';
+        }
         }
       }else if(input.action==='reopen_for_edit'){
         const now=new Date().toISOString();
@@ -358,6 +375,7 @@ async function handleCollaborative(req,res,repo,actor,u){
           actorRef:actor.personRef,actorName:actor.name,createdAt:now
         });
       }else if(input.action==='advance'){
+        if(c.stage!=='final_synthesis') return;
         const previousStage=c.stage;
         const i=stages.indexOf(c.stage);
         if(i>=0&&i<stages.length-1) c.stage=stages[i+1];
