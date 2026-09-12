@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.23';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.24';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -912,6 +912,7 @@ function k975ApplyNode(full,article,node,mode){
 function k961InlineText(rel,item,lines){
  const sourceId=rel.relatedDocument?.id||'';
  const sourceTitle=rel.relatedDocument?.title||'سند اصلاحی';
+ const sourceNumber=rel.relatedDocument?.documentNumber||'';
  lines=(lines||[]).map(k982StripAmendmentAdminPrefix).filter((t,i,a)=>t&&!k983IsAdminHeading(t)&&!k975IsIntro(t)&&!k975IsRole(t)&&!k975IsProbableSigner(a,i));
  const wrap=document.createElement('div');
  wrap.className='k961inline-change';
@@ -930,7 +931,7 @@ function k961InlineText(rel,item,lines){
  if(sourceId){
    const a=document.createElement('button');
    a.type='button';a.className='k961inline-source';a.dataset.amendSource=sourceId;
-   a.textContent=`↗ ${sourceTitle}`;
+   a.textContent=`↗ ${sourceNumber?`مصوبه / سند ${k961NormDigits(sourceNumber)} — `:''}${sourceTitle}`;
    wrap.appendChild(a);
  }
  return wrap;
@@ -1002,12 +1003,12 @@ function k994SourceProfile(lines,rel){
  return{articles,clauses,substantive,chars,instructionLike,referenceOnly:complexInstruction||veryLargeLegalBody};
 }
 function k994ReferenceNode(rel,article,profile){
- const sourceId=rel.relatedDocument?.id||'',title=rel.relatedDocument?.title||'سند مرتبط';
+ const sourceId=rel.relatedDocument?.id||'',title=rel.relatedDocument?.title||'سند مرتبط',sourceNumber=rel.relatedDocument?.documentNumber||'';
  const wrap=document.createElement('div');
  wrap.className='k994linked-instrument';
  wrap.dataset.relationId=rel.id||'';
  const label=profile?.instructionLike?'دستورالعمل مصوب':'سند اجرایی/تفصیلی';
- wrap.innerHTML=`<span>↗</span><div><b>این ماده دارای ${label} است.</b><small>متن کامل سند به دلیل تفصیلی بودن در همین محل درج نشده است.</small></div>${sourceId?`<button type="button" data-amend-source="${k955Esc(sourceId)}">${k955Esc(title)}</button>`:''}`;
+ wrap.innerHTML=`<span>↗</span><div><b>این ماده دارای ${label} است.</b><small>متن کامل سند به دلیل تفصیلی بودن در همین محل درج نشده است.</small></div>${sourceId?`<button type="button" data-amend-source="${k955Esc(sourceId)}">${sourceNumber?`مصوبه / سند ${k955Esc(k961NormDigits(sourceNumber))} — `:''}${k955Esc(title)}</button>`:''}`;
  return wrap;
 }
 
@@ -1026,7 +1027,8 @@ function k990ExplicitNode(rel,item){
  const v=k990RelationVisual(rel),wrap=document.createElement('div');
  wrap.className=`k990-explicit-change ${v.cls}`;wrap.dataset.relationId=rel.id||'';
  const loc=[item?.article?`ماده ${item.article}`:'',item?.clause||''].filter(Boolean).join(' · ');
- wrap.innerHTML=`<div class="k990-explicit-head"><b>${v.label}${loc?` — ${k955Esc(loc)}`:''}</b><span>ثبت‌شده به‌عنوان اثر حقوقی صریح</span></div><div class="k990-explicit-text"></div>${rel.relatedDocument?.id?`<button type="button" class="k961inline-source" data-amend-source="${k955Esc(rel.relatedDocument.id)}">↗ ${k955Esc(rel.relatedDocument.title||'سند مرتبط')}</button>`:''}`;
+ const sourceNumber=rel.relatedDocument?.documentNumber||'';
+ wrap.innerHTML=`<div class="k990-explicit-head"><b>${v.label}${loc?` — ${k955Esc(loc)}`:''}</b><span>ثبت‌شده به‌عنوان اثر حقوقی صریح</span></div><div class="k990-explicit-text"></div>${rel.relatedDocument?.id?`<button type="button" class="k961inline-source" data-amend-source="${k955Esc(rel.relatedDocument.id)}">↗ ${sourceNumber?`مصوبه / سند ${k955Esc(k961NormDigits(sourceNumber))} — `:''}${k955Esc(rel.relatedDocument.title||'سند مرتبط')}</button>`:''}`;
  const body=wrap.querySelector('.k990-explicit-text');
  for(const line of text.split(/\n+/).map(x=>x.trim()).filter(Boolean)){const p=document.createElement('p');p.textContent=line;body.appendChild(p)}
  return wrap;

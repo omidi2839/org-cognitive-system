@@ -197,3 +197,8 @@
 
 /* 0.9.8.9.2 — repeatable attachments in document edit */
 .k992editattachments{display:grid;gap:8px;padding:12px;border:1px dashed #bfd7ed;border-radius:14px;background:#f8fbff}.k992editattachhead{display:flex;align-items:center;justify-content:space-between;gap:10px}.k992editattachhead b{font-size:10px}.k992editattachhead button{border:1px solid #c6dcf1;background:#fff;color:#2468a8;border-radius:10px;padding:7px 10px;font:inherit;font-size:9.5px;font-weight:800;cursor:pointer}.k992attachmentrows{display:grid;gap:7px}.k992attachmentrow{display:grid;grid-template-columns:1fr 32px;gap:7px;align-items:end}.k992attachmentrow label{display:grid;gap:4px}.k992attachmentrow label span{font-size:9px;color:#66798d}.k992attachmentrow input{width:100%}.k992attachmentrow>button{height:32px;border:1px solid #efd2d7;background:#fff7f8;color:#a14956;border-radius:9px;cursor:pointer;font-size:16px}
+
+/* 0.9.9.0.24 — related-document back navigation */
+.k9924modalnav{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.k9924modalback{border:1px solid #bfd3e8;background:#f5f9fd;color:#245f97;border-radius:9px;padding:7px 10px;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
+.k9924modalback:hover{background:#eaf4fd}

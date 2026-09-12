@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.0.23';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0.24';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -424,23 +424,44 @@ async function runBankSearch(){
   persianize(out);
  }catch(e){out.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
-function closeDocumentModal(){document.getElementById('k91docmodal')?.remove();document.body.classList.remove('k91-modal-open')}
-async function openDocumentModal(documentId,q=lastSearchQuery){
- closeDocumentModal();window.__K951_ACTIVE_DOC_ID=documentId;window.__K950_ACTIVE_DOC_ID=documentId;window.__K992_ACTIVE_DOC_ID=documentId;
+const k9924DocumentNavStack=[];
+function closeDocumentModal(resetNav=true){
+ document.getElementById('k91docmodal')?.remove();
+ document.body.classList.remove('k91-modal-open');
+ if(resetNav)k9924DocumentNavStack.length=0;
+}
+async function openDocumentModal(documentId,q=lastSearchQuery,navMode='auto'){
+ const current=document.getElementById('k91docmodal')?.dataset.documentId||'';
+ if(navMode==='root')k9924DocumentNavStack.length=0;
+ else if(navMode==='auto'&&current&&current!==documentId){
+   k9924DocumentNavStack.push({documentId:current,q:window.__K91_LAST_QUERY||''});
+ }
+ closeDocumentModal(false);
+ window.__K951_ACTIVE_DOC_ID=documentId;window.__K950_ACTIVE_DOC_ID=documentId;window.__K992_ACTIVE_DOC_ID=documentId;
  const w=document.createElement('div');w.id='k91docmodal';w.className='k91modalbackdrop';w.dataset.documentId=documentId;
  w.innerHTML='<div class="k91modal"><div class="k91modal-loading">در حال دریافت متن سند…</div></div>';
- w.onclick=e=>{if(e.target===w)closeDocumentModal()};document.body.appendChild(w);document.body.classList.add('k91-modal-open');
+ w.onclick=e=>{if(e.target===w)closeDocumentModal(true)};document.body.appendChild(w);document.body.classList.add('k91-modal-open');
  try{
   const d=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(documentId)+'&detail=1'),x=(d.items||[])[0]||{};
   if(!x.id)throw Error('سند پیدا نشد یا دسترسی مجاز نیست.');
   const body=String(x.fullText||'').trim(),rendered=q?highlightText(body,q):esc(body);
-  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><button class="k91modalclose" type="button">×</button></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div><div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
-  w.querySelector('.k91modalclose').onclick=closeDocumentModal;persianize(w);
+  const back=k9924DocumentNavStack.length?`<button class="k9924modalback" type="button">← بازگشت به سند قبلی</button>`:'';
+  w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><div class="k9924modalnav">${back}<button class="k91modalclose" type="button">×</button></div></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div><div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
+  w.querySelector('.k91modalclose').onclick=()=>closeDocumentModal(true);
+  const backBtn=w.querySelector('.k9924modalback');
+  if(backBtn)backBtn.onclick=()=>{
+    const prev=k9924DocumentNavStack.pop();
+    if(prev)openDocumentModal(prev.documentId,prev.q,'back');
+  };
+  persianize(w);
   if(q)setTimeout(()=>w.querySelector('.k91highlight')?.scrollIntoView({block:'center',behavior:'smooth'}),80);
- }catch(e){w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;w.querySelector('.k91modalclose').onclick=closeDocumentModal}
+ }catch(e){
+   w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;
+   w.querySelector('.k91modalclose').onclick=()=>closeDocumentModal(true)
+ }
 }
 
-window.__ORG_OPEN_DOCUMENT__=openDocumentModal;
+window.__ORG_OPEN_DOCUMENT__=(documentId,q='')=>openDocumentModal(documentId,q,'auto');
 document.addEventListener('click',e=>{
  const p=e.target?.closest?.('#k91docmodal .k944relmain [data-doc-preview],#k91docmodal .k944relations [data-doc-preview]');
  if(!p?.dataset.docPreview)return;
@@ -464,7 +485,7 @@ async function openBank(){
      return;
    }
    const edit=e.target.closest('[data-doc-edit]');if(edit){k982OpenEdit(edit.dataset.docEdit);return}
-   const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery)
+   const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery,'root')
  };
  const from=formDate('from'),to=formDate('to');
  function formDate(name){return document.querySelector(`#k91search input[name="${name}"]`)}

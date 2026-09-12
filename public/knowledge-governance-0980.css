@@ -144,3 +144,19 @@
 .k9922-register-document:hover{background:#eaf5ff;border-color:#91b9de}.k9922-register-document span{font-size:12px;line-height:1}
 .k9922-direct-registration .k76tabs{display:none!important}
 .k9922-direct-note{margin-top:7px;display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#edf6ff;color:#2b6ca7;font-size:8px;font-weight:800}
+
+/* 0.9.9.0.24 — lightweight direct registration, counter remains visible */
+.k9922-document-source-card{cursor:default!important;position:relative!important;padding-bottom:29px!important}
+.k9922-register-document{
+ position:absolute!important;right:14px!important;bottom:8px!important;left:auto!important;
+ width:auto!important;min-width:0!important;height:auto!important;
+ border:0!important;background:transparent!important;color:#d97706!important;
+ padding:0!important;margin:0!important;font:inherit!important;font-size:8.8px!important;
+ line-height:16px!important;font-weight:900!important;cursor:pointer!important;z-index:4!important
+}
+.k9922-register-document:hover{color:#b45309!important;text-decoration:underline!important;background:transparent!important}
+.k9922-document-source-card .k980count{
+ left:10px!important;right:auto!important;bottom:8px!important;z-index:4!important;
+ opacity:1!important;visibility:visible!important;display:inline-flex!important
+}
+.k9922-direct-registration .k76tabs{display:none!important}
