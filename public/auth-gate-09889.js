@@ -1,5 +1,5 @@
 (()=>{
-const VERSION='0.9.9.0.15';
+const VERSION='0.9.9.0.16';
 document.documentElement.classList.add('auth-pending');
 const scripts=[
  './app.js','./workspace-shell-075.js','./knowledge-workspace-076.js',
@@ -24,13 +24,13 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 function sinaApplyIdentity(){
   try{
-    document.title='سینا | پلتفرم هوش شناختی سازمان';
+    if(document.title!=='سینا | پلتفرم هوش شناختی سازمان')document.title='سینا | پلتفرم هوش شناختی سازمان';
     const brand=document.querySelector('.brand-mark');
     if(brand){
       const b=brand.querySelector('b'),sm=brand.querySelector('small');
-      if(b)b.textContent='سینا';
-      if(sm)sm.textContent='پلتفرم هوش شناختی سازمان';
-      const im=brand.querySelector('img');if(im)im.src='./sina-emblem-09915.png';
+      if(b&&b.textContent!=='سینا')b.textContent='سینا';
+      if(sm&&sm.textContent!=='پلتفرم هوش شناختی سازمان')sm.textContent='پلتفرم هوش شناختی سازمان';
+      const im=brand.querySelector('img');if(im&&!String(im.getAttribute('src')||'').includes('sina-emblem-09915.png'))im.src='./sina-emblem-09915.png';
     }
     const login=document.querySelector('.auth-card,.login-card,[data-auth-card]');
     if(login&&!login.querySelector('.sina-login-brand')){
@@ -40,6 +40,7 @@ function sinaApplyIdentity(){
     }
   }catch(_){}
 }
-new MutationObserver(()=>sinaApplyIdentity()).observe(document.documentElement,{childList:true,subtree:true});
-window.addEventListener('DOMContentLoaded',sinaApplyIdentity);
+window.addEventListener('DOMContentLoaded',sinaApplyIdentity,{once:true});
+window.addEventListener('load',sinaApplyIdentity,{once:true});
 setTimeout(sinaApplyIdentity,0);
+setTimeout(sinaApplyIdentity,1200);
