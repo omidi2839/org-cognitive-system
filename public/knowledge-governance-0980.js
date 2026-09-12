@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.33';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.34';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -16,7 +16,7 @@ let k9931CounterCache=null,k9931CounterFetchedAt=0,k9931CounterInFlight=null;
 function k9931ApplyCounters(){
  const m=k9931CounterCache;if(!m)return;
  document.querySelectorAll('.capability-card,.k9931-static-document-card').forEach(c=>{
-   const n=c.dataset.k9931Label||c.dataset.capability||c.querySelector('b')?.textContent?.trim();
+   const n=c.dataset.k9931Label||c.dataset.capability||c.querySelector('b')?.textContent?.trim()||c.querySelector('h4')?.textContent?.trim();
    if(!(n in m))return;
    let b=c.querySelector('.k980count');if(!b){b=document.createElement('span');b.className='k980count';c.appendChild(b)}
    const next=fa(m[n])+(n==='دانش کلان'?' مفهوم':' سند');

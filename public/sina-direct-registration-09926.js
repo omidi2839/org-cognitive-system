@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.33';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.34';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -8,6 +8,43 @@ const api=async(p,o={})=>{
  if(!r.ok)throw Error(d.message||'خطا');
  return d;
 };
+
+let k9934Counts={upstream:null,general:null},k9934CountsAt=0,k9934CountsInFlight=null;
+function k9934Persian(n){return String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d])}
+function k9934ApplyCounts(){
+ document.querySelectorAll('.k9931-static-document-card').forEach(card=>{
+   const kind=card.dataset.k9931Kind;
+   if(!kind||k9934Counts[kind]==null)return;
+   let badge=card.querySelector('.k980count');
+   if(!badge){
+     badge=document.createElement('span');
+     badge.className='k980count';
+     card.appendChild(badge);
+   }
+   badge.textContent=`${k9934Persian(k9934Counts[kind])} سند`;
+ });
+}
+async function k9934RefreshCounts(force=false){
+ const now=Date.now();
+ if(k9934CountsInFlight)return k9934CountsInFlight;
+ if(!force&&k9934Counts.upstream!=null&&(now-k9934CountsAt)<30000){
+   k9934ApplyCounts();return k9934Counts;
+ }
+ k9934CountsInFlight=(async()=>{
+   try{
+     const d=await api('/api/v1/knowledge/documents');
+     const items=d.items||[];
+     k9934Counts.upstream=items.filter(x=>x.documentClass==='upstream').length;
+     k9934Counts.general=items.filter(x=>x.documentClass==='general').length;
+     k9934CountsAt=Date.now();
+     k9934ApplyCounts();
+   }catch{}
+   finally{k9934CountsInFlight=null}
+   return k9934Counts;
+ })();
+ return k9934CountsInFlight;
+}
+
 
 function kindOf(card){
  const n=String(card?.dataset?.capability||card?.querySelector('b')?.textContent||'').trim();
@@ -135,9 +172,12 @@ function decorate(){
      },true);
    }
  });
+ k9934ApplyCounts();
+ k9934RefreshCounts(false);
 }
 
 let t;
-new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,80)}).observe(document.documentElement,{childList:true,subtree:true});
+new MutationObserver(()=>{clearTimeout(t);t=setTimeout(()=>{decorate();k9934ApplyCounts()},100)}).observe(document.documentElement,{childList:true,subtree:true});
 decorate();
+k9934RefreshCounts(true);
 })();

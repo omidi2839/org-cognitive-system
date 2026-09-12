@@ -220,3 +220,11 @@
 
 /* 0.9.9.0.33 — stable direct-registration action */
 .k9931-static-document-card .k9926-register{pointer-events:auto!important;cursor:pointer!important}
+
+/* 0.9.9.0.34 — stable counters for static document cards */
+.k9931-static-document-card .k980count{
+ position:absolute!important;left:10px!important;right:auto!important;bottom:8px!important;
+ display:inline-flex!important;align-items:center!important;opacity:1!important;visibility:visible!important;
+ z-index:8!important;padding:3px 7px!important;border-radius:999px!important;
+ background:#eef5ff!important;color:#2d6ca8!important;font-size:7.8px!important;font-weight:800!important
+}
