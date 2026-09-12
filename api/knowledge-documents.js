@@ -299,6 +299,33 @@ async function handleCollaborative(req,res,repo,actor,u){
           actorName:actor.name,
           createdAt:now
         });
+      }else if(input.action==='reopen_for_edit'){
+        const now=new Date().toISOString();
+        if(c.stage!=='approved') return;
+        c.stage='independent_analysis';
+        c.status='in_progress';
+        c.reopenedAt=now;
+        c.reopenedBy=actor.personRef;
+        c.reopenedByName=actor.name;
+        c.approvedAt=null;
+        c.approvedBy=null;
+        // A reopened conceptualization invalidates the previously published snapshot
+        // until the full expert-review cycle is approved again. History is preserved.
+        s.collaborativeFinalConcepts??=[];
+        for(const f of s.collaborativeFinalConcepts){
+          if(f.caseRef===c.id&&f.status==='reliable_synthesis'){
+            f.status='superseded_pending_review';
+            f.supersededAt=now;
+            f.supersededReason='research_case_reopened_for_edit';
+          }
+        }
+        s.collaborativeConceptHistory??=[];
+        s.collaborativeConceptHistory.push({
+          id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,caseRef:c.id,documentRef:c.documentRef,
+          concept:'',stage:'independent_analysis',eventType:'research_case_reopened_for_edit',
+          actorRef:actor.personRef,actorName:actor.name,createdAt:now
+        });
       }else if(input.action==='advance'){
         const previousStage=c.stage;
         const i=stages.indexOf(c.stage);
