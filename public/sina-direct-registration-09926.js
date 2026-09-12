@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.32';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.33';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -96,11 +96,12 @@ function decorate(){
  if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
 
  // First pass: convert the two old clickable capability cards into static cards.
- ctx.querySelectorAll('.capability-card').forEach(original=>{
+ ctx.querySelectorAll('.capability-card:not(.k9931-static-document-card)').forEach(original=>{
    const kind=kindOf(original);if(!kind)return;
    const label=kind==='upstream'?'اسناد بالادستی':'اسناد عمومی';
 
-   // Cloning removes any direct click listeners attached by the old workspace.
+   // Clone only once. In 0.9.9.0.32 the restored visual class `capability-card`
+   // caused already-static cards to be cloned repeatedly, which removed the CTA listener.
    const card=original.cloneNode(true);
    card.removeAttribute('data-capability');
    // Preserve the original visual card classes. Navigation remains disabled
@@ -124,11 +125,14 @@ function decorate(){
      btn.className='k9926-register';
      btn.dataset.k9926Register=kind;
      btn.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
+     card.appendChild(btn);
+   }
+   if(btn.dataset.k9933Bound!=='1'){
+     btn.dataset.k9933Bound='1';
      btn.addEventListener('click',e=>{
        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-       renderForm(kind);
+       renderForm(btn.dataset.k9926Register||kind);
      },true);
-     card.appendChild(btn);
    }
  });
 }

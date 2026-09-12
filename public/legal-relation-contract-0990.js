@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.32';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.33';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
