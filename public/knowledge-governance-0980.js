@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.25';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.26';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -27,100 +27,48 @@ let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).
 function k9922CardName(card){
  return String(card?.dataset?.capability||card?.querySelector('b')?.textContent||'').trim();
 }
-function k9925DirectRegistrationForm(kind){
- const up=kind==='upstream';
- const ctx=document.getElementById('workspaceContext');
- if(ctx)ctx.classList.add('k91-hidden-workspace');
-
- let x=document.getElementById('knowledge076');
- if(!x){
-   x=document.createElement('section');
-   x.id='knowledge076';
-   x.className='knowledge076';
-   document.querySelector('.main')?.prepend(x);
- }
- x.classList.add('k9925-direct-form');
- x.innerHTML=`<div class="k76head">
-   <div><small>سینا · ثبت مستقیم سند</small><h2>${up?'ثبت سند بالادستی':'ثبت سند عمومی'}</h2><p>اطلاعات سند را تکمیل کنید؛ پس از ثبت، سند در بانک اسناد سازمان قابل بازیابی است.</p></div>
-   <button type="button" data-k9925-close>×</button>
- </div><div id="k76body"></div>`;
-
- x.querySelector('[data-k9925-close]').onclick=()=>{
-   x.remove();
-   if(ctx)ctx.classList.remove('k91-hidden-workspace');
- };
-
- const types=up
-   ?['مأموریت','چشم‌انداز','اهداف کلان','سیاست','راهبرد','چارچوب','ضوابط','قانون/الزام بیرونی']
-   :['آیین‌نامه','دستورالعمل','بخشنامه','گزارش','صورتجلسه','نامه رسمی','سایر'];
- const classificationOptions=up
-   ?'<option value="confidential">محرمانه</option><option value="public">عمومی</option>'
-   :'<option value="public">عمومی</option><option value="confidential">محرمانه</option>';
- const scopeHtml=up
-   ?`<label>دامنه سازمانی<select name="scopeType" id="k76scopeType"><option value="organization">کل سازمان</option><option value="unit">واحد سازمانی</option></select></label>
-     <label id="k76unitWrap" style="display:none">واحد سازمانی<select name="organizationalUnitRef" id="k76unitSelect"><option value="">انتخاب واحد سازمانی…</option></select><small id="k76unitHelp">فهرست از ساختار سازمانی دریافت می‌شود.</small></label>`
-   :`<label>دامنه سازمانی<select name="organizationalLevel"><option>کل سازمان</option><option>واحد سازمانی</option></select></label>`;
-
- const b=x.querySelector('#k76body');
- b.innerHTML=`<form id="k76form" data-k9925-direct="${up?'upstream':'general'}"><div class="k76grid">
-   <label>عنوان سند<input name="title" required></label>
-   <label>نوع سند<select name="documentType">${types.map(v=>`<option>${v}</option>`).join('')}</select></label>
-   <label>مرجع صادرکننده<input name="issuer"></label>
-   <label>نسخه<input name="versionLabel"></label>
-   <label>تاریخ صدور<input type="date" name="issuedAt"></label>
-   <label>پایان اعتبار<input type="date" name="validUntil"></label>
-   <label>وضعیت اعتبار<select name="validityStatus"><option value="active">معتبر</option><option value="draft">پیش‌نویس</option><option value="expired">منقضی</option><option value="unknown">نیازمند احراز</option></select></label>
-   ${scopeHtml}
-   <label>حوزه موضوعی<input name="subjectArea"></label>
-   <label>طبقه‌بندی<select name="classification">${classificationOptions}</select></label>
- </div>
- <label class="k76file">فایل اصلی <small class="k80formats">Word · PDF · PowerPoint · Excel · Text · Image</small>
-   <input type="file" name="file" required accept=".docx,.pdf,.pptx,.xlsx,.txt,.md,.png,.jpg,.jpeg,.webp">
- </label>
- <button class="k76primary" type="submit">ثبت سند</button><div id="k76status"></div></form>`;
-
- // Existing overlays (metadata, legal relation, attachments and one-click commit)
- // observe #k76form and enhance this exact same contract.
- if(up){
-   const scope=x.querySelector('#k76scopeType'),wrap=x.querySelector('#k76unitWrap');
-   const loadUnits=async()=>{
-     const sel=x.querySelector('#k76unitSelect'),help=x.querySelector('#k76unitHelp');
-     if(!sel)return;
-     sel.innerHTML='<option value="">در حال دریافت ساختار سازمانی…</option>';
-     try{
-       const r=await api('/api/v1/organization/units'),units=r.units||[];
-       sel.innerHTML=units.length
-         ?'<option value="">انتخاب واحد سازمانی…</option>'+units.map(u=>`<option value="${esc(u.id)}" data-name="${esc(u.name)}">${esc(u.name)}</option>`).join('')
-         :'<option value="">ساختار سازمانی هنوز تعریف نشده است</option>';
-       if(help)help.textContent=units.length?'فهرست از ساختار سازمانی دریافت شد.':'پس از تعریف ساختار سازمانی، واحدها اینجا نمایش داده می‌شوند.';
-     }catch(err){
-       sel.innerHTML='<option value="">ساختار سازمانی هنوز متصل نشده است</option>';
-       if(help)help.textContent='پس از عملیاتی‌شدن ساختار سازمانی، این فهرست به آن متصل می‌شود.';
-     }
-   };
-   if(scope&&wrap)scope.onchange=()=>{
-     const show=scope.value==='unit';
-     wrap.style.display=show?'block':'none';
-     if(show)loadUnits();
-   };
- }
-
- // Safety: never allow the browser's native form navigation while enhancement observers attach.
- const form=b.querySelector('#k76form');
- form.addEventListener('submit',e=>{
-   if(!form.__k9907Submitting && !form.dataset.k958Guard && !form.dataset.k9925Enhanced){
-     e.preventDefault();
-   }
- },false);
- setTimeout(()=>{if(form)form.dataset.k9925Enhanced='1'},250);
-
- x.scrollIntoView({behavior:'smooth',block:'start'});
- return x;
-}
-
 function k9922DirectRegistration(card,kind){
- k9925DirectRegistrationForm(kind);
+ if(!card)return;
+ card.dataset.k9922Bypass='1';
+ card.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+ delete card.dataset.k9922Bypass;
+
+ let done=false,observer=null;
+ const openForm=()=>{
+   if(done)return;
+   const child=document.getElementById('knowledge076'),body=child?.querySelector('#k76body'),add=child?.querySelector('[data-kadd]');
+   if(!child||!body||!add)return;
+   // panel(kind) fires repo() asynchronously; a late repo response used to overwrite the form.
+   // Open the form only after that loading cycle has completed.
+   if(body.querySelector('.k76loading'))return;
+   done=true;observer?.disconnect();
+   add.click();
+   requestAnimationFrame(()=>{
+     child.classList.add('k9922-direct-registration');
+     const head=child.querySelector('.k76head h2');
+     if(head)head.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
+     const note=child.querySelector('.k9922-direct-note')||document.createElement('div');
+     note.className='k9922-direct-note';
+     note.textContent=kind==='upstream'?'ثبت مستقیم سند بالادستی':'ثبت مستقیم سند عمومی';
+     child.querySelector('.k76head')?.appendChild(note);
+   });
+ };
+ const attach=()=>{
+   const child=document.getElementById('knowledge076');
+   if(!child){setTimeout(attach,40);return}
+   observer=new MutationObserver(openForm);
+   observer.observe(child,{childList:true,subtree:true});
+   openForm();
+ };
+ attach();
+ // Network safety fallback.
+ setTimeout(()=>{
+   if(done)return;
+   const child=document.getElementById('knowledge076'),add=child?.querySelector('[data-kadd]');
+   if(add){done=true;observer?.disconnect();add.click();child.classList.add('k9922-direct-registration')}
+ },8000);
 }
+
 function k9922DecorateKnowledgeCards(){
  const ctx=document.getElementById('workspaceContext');
  if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
@@ -135,7 +83,7 @@ function k9922DecorateKnowledgeCards(){
      action.type='button';
      action.className='k9922-register-document';
      action.dataset.k9922Register=kind;
-     action.textContent=`ثبت ${name}`;
+     action.innerHTML=`<span>＋</span> ثبت ${name}`;
      card.appendChild(action);
    }
  });

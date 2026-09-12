@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.0.25';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.0.26';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -424,46 +424,73 @@ async function runBankSearch(){
   persianize(out);
  }catch(e){out.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
-const k9924DocumentNavStack=[];
-function closeDocumentModal(resetNav=true){
- document.getElementById('k91docmodal')?.remove();
- document.body.classList.remove('k91-modal-open');
- if(resetNav)k9924DocumentNavStack.length=0;
-}
-async function openDocumentModal(documentId,q=lastSearchQuery,navMode='auto'){
- const current=document.getElementById('k91docmodal')?.dataset.documentId||'';
- if(navMode==='root')k9924DocumentNavStack.length=0;
- else if(navMode==='auto'&&current&&current!==documentId){
-   k9924DocumentNavStack.push({documentId:current,q:window.__K91_LAST_QUERY||''});
+const k9926PreservedDocumentStack=[];
+
+function k9926ClearPreserved(){
+ while(k9926PreservedDocumentStack.length){
+   const x=k9926PreservedDocumentStack.pop();
+   try{x.node?.remove()}catch{}
  }
- closeDocumentModal(false);
+}
+function closeDocumentModal(){
+ document.getElementById('k91docmodal')?.remove();
+ k9926ClearPreserved();
+ document.body.classList.remove('k91-modal-open');
+}
+function k9926RestorePrevious(){
+ const current=document.getElementById('k91docmodal');
+ current?.remove();
+ const prev=k9926PreservedDocumentStack.pop();
+ if(!prev){document.body.classList.remove('k91-modal-open');return}
+ prev.node.id='k91docmodal';
+ document.body.appendChild(prev.node);
+ document.body.classList.add('k91-modal-open');
+ window.__K951_ACTIVE_DOC_ID=prev.documentId;
+ window.__K950_ACTIVE_DOC_ID=prev.documentId;
+ window.__K992_ACTIVE_DOC_ID=prev.documentId;
+ const body=prev.node.querySelector('.k91modalbody');
+ if(body)body.scrollTop=prev.scrollTop||0;
+}
+
+async function openDocumentModal(documentId,q=lastSearchQuery,mode='root'){
+ const current=document.getElementById('k91docmodal');
+ if(mode==='related'&&current){
+   const body=current.querySelector('.k91modalbody');
+   k9926PreservedDocumentStack.push({
+     node:current,
+     documentId:current.dataset.documentId||'',
+     scrollTop:body?.scrollTop||0
+   });
+   current.remove();
+ }else{
+   current?.remove();
+   if(mode==='root')k9926ClearPreserved();
+ }
+
  window.__K951_ACTIVE_DOC_ID=documentId;window.__K950_ACTIVE_DOC_ID=documentId;window.__K992_ACTIVE_DOC_ID=documentId;
  const w=document.createElement('div');w.id='k91docmodal';w.className='k91modalbackdrop';w.dataset.documentId=documentId;
  w.innerHTML='<div class="k91modal"><div class="k91modal-loading">در حال دریافت متن سند…</div></div>';
- w.onclick=e=>{if(e.target===w)closeDocumentModal(true)};document.body.appendChild(w);document.body.classList.add('k91-modal-open');
+ w.onclick=e=>{if(e.target===w)closeDocumentModal()};
+ document.body.appendChild(w);document.body.classList.add('k91-modal-open');
+
  try{
   const d=await api('/api/v1/knowledge/document-bank?documentId='+encodeURIComponent(documentId)+'&detail=1'),x=(d.items||[])[0]||{};
   if(!x.id)throw Error('سند پیدا نشد یا دسترسی مجاز نیست.');
   const body=String(x.fullText||'').trim(),rendered=q?highlightText(body,q):esc(body);
-  const back=k9924DocumentNavStack.length?`<div class="k9925relationnav"><button class="k9924modalback" type="button">← بازگشت به سند قبلی</button></div>`:'';
+  const back=k9926PreservedDocumentStack.length?`<div class="k9926relationbackbar"><button type="button" class="k9926relationback">← بازگشت به سند قبلی</button></div>`:'';
   w.innerHTML=`<div class="k91modal" role="dialog" aria-modal="true"><div class="k91modalhead"><div><div class="k91modalbadges"><span>${docClass(x.documentClass)}</span><span>${statusLabel(x.validityStatus)}</span>${classLabel(x.classification)!==docClass(x.documentClass)?`<span>${classLabel(x.classification)}</span>`:''}</div><h3>${esc(x.title||'بدون عنوان')}</h3>${metaLine(x)}</div><button class="k91modalclose" type="button">×</button></div><div class="k91modalmeta"><span>تاریخ تصویب/صدور <b>${fmtDate(x.issuedAt||x.createdAt)}</b></span><span>تاریخ ابلاغ <b>${fmtDate(x.promulgationDate)}</b></span><span>شماره جلسه <b>${esc(x.meetingNumber||'—')}</b></span><span>شماره سند <b>${esc(x.documentNumber||'—')}</b></span></div>${back}<div class="k91modalbody">${body?`<div class="k91fulltext">${rendered}</div>`:'<div class="k76empty">متن استخراج‌شده‌ای وجود ندارد.</div>'}</div></div>`;
-  w.querySelector('.k91modalclose').onclick=()=>closeDocumentModal(true);
-  const backBtn=w.querySelector('.k9924modalback');
-  if(backBtn)backBtn.onclick=()=>{
-    const prev=k9924DocumentNavStack.pop();
-    if(prev)openDocumentModal(prev.documentId,prev.q,'back');
-  };
+  w.querySelector('.k91modalclose').onclick=closeDocumentModal;
+  const backBtn=w.querySelector('.k9926relationback');
+  if(backBtn)backBtn.onclick=k9926RestorePrevious;
   persianize(w);
-  const notify=()=>document.dispatchEvent(new CustomEvent('k9925:document-opened',{detail:{documentId,navMode}}));
-  setTimeout(notify,0);setTimeout(notify,90);setTimeout(notify,260);
   if(q)setTimeout(()=>w.querySelector('.k91highlight')?.scrollIntoView({block:'center',behavior:'smooth'}),80);
  }catch(e){
-   w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;
-   w.querySelector('.k91modalclose').onclick=()=>closeDocumentModal(true)
+  w.innerHTML=`<div class="k91modal"><div class="k91modalhead"><h3>مشاهده سند</h3><button class="k91modalclose">×</button></div><div class="k76empty">${esc(e.message)}</div></div>`;
+  w.querySelector('.k91modalclose').onclick=closeDocumentModal
  }
 }
 
-window.__ORG_OPEN_DOCUMENT__=(documentId,q='')=>openDocumentModal(documentId,q,'auto');
+window.__ORG_OPEN_DOCUMENT__=(documentId,q='')=>openDocumentModal(documentId,q,'related');
 document.addEventListener('click',e=>{
  const p=e.target?.closest?.('#k91docmodal .k944relmain [data-doc-preview],#k91docmodal .k944relations [data-doc-preview]');
  if(!p?.dataset.docPreview)return;
