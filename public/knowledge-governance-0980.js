@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.12';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.13';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -321,41 +321,160 @@ async function openCase(id){
  z.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-function k9910MacroShell(){
+
+function k9913MacroShell(){
  document.getElementById('workspaceContext')?.classList.add('k91-hidden-workspace');
  let x=document.getElementById('knowledge076');if(!x){x=document.createElement('section');x.id='knowledge076';x.className='knowledge076';document.querySelector('.main')?.prepend(x)}
- x.innerHTML=`<div class="k76head k9910macro-head"><div class="k998research-nav"><button type="button" class="k91back" data-k9910-back>← بازگشت به دانش و اسناد سازمان</button><div><small>دانش کلان · تثبیت معنایی بین‌اسنادی · ۰.۹.۹.۰.۱۲</small><h2>دانش مفهومی معتبر سازمان</h2><p>مفاهیم نهایی‌شده اسناد در اینجا با دانش موجود سازمان تطبیق داده و به مفهوم سازمانی Canonical تبدیل می‌شوند؛ شبکه مفاهیم، کمّی‌سازی، شاخص و تحقق در محیط «جهت‌گیری سازمان» انجام می‌شود.</p></div></div></div><div id="k9910macrobody"><div class="k76loading">در حال آماده‌سازی دانش کلان…</div></div>`;
- x.querySelector('[data-k9910-back]').onclick=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};return x
+ x.innerHTML=`<div class="k76head k9913macro-head"><div class="k998research-nav"><button type="button" class="k91back" data-k9913-back>← بازگشت به دانش و اسناد سازمان</button><div><small>دانش کلان · پالایش مفهومی + تولید دانش · ۰.۹.۹.۰.۱۳</small><h2>دانش کلان سازمان</h2><p>مرحله اول، مفاهیم نهایی‌شده را از همانندی، ابهام و تعارض پالایش می‌کند؛ مرحله دوم، از مفاهیم تثبیت‌شده خوشه‌ها، روابط و دانش ترکیبی می‌سازد.</p></div></div></div><div id="k9913macrobody"><div class="k76loading">در حال آماده‌سازی دانش کلان…</div></div>`;
+ x.querySelector('[data-k9913-back]').onclick=()=>{x.remove();document.getElementById('workspaceContext')?.classList.remove('k91-hidden-workspace')};return x
 }
-function k9910SourceCard(x){
+function k9913SourceCard(x){
  const sug=(x.suggestions||[])[0];
- return `<article class="k9910source ${x.status==='linked'?'linked':''}">
-  <header><div><small>${esc(x.documentType||'سند بالادستی')}</small><h4>${esc(x.concept)}</h4></div><span>${x.status==='linked'?'تطبیق‌شده':'نیازمند تطبیق'}</span></header>
+ const status=x.status==='under_review'?'در حال تعیین تکلیف':x.status==='linked'?'تثبیت‌شده':'نیازمند تطبیق';
+ return `<article class="k9913source ${x.status}">
+  <header><div><small>${esc(x.documentType||'سند بالادستی')}</small><h4>${esc(x.concept)}</h4></div><span>${status}</span></header>
   <p>${esc(x.definition||'تعریف نهایی ثبت نشده است.')}</p>
-  <div class="k9910origin">منشأ: ${esc(x.documentTitle)}</div>
-  ${sug&&x.status!=='linked'?`<div class="k9910suggest"><b>پیشنهاد سامانه</b><span>شباهت احتمالی با «${esc(sug.title)}» · ${fa(Math.round(sug.similarity*100))}٪</span></div>`:''}
-  ${x.status!=='linked'?`<footer><button type="button" data-k9910-new="${esc(x.id)}">ایجاد مفهوم سازمانی</button>${sug?`<button type="button" data-k9910-link="${esc(x.id)}" data-canonical="${esc(sug.id)}">تطبیق با «${esc(sug.title)}»</button>`:''}<button type="button" class="ghost" data-k9910-issue="${esc(x.id)}" data-canonical="${esc(sug?.id||'')}">نیازمند بررسی</button></footer>`:''}
+  <div class="k9913origin">منشأ: ${esc(x.documentTitle)}</div>
+  ${sug&&x.status==='new'?`<div class="k9913suggest"><b>پیشنهاد تطبیق سامانه</b><span>«${esc(sug.title)}» · ${fa(Math.round(sug.similarity*100))}٪ شباهت</span></div>`:''}
+  ${x.status==='new'?`<footer><button type="button" data-k9913-new="${esc(x.id)}">مفهوم مستقل و تثبیت‌شده</button>${sug?`<button type="button" data-k9913-link="${esc(x.id)}" data-canonical="${esc(sug.id)}">همان مفهوم موجود است</button>`:''}<button type="button" class="ghost" data-k9913-issue="${esc(x.id)}" data-canonical="${esc(sug?.id||'')}">ابهام/تعارض؛ بررسی شود</button></footer>`:''}
  </article>`;
 }
-function k9910CanonicalCard(c){
- return `<article class="k9910canonical"><header><div><small>Canonical Organizational Concept</small><h4>${esc(c.title)}</h4></div><span>${fa(c.sourceCount||0)} منشأ</span></header><p>${esc(c.definition||'')}</p><div class="k9910sources">${(c.sources||[]).slice(0,5).map(x=>`<span>${esc(x.documentTitle||x.concept)}</span>`).join('')||'<span>بدون منشأ نمایشی</span>'}</div><footer><small>وضعیت: مفهوم معتبر سازمانی · آماده بررسی برای ورود به محیط جهت‌گیری</small></footer></article>`;
+function k9913IssueCard(i){
+ const target=i.target;
+ return `<article class="k9913issue-card">
+  <header><div><small>${esc(i.issueTypeLabel||'نیازمند بررسی')}</small><h4>${esc(i.source?.concept||'مفهوم')}</h4></div><span>${target?`${fa(Math.round((i.similarity||0)*100))}٪ شباهت`:'بدون مفهوم مقابل'}</span></header>
+  <div class="k9913compare">
+   <section><b>مفهوم ورودی</b><p>${esc(i.source?.definition||'')}</p><small>منشأ: ${esc(i.source?.documentTitle||'')}</small></section>
+   <i>↔</i>
+   <section><b>${target?'مفهوم سازمانی مقابل':'موضوع بررسی'}</b><p>${esc(target?.definition||i.note||'')}</p><small>${target?esc(target.title):'هنوز مفهوم مقابل تعیین نشده است'}</small></section>
+  </div>
+  <div class="k9913issue-note"><b>علت ثبت پرونده</b><span>${esc(i.note||'نیازمند بررسی معنایی')}</span></div>
+  <footer>
+   ${target?`<button data-k9913-resolve="${esc(i.id)}" data-decision="same_as">هم‌معنا؛ ادغام شود</button>
+   <button data-k9913-resolve="${esc(i.id)}" data-decision="narrower_than">مفهوم ورودی خاص‌تر است</button>
+   <button data-k9913-resolve="${esc(i.id)}" data-decision="broader_than">مفهوم ورودی عام‌تر است</button>
+   <button data-k9913-resolve="${esc(i.id)}" data-decision="overlaps_with">مستقل ولی همپوشان</button>`:''}
+   <button data-k9913-resolve="${esc(i.id)}" data-decision="independent">مستقل و بدون تعارض</button>
+   <button class="danger" data-k9913-resolve="${esc(i.id)}" data-decision="semantic_conflict">تعارض واقعی تأیید شد</button>
+  </footer>
+ </article>`;
 }
-async function openMacroKnowledge(){
- const x=k9910MacroShell(),b=x.querySelector('#k9910macrobody');
+function k9913CanonicalCard(c){
+ return `<article class="k9913canonical"><header><div><small>${esc(c.topic||'مفهوم سازمانی')}</small><h4>${esc(c.title)}</h4></div><span>${c.stabilized?'تثبیت‌شده':'در انتظار تعیین تکلیف'}</span></header><p>${esc(c.definition||'')}</p><footer><small>${fa(c.sourceCount||0)} منشأ معتبر</small></footer></article>`;
+}
+function k9913KnowledgeCard(k){
+ const candidate=k.status==='system_candidate';
+ return `<article class="k9913knowledge-card ${candidate?'candidate':'accepted'}">
+  <header><div><small>${candidate?'پیشنهاد دانش سامانه':'دانش تثبیت‌شده'}</small><h4>${esc(k.title)}</h4></div><span>${fa(k.conceptRefs?.length||k.size||0)} مفهوم</span></header>
+  <p>${esc(k.synthesis||'')}</p>
+  <div class="k9913concept-chips">${(k.conceptTitles||[]).map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+  ${candidate?`<footer><button data-k9913-accept-knowledge="${esc(k.id)}">تثبیت به‌عنوان دانش کلان</button></footer>`:''}
+ </article>`;
+}
+function k9913BuildMap(stabilized,relations,knowledge){
+ const W=1040,H=600,cx=W/2,cy=H/2;
+ const accepted=knowledge.filter(k=>k.accepted||k.status==='accepted');
+ const candidates=knowledge.filter(k=>k.status==='system_candidate');
+ const ks=[...accepted,...candidates];
+ const topicMap=new Map();
+ stabilized.forEach(c=>{if(!topicMap.has(c.topic))topicMap.set(c.topic,[]);topicMap.get(c.topic).push(c)});
+ const topics=[...topicMap.keys()];
+ const hubs={};
+ topics.forEach((t,i)=>{const a=(Math.PI*2*i/Math.max(1,topics.length))-Math.PI/2;hubs[t]={x:cx+Math.cos(a)*210,y:cy+Math.sin(a)*165}});
+ const pos={};
+ stabilized.forEach(c=>{
+   const arr=topicMap.get(c.topic)||[],idx=arr.findIndex(x=>x.id===c.id),hub=hubs[c.topic]||{x:cx,y:cy};
+   const a=(Math.PI*2*idx/Math.max(1,arr.length));
+   const r=arr.length===1?0:70+10*(idx%2);
+   pos[c.id]={x:hub.x+Math.cos(a)*r,y:hub.y+Math.sin(a)*r};
+ });
+ ks.forEach((k,i)=>{
+   const hub=hubs[k.topic]||{x:cx,y:cy};
+   pos[k.id]={x:hub.x,y:hub.y};
+ });
+ const edges=[];
+ for(const r of relations){
+   if(pos[r.sourceRef]&&pos[r.targetRef])edges.push(`<line class="k9913map-rel" x1="${pos[r.sourceRef].x}" y1="${pos[r.sourceRef].y}" x2="${pos[r.targetRef].x}" y2="${pos[r.targetRef].y}" stroke-width="${1+4*Number(r.strength||.3)}"><title>${esc(r.typeLabel||'رابطه دانشی')}</title></line>`);
+ }
+ for(const k of ks){
+   for(const ref of (k.conceptRefs||[])){
+     if(pos[ref]&&pos[k.id])edges.push(`<line class="k9913map-knowledge-edge" x1="${pos[ref].x}" y1="${pos[ref].y}" x2="${pos[k.id].x}" y2="${pos[k.id].y}"/>`);
+   }
+ }
+ const nodes=[];
+ for(const c of stabilized){
+   const p=pos[c.id],rad=24+22*Number(c.knowledgeCentrality||0);
+   nodes.push(`<g class="k9913map-node concept" data-k9913-node="${esc(c.id)}" tabindex="0"><circle cx="${p.x}" cy="${p.y}" r="${rad}"/><text x="${p.x}" y="${p.y+4}" text-anchor="middle">${esc((c.title||'').slice(0,18))}</text><title>${esc(c.title)} · مرکزیت دانشی ${fa(Math.round((c.knowledgeCentrality||0)*100))}٪</title></g>`);
+ }
+ for(const k of ks){
+   const p=pos[k.id],rad=46+Math.min(18,(k.conceptRefs?.length||2)*3);
+   nodes.push(`<g class="k9913map-node knowledge ${k.status==='system_candidate'?'candidate':''}" data-k9913-node="${esc(k.id)}" tabindex="0"><circle cx="${p.x}" cy="${p.y}" r="${rad}"/><text x="${p.x}" y="${p.y-2}" text-anchor="middle">دانش</text><text x="${p.x}" y="${p.y+14}" text-anchor="middle">${esc((k.topic||'ترکیبی').slice(0,15))}</text><title>${esc(k.title)}</title></g>`);
+ }
+ return `<div class="k9913map-wrap"><svg class="k9913map" viewBox="0 0 ${W} ${H}" role="img" aria-label="نقشه گلوله‌ای دانش کلان">${edges.join('')}${nodes.join('')}</svg><aside class="k9913map-detail" data-k9913-map-detail><b>نقشه دانش کلان</b><p>روی هر گلوله کلیک کنید. گلوله‌های آبی مفهوم تثبیت‌شده و گلوله‌های بنفش/طلایی دانش ترکیبی هستند. اندازه مفهوم نشان‌دهنده مرکزیت دانشی آن است.</p></aside></div>`;
+}
+async function openMacroKnowledgeV13(){
+ const x=k9913MacroShell(),b=x.querySelector('#k9913macrobody');
  try{
-  const d=await api('/api/v1/knowledge/macro-knowledge'),sm=d.summary||{},src=d.sourceConcepts||[],can=d.canonicalConcepts||[],issues=d.issues||[];
-  b.innerHTML=`<section class="k9910contract"><b>مرز این محیط</b><span>دانش کلان فقط «معنای معتبر سازمانی» را تثبیت می‌کند.</span><em>Canonical Concept ≠ Directional Concept</em></section>
-   <section class="k9910stats"><article><b>${fa(sm.validatedConcepts||0)}</b><span>مفهوم معتبر اسناد</span></article><article><b>${fa(sm.newForReview||0)}</b><span>نیازمند تطبیق</span></article><article><b>${fa(sm.canonicalConcepts||0)}</b><span>مفهوم سازمانی تثبیت‌شده</span></article><article><b>${fa(sm.openIssues||0)}</b><span>ابهام یا تعارض باز</span></article></section>
-   <div class="k9910tabs"><button class="on" data-k9910-tab="new">مفاهیم جدید برای تطبیق</button><button data-k9910-tab="canonical">مفاهیم سازمانی تثبیت‌شده</button><button data-k9910-tab="issues">ابهام‌ها و تعارض‌ها</button></div>
-   <section data-k9910-pane="new" class="k9910pane">${src.filter(x=>x.status==='new').length?src.filter(x=>x.status==='new').map(k9910SourceCard).join(''):'<div class="k76empty">همه مفاهیم نهایی‌شده فعلی تعیین تکلیف شده‌اند.</div>'}</section>
-   <section data-k9910-pane="canonical" class="k9910pane" hidden>${can.length?can.map(k9910CanonicalCard).join(''):'<div class="k76empty">هنوز مفهوم سازمانی Canonical تثبیت نشده است.</div>'}</section>
-   <section data-k9910-pane="issues" class="k9910pane" hidden>${issues.length?issues.map(i=>`<article class="k9910issue"><b>${esc(i.issueType||'نیازمند بررسی')}</b><p>${esc(i.note||'')}</p></article>`).join(''):'<div class="k76empty">ابهام یا تعارض باز ثبت نشده است.</div>'}</section>`;
-  b.querySelectorAll('[data-k9910-tab]').forEach(btn=>btn.onclick=()=>{b.querySelectorAll('[data-k9910-tab]').forEach(q=>q.classList.toggle('on',q===btn));b.querySelectorAll('[data-k9910-pane]').forEach(q=>q.hidden=q.dataset.k9910Pane!==btn.dataset.k9910Tab)});
-  b.querySelectorAll('[data-k9910-new]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'create_canonical',sourceConceptId:btn.dataset.k9910New})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
-  b.querySelectorAll('[data-k9910-link]').forEach(btn=>btn.onclick=async()=>{if(!confirm('این مفهوم به مفهوم سازمانی پیشنهادی متصل شود؟ مفهوم سندی و سابقه آن حذف نخواهد شد.'))return;btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'link_existing',sourceConceptId:btn.dataset.k9910Link,canonicalId:btn.dataset.canonical,relation:'same_as'})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
-  b.querySelectorAll('[data-k9910-issue]').forEach(btn=>btn.onclick=async()=>{const note=prompt('دلیل نیاز به بررسی معنایی را ثبت کنید:','شباهت یا تفاوت معنایی نیازمند بررسی انسانی است.');if(note===null)return;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'flag_issue',sourceConceptId:btn.dataset.k9910Issue,canonicalId:btn.dataset.canonical,note})});await openMacroKnowledge();counters()}catch(e){alert(e.message)}});
+  const d=await api('/api/v1/knowledge/macro-knowledge'),sm=d.summary||{},src=d.sourceConcepts||[],can=d.canonicalConcepts||[],st=d.stabilizedConcepts||[],issues=d.issues||[],rels=d.semanticRelations||[],knowledge=d.knowledgeObjects||[];
+  b.innerHTML=`<section class="k9913flow">
+    <div class="on"><b>۱</b><span>پالایش و تعیین تکلیف مفاهیم</span></div><i>←</i>
+    <div class="${st.length?'on':''}"><b>۲</b><span>مفاهیم تثبیت‌شده</span></div><i>←</i>
+    <div class="${knowledge.length?'on':''}"><b>۳</b><span>ترکیب و تولید دانش</span></div>
+   </section>
+   <section class="k9913contract"><b>مرز محیط</b><span>مرکزیت و اولویت در اینجا «شناختی/دانشی» است؛ اولویت راهبردی، کمّی‌سازی، شاخص و تحقق در «جهت‌گیری سازمان» انجام می‌شود.</span></section>
+   <section class="k9913stats"><article><b>${fa(sm.validatedConcepts||0)}</b><span>مفهوم معتبر اسناد</span></article><article><b>${fa(sm.openIssues||0)}</b><span>پرونده تعیین تکلیف</span></article><article><b>${fa(sm.stabilizedConcepts||0)}</b><span>مفهوم خالص تثبیت‌شده</span></article><article><b>${fa((sm.acceptedKnowledge||0)+(sm.knowledgeCandidates||0))}</b><span>دانش تثبیت‌شده / پیشنهادی</span></article></section>
+   <div class="k9913tabs"><button class="on" data-k9913-tab="resolve">۱. پالایش مفاهیم</button><button data-k9913-tab="stable">۲. مفاهیم تثبیت‌شده</button><button data-k9913-tab="knowledge">۳. دانش کلان و نقشه</button></div>
+   <section data-k9913-pane="resolve" class="k9913pane">
+    ${issues.length?`<div class="k9913section-title"><b>ابهام‌ها، همانندی‌ها و تعارض‌های نیازمند تصمیم</b><span>تا تعیین تکلیف، این مفاهیم وارد تولید دانش نمی‌شوند.</span></div>${issues.map(k9913IssueCard).join('')}`:''}
+    <div class="k9913section-title"><b>مفاهیم جدید برای تطبیق</b><span>مفاهیم نهایی‌شده‌ای که هنوز جایگاه بین‌اسنادی آن‌ها مشخص نشده است.</span></div>
+    ${src.filter(x=>x.status==='new').length?src.filter(x=>x.status==='new').map(k9913SourceCard).join(''):'<div class="k76empty">مفهوم جدیدِ تعیین‌تکلیف‌نشده وجود ندارد.</div>'}
+   </section>
+   <section data-k9913-pane="stable" class="k9913pane" hidden>
+    <div class="k9913section-title"><b>مفاهیم خالص و تثبیت‌شده</b><span>فقط مفاهیمی که ابهام و تعارض باز ندارند وارد این بخش می‌شوند.</span></div>
+    ${can.filter(x=>x.stabilized).length?can.filter(x=>x.stabilized).map(k9913CanonicalCard).join(''):'<div class="k76empty">هنوز مفهوم تثبیت‌شده‌ای برای ورود به مرحله تولید دانش وجود ندارد.</div>'}
+   </section>
+   <section data-k9913-pane="knowledge" class="k9913pane" hidden>
+    <div class="k9913section-title"><b>نقشه گلوله‌ای دانش کلان</b><span>موضوع‌بندی، مرکزیت دانشی، روابط و دانش حاصل از ترکیب مفاهیم تثبیت‌شده.</span></div>
+    ${st.length?k9913BuildMap(st,rels,knowledge):'<div class="k76empty">برای ساخت نقشه دانش، ابتدا مفاهیم باید در مرحله اول تثبیت شوند.</div>'}
+    <div class="k9913knowledge-list">${knowledge.length?knowledge.map(k9913KnowledgeCard).join(''):'<div class="k76empty">هنوز خوشه‌ای با حداقل دو مفهوم تثبیت‌شده برای تولید دانش ترکیبی وجود ندارد.</div>'}</div>
+   </section>`;
+
+  b.querySelectorAll('[data-k9913-tab]').forEach(btn=>btn.onclick=()=>{b.querySelectorAll('[data-k9913-tab]').forEach(q=>q.classList.toggle('on',q===btn));b.querySelectorAll('[data-k9913-pane]').forEach(q=>q.hidden=q.dataset.k9913Pane!==btn.dataset.k9913Tab)});
+  b.querySelectorAll('[data-k9913-new]').forEach(btn=>btn.onclick=async()=>{btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'create_canonical',sourceConceptId:btn.dataset.k9913New})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
+  b.querySelectorAll('[data-k9913-link]').forEach(btn=>btn.onclick=async()=>{if(!confirm('این مفهوم همان مفهوم سازمانی پیشنهادی تلقی شود؟ سابقه سندی حذف نمی‌شود.'))return;btn.disabled=true;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'link_existing',sourceConceptId:btn.dataset.k9913Link,canonicalId:btn.dataset.canonical,relation:'same_as'})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
+  b.querySelectorAll('[data-k9913-issue]').forEach(btn=>btn.onclick=async()=>{const note=prompt('علت ابهام، همانندی یا تعارض احتمالی را ثبت کنید:','شباهت یا تفاوت معنایی نیازمند بررسی انسانی است.');if(note===null)return;try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'flag_issue',sourceConceptId:btn.dataset.k9913Issue,canonicalId:btn.dataset.canonical,note})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}});
+
+  b.querySelectorAll('[data-k9913-resolve]').forEach(btn=>btn.onclick=async()=>{
+    const labels={same_as:'هم‌معنا و ادغام',narrower_than:'خاص‌تر',broader_than:'عام‌تر',overlaps_with:'مستقل ولی همپوشان',independent:'مستقل و بدون تعارض',semantic_conflict:'تعارض واقعی'};
+    const decision=btn.dataset.decision;
+    const note=prompt(`توضیح تصمیم «${labels[decision]||decision}» را ثبت کنید:`,decision==='semantic_conflict'?'تعارض معنایی تأیید شد و تا رفع تعارض وارد تولید دانش نمی‌شود.':'');
+    if(note===null)return;
+    btn.disabled=true;
+    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'resolve_issue',issueId:btn.dataset.k9913Resolve,decision,note})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}
+  });
+
+  const byId=new Map([...st,...knowledge].map(x=>[x.id,x]));
+  b.querySelectorAll('[data-k9913-node]').forEach(node=>node.onclick=()=>{
+    const obj=byId.get(node.dataset.k9913Node),box=b.querySelector('[data-k9913-map-detail]');if(!obj||!box)return;
+    if(obj.conceptRefs){
+      box.innerHTML=`<small>دانش ترکیبی</small><b>${esc(obj.title)}</b><p>${esc(obj.synthesis||'')}</p><div>${(obj.conceptTitles||[]).map(x=>`<span>${esc(x)}</span>`).join('')}</div>`;
+    }else{
+      const related=rels.filter(r=>r.sourceRef===obj.id||r.targetRef===obj.id);
+      box.innerHTML=`<small>مفهوم تثبیت‌شده · ${esc(obj.topic||'')}</small><b>${esc(obj.title)}</b><p>${esc(obj.definition||'')}</p><div><span>مرکزیت دانشی: ${fa(Math.round((obj.knowledgeCentrality||0)*100))}٪</span><span>اولویت شناختی: ${fa(Math.round((obj.cognitivePriority||0)*100))}٪</span><span>${fa(related.length)} رابطه دانشی</span></div>`;
+    }
+  });
+
+  b.querySelectorAll('[data-k9913-accept-knowledge]').forEach(btn=>btn.onclick=async()=>{
+    const k=knowledge.find(x=>x.id===btn.dataset.k9913AcceptKnowledge);if(!k)return;
+    const edited=prompt('متن دانش ترکیبی را در صورت نیاز اصلاح و سپس تأیید کنید:',k.synthesis||'');if(edited===null)return;
+    btn.disabled=true;
+    try{await api('/api/v1/knowledge/macro-knowledge',{method:'POST',body:JSON.stringify({action:'accept_knowledge',candidate:k,synthesis:edited})});await openMacroKnowledgeV13();counters()}catch(e){alert(e.message)}
+  });
  }catch(e){b.innerHTML=`<div class="k76empty">${esc(e.message)}</div>`}
 }
+
+const openMacroKnowledge=k9913OpenMacroCompat;
+function k9913OpenMacroCompat(){return openMacroKnowledgeV13()}
 
 window.addEventListener('click',e=>{const c=e.target.closest?.('[data-capability="تحلیل اسناد"]');if(!c)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();openAnalysis()},true);
 let replacing=false;new MutationObserver(()=>{if(replacing)return;const x=document.getElementById('knowledge076');if(x&&x.querySelector('#k76body')&&!x.querySelector('#k983body')&&/تحلیل شناختی اسناد/.test(x.textContent||'')){replacing=true;Promise.resolve(openAnalysis()).finally(()=>setTimeout(()=>replacing=false,100))}}).observe(document.documentElement,{childList:true,subtree:true});
