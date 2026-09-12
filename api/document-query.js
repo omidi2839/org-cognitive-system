@@ -63,11 +63,70 @@ function termsOf(q,known=[]){
  n=n.replace(/(?:جلسه|مصوبه|سند|تصمیم)\s*(?:شماره)?\s*[۰-۹٠-٩0-9]+/g,' ').replace(/(?:از\s+)?سال\s*[۰-۹٠-٩0-9]{4}(?:\s*تا\s*(?:سال\s*)?[۰-۹٠-٩0-9]{4})?/g,' ');
  return[...new Set(n.split(/[^\p{L}\p{N}]+/u).filter(x=>x.length>1&&!stop.has(x)))];
 }
+
+/* ---------- SINA AI Gateway V1 / 0.9.9.1.0 ---------- */
+const k9910AiOutputText=r=>{
+  if(typeof r?.output_text==='string')return r.output_text;
+  for(const item of r?.output||[])for(const c of item?.content||[])
+    if(c?.type==='output_text'&&c?.text)return c.text;
+  return '';
+};
+async function k9910RunSinaAI(prompt){
+  const key=process.env.OPENAI_API_KEY;
+  if(!key)throw Object.assign(new Error('OPENAI_API_KEY_REQUIRED'),{code:'OPENAI_API_KEY_REQUIRED'});
+  const model=String(process.env.SINA_AI_MODEL||'gpt-5.6-terra');
+  const base=String(process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'');
+  const maxOut=Math.max(64,Math.min(4096,Number(process.env.SINA_AI_MAX_OUTPUT_TOKENS||800)));
+  const timeoutMs=Math.max(5000,Math.min(120000,Number(process.env.SINA_AI_TIMEOUT_MS||45000)));
+  const started=Date.now();
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),timeoutMs);
+  let response;
+  try{
+    response=await fetch(base+'/responses',{
+      method:'POST',
+      signal:controller.signal,
+      headers:{'content-type':'application/json','authorization':'Bearer '+key},
+      body:JSON.stringify({
+        model,
+        instructions:'تو «سینا»، دستیار هوش شناختی سازمان هستی. در این مرحله فقط اتصال فنی را آزمایش می‌کنی. فارسی، کوتاه، دقیق و حرفه‌ای پاسخ بده.',
+        input:[{role:'user',content:[{type:'input_text',text:String(prompt||'').slice(0,8000)}]}],
+        store:false,
+        max_output_tokens:maxOut
+      })
+    });
+  }finally{clearTimeout(timer)}
+  if(!response.ok){
+    const detail=(await response.text()).slice(0,1200);
+    throw Object.assign(new Error('OPENAI_PROVIDER_ERROR '+response.status+' '+detail),{code:'OPENAI_PROVIDER_ERROR',status:response.status});
+  }
+  const raw=await response.json();
+  const text=k9910AiOutputText(raw);
+  if(!text)throw Object.assign(new Error('OPENAI_EMPTY_RESPONSE'),{code:'OPENAI_EMPTY_RESPONSE'});
+  const u=raw.usage||{};
+  return {
+    ok:true,provider:'openai-responses',model,text,latencyMs:Date.now()-started,
+    usage:{input:Number(u.input_tokens||0),output:Number(u.output_tokens||0),total:Number(u.total_tokens||0)}
+  };
+}
+
 export default async function handler(req,res){
  if(!requireAuthenticated(req,res))return;
  try{
+  const u=new URL(req.url,'https://local');
+  if(u.pathname==='/api/v1/ai/status'&&req.method==='GET'){
+    const enabled=String(process.env.SINA_AI_ENABLED||'false').toLowerCase()==='true';
+    return send(res,200,{enabled,provider:enabled?String(process.env.SINA_AI_PROVIDER||'openai'):'disabled',model:enabled?String(process.env.SINA_AI_MODEL||'gpt-5.6-terra'):null,keyConfigured:Boolean(process.env.OPENAI_API_KEY)});
+  }
+  if(u.pathname==='/api/v1/ai/test'&&req.method==='POST'){
+    if(String(process.env.SINA_AI_ENABLED||'false').toLowerCase()!=='true')return send(res,503,{code:'SINA_AI_DISABLED',message:'هوش مصنوعی سینا غیرفعال است.'});
+    if(String(process.env.SINA_AI_PROVIDER||'openai').toLowerCase()!=='openai')return send(res,503,{code:'SINA_AI_PROVIDER_UNSUPPORTED',message:'ارائه‌دهنده هوش مصنوعی پشتیبانی نمی‌شود.'});
+    const prompt=String(req.body?.prompt||'').trim();
+    if(!prompt)return send(res,400,{code:'PROMPT_REQUIRED',message:'متن آزمایش الزامی است.'});
+    return send(res,200,await k9910RunSinaAI(prompt));
+  }
   if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
-  const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),u=new URL(req.url,'https://local');
+  const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
   const question=String(u.searchParams.get('question')||u.searchParams.get('q')||''),mode=u.searchParams.get('mode')||'search',db=await repo.all(),nq=norm(question);
   const textByDoc=new Map();for(const x of(db.normalizedDocuments||[])){const id=x.documentRef||x.documentId||x.sourceDocumentRef,txt=String(x.text||x.content||x.normalizedText||'');if(id&&txt.length>(textByDoc.get(id)||'').length)textByDoc.set(id,txt)}
   const all=(db.documents||[]).filter(d=>d.organizationId===org);
