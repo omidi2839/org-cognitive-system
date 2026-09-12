@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.29';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.30';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -75,17 +75,10 @@ function k9922DecorateKnowledgeCards(){
  ctx.querySelectorAll('.capability-card').forEach(card=>{
    const name=k9922CardName(card);
    if(!['اسناد بالادستی','اسناد عمومی'].includes(name))return;
-   card.classList.add('k9922-document-source-card');
-   const kind=name==='اسناد بالادستی'?'upstream':'general';
-   let action=card.querySelector('[data-k9922-register]');
-   if(!action){
-     action=document.createElement('button');
-     action.type='button';
-     action.className='k9922-register-document';
-     action.dataset.k9922Register=kind;
-     action.innerHTML=`<span>＋</span> ثبت ${name}`;
-     card.appendChild(action);
-   }
+   // 0.9.9.0.30: registration CTA ownership moved exclusively to
+   // sina-direct-registration-09926.js. Remove any legacy CTA remnants.
+   card.querySelectorAll('[data-k9922-register],[data-k9925-register]').forEach(x=>x.remove());
+   card.classList.add('k9926-source-card');
  });
 }
 let k9922Timer;
@@ -93,24 +86,7 @@ new MutationObserver(()=>{
  clearTimeout(k9922Timer);
  k9922Timer=setTimeout(k9922DecorateKnowledgeCards,60);
 }).observe(document.documentElement,{childList:true,subtree:true});
-document.addEventListener('click',e=>{
- const reg=e.target.closest?.('[data-k9922-register]');
- if(reg){
-   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-   const card=reg.closest('.capability-card');
-   k9922DirectRegistration(card,reg.dataset.k9922Register);
-   return;
- }
- const card=e.target.closest?.('.capability-card');
- if(!card||card.dataset.k9922Bypass==='1')return;
- const name=k9922CardName(card);
- if(!['اسناد بالادستی','اسناد عمومی'].includes(name))return;
- // These cards are now summary cards. Registration is exposed directly inside them;
- // document browsing remains centralized in «بانک اسناد».
- e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
- card.classList.add('k9922-attention');
- setTimeout(()=>card.classList.remove('k9922-attention'),420);
-},true);
+
 k9922DecorateKnowledgeCards();
 
 function k998ConceptKey(v){

@@ -182,3 +182,7 @@
 .k9929-finalize{margin-top:18px!important;padding:13px 14px!important;border:1px solid #c9dfd1!important;border-radius:14px!important;background:#f6fbf8!important}
 .k9929-finalize small{font-size:8.8px!important;line-height:1.9!important;color:#657b6c!important}
 .k9929-finalize button{background:#2e7b55!important;border-color:#2e7b55!important;color:#fff!important;font-weight:900!important}
+
+/* 0.9.9.0.30 — single CTA owner; legacy CTA permanently hidden */
+[data-k9922-register],[data-k9925-register]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+.k9926-source-card .k9926-register{animation:none!important;transition:color .15s ease,text-decoration-color .15s ease!important}

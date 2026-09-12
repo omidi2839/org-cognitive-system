@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.27';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.30';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -99,7 +99,7 @@ function decorate(){
    if(!kind)return;
 
    // Remove only old legacy CTAs. Reuse the current CTA so MutationObserver cannot make it blink.
-   card.querySelectorAll('[data-k9922-register],[data-k9925-register]').forEach(x=>x.remove());
+   card.querySelectorAll('[data-k9922-register],[data-k9925-register]').forEach(x=>{if(x.isConnected)x.remove()});
 
    let btn=card.querySelector('[data-k9926-register]');
    if(btn){
