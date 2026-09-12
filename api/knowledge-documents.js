@@ -142,14 +142,36 @@ async function handleDatabaseMigration(req,res,repo){
   }
 }
 
+function k9923ResolveDocument(db,requestedId,organizationId){
+  const id=String(requestedId||'').trim();
+  if(!id)return null;
+  const docs=(db.documents||[]).filter(x=>x.organizationId===organizationId);
+  let d=docs.find(x=>String(x.id)===id);
+  if(d)return d;
+  const norm=(db.normalizedDocuments||[]).find(x=>x.organizationId===organizationId&&(
+    String(x.id||'')===id||String(x.documentRef||'')===id||String(x.documentId||'')===id
+  ));
+  if(norm){
+    const ref=String(norm.documentRef||norm.documentId||'');
+    d=docs.find(x=>String(x.id)===ref||String(x.normalizedRef||'')===String(norm.id||''));
+    if(d)return d;
+  }
+  const art=(db.artifacts||[]).find(x=>x.organizationId===organizationId&&String(x.id||'')===id);
+  if(art){
+    d=docs.find(x=>String(x.id)===String(art.documentRef||'')||String(x.artifactRef||'')===String(art.id||''));
+    if(d)return d;
+  }
+  return docs.find(x=>String(x.normalizedRef||'')===id||String(x.artifactRef||'')===id)||null;
+}
+
 async function handleGovernance(req,res,repo,actor,u){
   const id=String(u.searchParams.get('documentId')||'');
   const db=await repo.all();
 
   if(req.method==='GET'){
     if(!id) return send(res,200,{permissions:{documentEdit:actor.canEdit,role:actor.role}});
-    const d=(db.documents||[]).find(x=>x.id===id&&x.organizationId===actor.organizationId);
-    if(!d) return send(res,404,{message:'سند پیدا نشد'});
+    const d=k9923ResolveDocument(db,id,actor.organizationId);
+    if(!d) return send(res,404,{message:'سند پیدا نشد',code:'DOCUMENT_NOT_FOUND',requestedId:id});
     const artifacts=(db.artifacts||[]).filter(x=>x.documentRef===d.id&&x.organizationId===actor.organizationId);
     const currentPrimary=artifacts.find(x=>x.id===d.artifactRef)||artifacts.filter(x=>x.role!=='attachment'&&x.status==='committed').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0]||null;
     const attachments=artifacts.filter(x=>x.role==='attachment'&&x.status==='committed').map(x=>({id:x.id,fileName:x.fileName,mimeType:x.mimeType,size:x.size||0,createdAt:x.createdAt||null}));
@@ -174,7 +196,8 @@ async function handleGovernance(req,res,repo,actor,u){
   let updated=null;
   await repo.mutate(s=>{
     s.documents??=[];
-    const d=s.documents.find(x=>x.id===id&&x.organizationId===actor.organizationId);
+    const snapshot={documents:s.documents||[],normalizedDocuments:s.normalizedDocuments||[],artifacts:s.artifacts||[]};
+    const d=k9923ResolveDocument(snapshot,id,actor.organizationId);
     if(!d) return;
     const before={};
     for(const k of Object.keys(patch)) before[k]=d[k]??null;
@@ -183,7 +206,7 @@ async function handleGovernance(req,res,repo,actor,u){
     s.documentEditAudit.push({
       id:`DEA:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
       organizationId:actor.organizationId,
-      documentRef:id,
+      documentRef:d.id,
       editedAt:now,
       editedBy:actor.personRef,
       before,
