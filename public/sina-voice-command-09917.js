@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_VOICE_COMMAND_BUILD__='0.9.9.0.17';
+window.__SINA_VOICE_COMMAND_BUILD__='0.9.9.0.35';
 const WAKE=/^\s*(?:سینا|سينا)\s*[,،:؛\-–—]?\s*/i;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 const getInput=()=>document.getElementById('commandInput');
@@ -13,9 +13,11 @@ function submitCommand(command){
  const el=getInput();if(!el||!command)return;
  el.value=command;
  el.dispatchEvent(new Event('input',{bubbles:true}));
- requestAnimationFrame(()=>document.getElementById('runCommand')?.click());
+ requestAnimationFrame(()=>{document.getElementById('runCommand')?.click();setTimeout(()=>{if(el)delete el.dataset.sinaVoiceMode},250)});
 }
 function recognize(){
+ const input=getInput();if(input)input.dataset.sinaVoiceMode='1';
+ document.querySelectorAll('.k990-command-drop').forEach(x=>x.hidden=true);
  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(!SR){setStatus('تشخیص گفتار در این مرورگر در دسترس نیست. می‌توانید فرمان را تایپ کنید: «سینا، جلسات من را بیاور».','error');return}
  const btn=document.getElementById('voiceCommand');
@@ -48,7 +50,7 @@ function recognize(){
      submitCommand(p.command);
    }else{
      const el=getInput();if(el){el.value=p.raw;el.dispatchEvent(new Event('input',{bubbles:true}))}
-     setStatus('فرمان در کادر قرار گرفت. برای اجرای مستقیم، جمله را با «سینا» شروع کنید.','ready');
+     setStatus('فرمان در کادر قرار گرفت. برای اجرای مستقیم، جمله را با «سینا» شروع کنید.','ready');if(el)delete el.dataset.sinaVoiceMode;
    }
  };
  try{rec.start()}catch{

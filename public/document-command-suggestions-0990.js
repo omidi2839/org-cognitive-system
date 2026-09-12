@@ -103,6 +103,7 @@ function mount(){
  input.closest('.command-row')?.appendChild(drop);
 
  const renderDrop=()=>{
+  if(input.dataset.sinaVoiceMode==='1'){hide();return}
   if(!personalActive()){hide();return}
   const q=input.value.trim(),arr=suggestions(q);
   if(!q||!arr.length){hide();return}

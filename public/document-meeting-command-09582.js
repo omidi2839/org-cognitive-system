@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.34';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.0.35';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -134,10 +134,21 @@ function renderDocCommand(d){
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
 async function handleDocumentCommand(q){
+ k9935ClearCommandResult();
  const sp=new URLSearchParams({question:q,mode:isQuestion(q)?'qa':'search'});
  const out=document.getElementById('commandResult');if(out){out.classList.remove('hidden');out.innerHTML='<div class="k950loading">در حال جستجو در عنوان، فراداده و متن کامل اسناد…</div>'}
  try{renderDocCommand(await api('/api/v1/knowledge/document-query?'+sp.toString()))}catch(e){if(out)out.innerHTML=`<div class="k950empty">${esc(e.message)}</div>`}
 }
+
+function k9935ClearCommandResult(){
+ const out=document.getElementById('commandResult');
+ if(out){out.innerHTML='';out.classList.add('hidden')}
+}
+window.addEventListener('click',e=>{
+ const nav=e.target?.closest?.('[data-workspace]');
+ if(nav && nav.dataset.workspace!=='personal') k9935ClearCommandResult();
+},true);
+
 const commandValue=()=>document.getElementById('commandInput')?.value?.trim()||'';
 window.addEventListener('click',e=>{const b=e.target?.closest?.('#runCommand'),q=commandValue();if(!b||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();handleDocumentCommand(q)},true);
 window.addEventListener('keydown',e=>{const ta=e.target?.closest?.('#commandInput'),q=commandValue();if(!ta||e.key!=='Enter'||e.shiftKey||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();handleDocumentCommand(q)},true);

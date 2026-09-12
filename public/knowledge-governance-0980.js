@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.34';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.35';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -571,14 +571,12 @@ async function openMacroKnowledgeV13(){
  const x=k9913MacroShell(),b=x.querySelector('#k9913macrobody');
  try{
   const d=await api('/api/v1/knowledge/macro-knowledge'),sm=d.summary||{},src=d.sourceConcepts||[],can=d.canonicalConcepts||[],st=d.stabilizedConcepts||[],issues=d.issues||[],rels=d.semanticRelations||[],knowledge=d.knowledgeObjects||[];
-  b.innerHTML=`<section class="k9913flow">
-    <div class="on"><b>۱</b><span>پالایش و تعیین تکلیف مفاهیم</span></div><i>←</i>
-    <div class="${st.length?'on':''}"><b>۲</b><span>مفاهیم تثبیت‌شده</span></div><i>←</i>
-    <div class="${knowledge.length?'on':''}"><b>۳</b><span>ترکیب و تولید دانش</span></div>
+  b.innerHTML=`<section class="k9913stats"><article><b>${fa(sm.validatedConcepts||0)}</b><span>مفهوم معتبر اسناد</span></article><article><b>${fa(sm.openIssues||0)}</b><span>پرونده تعیین تکلیف</span></article><article><b>${fa(sm.stabilizedConcepts||0)}</b><span>مفهوم خالص تثبیت‌شده</span></article><article><b>${fa((sm.acceptedKnowledge||0)+(sm.knowledgeCandidates||0))}</b><span>دانش تثبیت‌شده / پیشنهادی</span></article></section>
+   <section class="k9913flow k9935-stage-nav">
+    <button type="button" class="on" data-k9913-tab="resolve"><b>۱</b><span>پالایش و تعیین تکلیف مفاهیم</span></button><i>←</i>
+    <button type="button" data-k9913-tab="stable"><b>۲</b><span>مفاهیم تثبیت‌شده</span></button><i>←</i>
+    <button type="button" data-k9913-tab="knowledge"><b>۳</b><span>ترکیب و تولید دانش</span></button>
    </section>
-   <section class="k9913contract"><b>مرز محیط</b><span>مرکزیت و اولویت در اینجا «شناختی/دانشی» است؛ اولویت راهبردی، کمّی‌سازی، شاخص و تحقق در «جهت‌گیری سازمان» انجام می‌شود.</span></section>
-   <section class="k9913stats"><article><b>${fa(sm.validatedConcepts||0)}</b><span>مفهوم معتبر اسناد</span></article><article><b>${fa(sm.openIssues||0)}</b><span>پرونده تعیین تکلیف</span></article><article><b>${fa(sm.stabilizedConcepts||0)}</b><span>مفهوم خالص تثبیت‌شده</span></article><article><b>${fa((sm.acceptedKnowledge||0)+(sm.knowledgeCandidates||0))}</b><span>دانش تثبیت‌شده / پیشنهادی</span></article></section>
-   <div class="k9913tabs"><button class="on" data-k9913-tab="resolve">۱. پالایش مفاهیم</button><button data-k9913-tab="stable">۲. مفاهیم تثبیت‌شده</button><button data-k9913-tab="knowledge">۳. دانش کلان و نقشه</button></div>
    <section data-k9913-pane="resolve" class="k9913pane">
     ${issues.length?`<div class="k9913section-title"><b>ابهام‌ها، همانندی‌ها و تعارض‌های نیازمند تصمیم</b><span>تا تعیین تکلیف، این مفاهیم وارد تولید دانش نمی‌شوند.</span></div>${issues.map(k9913IssueCard).join('')}`:''}
     <div class="k9913section-title"><b>مفاهیم جدید برای تطبیق</b><span>مفاهیم نهایی‌شده‌ای که هنوز جایگاه بین‌اسنادی آن‌ها مشخص نشده است.</span></div>

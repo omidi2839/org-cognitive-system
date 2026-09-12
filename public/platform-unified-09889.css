@@ -23,3 +23,21 @@ html.auth-pending .app-layout,html.auth-pending .history-rail{filter:blur(11px) 
 .k9917-login-brand span{font-size:11px;font-weight:800;color:#42617d}
 .k9917-login-brand small{font-size:8.5px;color:#8392a0;margin-top:3px}
 .k989-login h1{margin-top:4px}
+
+/* 0.9.9.0.35 — compact Cognitive Desk composer */
+#personalHero.hero-card{padding:24px 42px 20px!important;min-height:0!important}
+#personalHero .eyebrow{margin-bottom:8px!important}
+#personalHero h1{font-size:31px!important;line-height:1.35!important;margin:4px 0 22px!important}
+#personalHero .command-row{max-width:1040px!important;margin-inline:auto!important;gap:10px!important}
+#personalHero #commandInput{min-height:54px!important;max-height:92px!important;padding-top:15px!important;padding-bottom:12px!important}
+#personalHero .send-btn{height:54px!important;min-height:54px!important}
+#personalHero .voice-btn{width:54px!important;height:54px!important;min-width:54px!important}
+#personalHero .voice-status{min-height:16px!important;margin-top:6px!important;font-size:9px!important}
+#personalSuggestions.suggestion-area{padding-top:16px!important;padding-bottom:14px!important}
+#personalSuggestions .suggestion-title{margin-bottom:10px!important}
+#personalSuggestions .suggestion-chip,#personalSuggestions [data-command]{padding:9px 14px!important}
+#commandResult.workspace-result{margin-top:8px!important}
+@media(max-width:800px){
+ #personalHero.hero-card{padding:20px 18px 16px!important}
+ #personalHero h1{font-size:25px!important;margin-bottom:16px!important}
+}
