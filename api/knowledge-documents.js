@@ -255,7 +255,7 @@ async function handleCollaborative(req,res,repo,actor,u){
   }
 
   if(req.method==='PATCH'){
-    let updated=null;
+    let updated=null,createdResponse=null;
     await repo.mutate(s=>{
       s.collaborativeAnalysisCases??=[];
       s.collaborativeAnalysisResponses??=[];
@@ -264,6 +264,11 @@ async function handleCollaborative(req,res,repo,actor,u){
       if(input.action==='respond'){
         const now=new Date().toISOString();
         const concept=String(input.concept||'').trim();
+        const clientResponseKey=String(input.clientResponseKey||'').trim().slice(0,120);
+        const duplicate=clientResponseKey?s.collaborativeAnalysisResponses.find(x=>x.caseRef===c.id&&x.clientResponseKey===clientResponseKey):null;
+        if(duplicate){
+          createdResponse={...duplicate};
+        }else{
         const response={
           id:`CAR:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
           organizationId:actor.organizationId,
@@ -279,9 +284,11 @@ async function handleCollaborative(req,res,repo,actor,u){
           systemAnalysis:String(input.systemAnalysis||'').trim(),
           reviewBasisIds:Array.isArray(input.reviewBasisIds)?input.reviewBasisIds.map(String).slice(0,100):[],
           audioDataUrl:String(input.audioDataUrl||'').slice(0,2200000),
+          clientResponseKey,
           createdAt:now
         };
         s.collaborativeAnalysisResponses.push(response);
+        createdResponse={...response};
         s.collaborativeConceptHistory??=[];
         const eventType=c.stage==='independent_analysis'?'independent_expert_view':
           c.stage==='complementary_review'?'senior_expert_critique':
@@ -299,6 +306,7 @@ async function handleCollaborative(req,res,repo,actor,u){
           actorName:actor.name,
           createdAt:now
         });
+        }
       }else if(input.action==='reopen_for_edit'){
         const now=new Date().toISOString();
         if(c.stage!=='approved') return;
@@ -385,6 +393,13 @@ async function handleCollaborative(req,res,repo,actor,u){
       updated={...c};
     });
     if(!updated) return send(res,404,{message:'پرونده تحلیل پیدا نشد'});
+    if(input.action==='respond'&&createdResponse){
+      return send(res,200,{
+        ok:true,
+        response:createdResponse,
+        case:{...updated,stageLabel:stageFa[updated.stage]}
+      });
+    }
     const db=await repo.all();
     const rs=(db.collaborativeAnalysisResponses||[]).filter(x=>x.caseRef===updated.id);
     return send(res,200,{
