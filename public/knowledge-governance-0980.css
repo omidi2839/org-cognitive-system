@@ -189,10 +189,10 @@
 
 /* 0.9.9.0.31 — static document cards + clearer registration CTA */
 .k9931-static-document-card{
- position:relative!important;display:block!important;cursor:default!important;
- padding-bottom:32px!important
+ position:relative!important;cursor:default!important;padding-bottom:32px!important
 }
-.k9931-static-document-card:hover{transform:none!important;box-shadow:none!important}
+/* Preserve the original capability-card visual language while the card itself
+   remains non-navigable. */
 .k9931-static-document-card .k9926-register{
  font-size:10.2px!important;font-weight:900!important;color:#d97706!important;
  line-height:18px!important;letter-spacing:-.1px
@@ -201,4 +201,19 @@
 .k9931-static-document-card .k980count{
  position:absolute!important;left:10px!important;right:auto!important;bottom:8px!important;
  display:inline-flex!important;opacity:1!important;visibility:visible!important
+}
+
+/* 0.9.9.0.32 — restore original visual richness of static document cards */
+.k9931-static-document-card.capability-card{
+ border-color:var(--border,#dbe7f4)!important;
+ background:var(--surface,#fff)!important;
+ border-radius:14px!important;
+}
+.k9931-static-document-card.capability-card:hover{
+ background:#fbfdff!important;
+ border-color:#c9dcf1!important;
+ box-shadow:0 7px 20px rgba(31,75,117,.07)!important;
+}
+.k9931-static-document-card.capability-card .k9926-register{
+ background:transparent!important;
 }

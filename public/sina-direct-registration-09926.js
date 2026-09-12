@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.31';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.32';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -103,8 +103,10 @@ function decorate(){
    // Cloning removes any direct click listeners attached by the old workspace.
    const card=original.cloneNode(true);
    card.removeAttribute('data-capability');
-   card.classList.remove('capability-card','live');
-   card.classList.add('k9931-static-document-card','k9926-source-card');
+   // Preserve the original visual card classes. Navigation remains disabled
+   // because old listeners were removed by cloneNode and data-capability is gone.
+   card.classList.add('capability-card','k9931-static-document-card','k9926-source-card');
+   card.classList.remove('live');
    card.dataset.k9931Kind=kind;
    card.dataset.k9931Label=label;
    card.style.cursor='default';

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.31';
+window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.32';
 const ORG='ORG:SYN-001';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
