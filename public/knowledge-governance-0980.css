@@ -136,3 +136,11 @@
 /* 0.9.9.0.18 — expert comment commit status */
 #k983annotationform [data-save-status]{display:block;margin-top:7px;min-height:18px;font-size:9px;color:#60768a;line-height:1.8}
 #k983annotationform button[type="submit"]:disabled{opacity:.58;cursor:wait}
+
+/* 0.9.9.0.22 — lightweight document source cards */
+.k9922-document-source-card{cursor:default!important;position:relative!important;padding-bottom:48px!important;transition:box-shadow .18s ease,transform .18s ease}
+.k9922-document-source-card.k9922-attention{box-shadow:0 0 0 3px rgba(39,112,210,.10)!important}
+.k9922-register-document{position:absolute;right:14px;left:14px;bottom:11px;display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #bdd4eb;background:#f5faff;color:#1e63a0;border-radius:9px;padding:7px 9px;font:inherit;font-size:8.8px;font-weight:900;cursor:pointer;z-index:2}
+.k9922-register-document:hover{background:#eaf5ff;border-color:#91b9de}.k9922-register-document span{font-size:12px;line-height:1}
+.k9922-direct-registration .k76tabs{display:none!important}
+.k9922-direct-note{margin-top:7px;display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;background:#edf6ff;color:#2b6ca7;font-size:8px;font-weight:800}

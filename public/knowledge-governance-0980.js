@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.20';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.22';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -23,6 +23,79 @@ async function counters(){
  }catch{}
 }
 let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).observe(document.documentElement,{childList:true,subtree:true});counters();
+
+function k9922CardName(card){
+ return String(card?.dataset?.capability||card?.querySelector('b')?.textContent||'').trim();
+}
+function k9922DirectRegistration(card,kind){
+ if(!card)return;
+ // Allow the legacy workspace handler exactly once so we reuse the mature registration form.
+ card.dataset.k9922Bypass='1';
+ card.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));
+ delete card.dataset.k9922Bypass;
+ let tries=0;
+ const openAdd=()=>{
+   tries++;
+   const child=document.getElementById('knowledge076');
+   const add=child?.querySelector('[data-kadd]');
+   if(add){
+     add.click();
+     child.classList.add('k9922-direct-registration');
+     const head=child.querySelector('.k76head h2');
+     if(head)head.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
+     const note=child.querySelector('.k9922-direct-note')||document.createElement('div');
+     note.className='k9922-direct-note';
+     note.textContent=kind==='upstream'?'ثبت مستقیم سند بالادستی':'ثبت مستقیم سند عمومی';
+     child.querySelector('.k76head')?.appendChild(note);
+     return;
+   }
+   if(tries<12)setTimeout(openAdd,35*tries);
+ };
+ setTimeout(openAdd,0);
+}
+function k9922DecorateKnowledgeCards(){
+ const ctx=document.getElementById('workspaceContext');
+ if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
+ ctx.querySelectorAll('.capability-card').forEach(card=>{
+   const name=k9922CardName(card);
+   if(!['اسناد بالادستی','اسناد عمومی'].includes(name))return;
+   card.classList.add('k9922-document-source-card');
+   const kind=name==='اسناد بالادستی'?'upstream':'general';
+   let action=card.querySelector('[data-k9922-register]');
+   if(!action){
+     action=document.createElement('button');
+     action.type='button';
+     action.className='k9922-register-document';
+     action.dataset.k9922Register=kind;
+     action.innerHTML=`<span>＋</span> ثبت ${name}`;
+     card.appendChild(action);
+   }
+ });
+}
+let k9922Timer;
+new MutationObserver(()=>{
+ clearTimeout(k9922Timer);
+ k9922Timer=setTimeout(k9922DecorateKnowledgeCards,60);
+}).observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener('click',e=>{
+ const reg=e.target.closest?.('[data-k9922-register]');
+ if(reg){
+   e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+   const card=reg.closest('.capability-card');
+   k9922DirectRegistration(card,reg.dataset.k9922Register);
+   return;
+ }
+ const card=e.target.closest?.('.capability-card');
+ if(!card||card.dataset.k9922Bypass==='1')return;
+ const name=k9922CardName(card);
+ if(!['اسناد بالادستی','اسناد عمومی'].includes(name))return;
+ // These cards are now summary cards. Registration is exposed directly inside them;
+ // document browsing remains centralized in «بانک اسناد».
+ e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+ card.classList.add('k9922-attention');
+ setTimeout(()=>card.classList.remove('k9922-attention'),420);
+},true);
+k9922DecorateKnowledgeCards();
 
 function k998ConceptKey(v){
  return String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();

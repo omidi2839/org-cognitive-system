@@ -1,5 +1,5 @@
 (()=>{
-window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.20';
+window.__LEGAL_RELATION_CONTRACT_BUILD__='0.9.9.0.22';
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const FA='۰۱۲۳۴۵۶۷۸۹',toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 
@@ -13,6 +13,42 @@ const typeMap=Object.fromEntries(TYPES);
 const internalChange={amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'};
 const textLabel={amends:'متن کامل اصلاحی',extends:'متن کامل الحاقیه',repeals:'متن/شرح بخش ملغی',clarifies:'متن کامل استفسار'};
 const itemTitle={amends:'مورد اصلاح',extends:'مورد الحاق',repeals:'مورد ملغی',clarifies:'مورد استفسار'};
+
+function ensureInternalChangeControl(change,t){
+ if(!change)return;
+ const v=internalChange[t]||'';
+ change.required=false;
+ change.removeAttribute('required');
+ if(!v){change.value='';return}
+ if(change.tagName==='SELECT'){
+   const exists=[...change.options].some(o=>o.value===v);
+   if(!exists){
+     const op=document.createElement('option');
+     op.value=v;op.textContent=v;op.dataset.k9921Compat='1';
+     change.appendChild(op);
+   }
+ }
+ change.value=v;
+ // Compatibility with legacy validators that inspect attributes/defaultValue.
+ try{change.setAttribute('value',v)}catch{}
+ try{change.defaultValue=v}catch{}
+}
+function syncLegacyChangeBeforeSubmit(form){
+ const wrap=form?.querySelector('.k94relationentry');if(!wrap)return;
+ const t=wrap.querySelector('[data-reltype]')?.value||'';
+ const change=wrap.querySelector('[data-relchange]');
+ ensureInternalChangeControl(change,t);
+ // Also support older hidden fields by name, without touching article/description controls.
+ const v=internalChange[t]||'';
+ if(v)form.querySelectorAll('select[name*="changeType" i],input[name*="changeType" i],select[name*="relationChange" i],input[name*="relationChange" i]').forEach(el=>{
+   if(el===change)return;
+   el.required=false;el.removeAttribute('required');
+   if(el.tagName==='SELECT'&&![...el.options].some(o=>o.value===v)){
+     const op=document.createElement('option');op.value=v;op.textContent=v;op.dataset.k9921Compat='1';el.appendChild(op);
+   }
+   el.value=v;try{el.setAttribute('value',v)}catch{}
+ });
+}
 
 
 function relationKey(){return crypto?.randomUUID?.()||`REL-${Date.now()}-${Math.random().toString(36).slice(2)}`}
@@ -47,7 +83,7 @@ function configureRegistration(form){
 
  function sync(){
    const t=type.value||'';
-   if(change)change.value=internalChange[t]||'';
+   ensureInternalChangeControl(change,t);
    const items=wrap.querySelectorAll('[data-change-item]');
    items.forEach((item,i)=>{
      const head=item.querySelector('.k944itemhead b');
@@ -100,6 +136,13 @@ function configureRegistration(form){
 }
 
 function observe(){
+ document.addEventListener('click',e=>{
+   const btn=e.target.closest?.('#k76form button[type="submit"],#k76form .k76primary');
+   if(btn)syncLegacyChangeBeforeSubmit(btn.closest('form'));
+ },true);
+ document.addEventListener('submit',e=>{
+   if(e.target?.matches?.('#k76form'))syncLegacyChangeBeforeSubmit(e.target);
+ },true);
  const run=()=>document.querySelectorAll('#k76form').forEach(configureRegistration);
  new MutationObserver(run).observe(document.documentElement,{subtree:true,childList:true});
  run();

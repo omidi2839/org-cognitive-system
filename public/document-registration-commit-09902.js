@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.20';
+window.__DOCUMENT_REGISTRATION_COMMIT_BUILD__='0.9.9.0.22';
 const ORG='ORG:SYN-001';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -106,6 +106,19 @@ function buildInitialPayload(form){
  return {title:f.get('title'),fileName:file?.name||'',mimeType:file?.type||'application/octet-stream',classification:f.get('classification'),knowledgeZone:'organizational',metadata};
 }
 
+function k9921SyncLegacyLegalChange(form){
+ const box=form?.querySelector('.k94relationentry');if(!box)return;
+ const t=box.querySelector('[data-reltype]')?.value||'';
+ const map={amends:'اصلاح متن',extends:'الحاق',repeals:'لغو',clarifies:'تفسیر/توضیح'};
+ const v=map[t]||'',el=box.querySelector('[data-relchange]');
+ if(el){
+   el.required=false;el.removeAttribute('required');
+   if(v&&el.tagName==='SELECT'&&![...el.options].some(o=>o.value===v)){
+     const op=document.createElement('option');op.value=v;op.textContent=v;op.dataset.k9921Compat='1';el.appendChild(op);
+   }
+   if(v){el.value=v;try{el.setAttribute('value',v)}catch{}}
+ }
+}
 function validateRegistration(form,st){
  if(!form.reportValidity())return false;
  const f=new FormData(form),file=f.get('file');
