@@ -1,5 +1,5 @@
 (()=>{
-const VERSION='0.9.9.0.13';
+const VERSION='0.9.9.0.15';
 document.documentElement.classList.add('auth-pending');
 const scripts=[
  './app.js','./workspace-shell-075.js','./knowledge-workspace-076.js',
@@ -20,3 +20,26 @@ async function unlock(gate){
 async function start(){const gate=mount();try{const r=await fetch('/api/v1/auth/session',{credentials:'same-origin'});if(r.ok)await unlock(gate)}catch{}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+
+
+function sinaApplyIdentity(){
+  try{
+    document.title='سینا | پلتفرم هوش شناختی سازمان';
+    const brand=document.querySelector('.brand-mark');
+    if(brand){
+      const b=brand.querySelector('b'),sm=brand.querySelector('small');
+      if(b)b.textContent='سینا';
+      if(sm)sm.textContent='پلتفرم هوش شناختی سازمان';
+      const im=brand.querySelector('img');if(im)im.src='./sina-emblem-09915.png';
+    }
+    const login=document.querySelector('.auth-card,.login-card,[data-auth-card]');
+    if(login&&!login.querySelector('.sina-login-brand')){
+      const h=document.createElement('div');h.className='sina-login-brand';
+      h.innerHTML='<img src="./sina-emblem-09915.png" alt="سینا"><div><b>سینا</b><span>پلتفرم هوش شناختی سازمان</span><small>از داده‌ها به دانایی، از دانایی به اقدام</small></div>';
+      login.prepend(h);
+    }
+  }catch(_){}
+}
+new MutationObserver(()=>sinaApplyIdentity()).observe(document.documentElement,{childList:true,subtree:true});
+window.addEventListener('DOMContentLoaded',sinaApplyIdentity);
+setTimeout(sinaApplyIdentity,0);

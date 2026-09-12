@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.13';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.15';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -219,7 +219,8 @@ async function openCase(id){
  const analysisLabel=stage1?'یادداشت تحلیلی':stage2?'نقد نهایی خبره ارشد':'جمع‌بندی نهایی و قابل اتکا';
  const analysisPlaceholder=stage1?'نظر، تفسیر، نقد یا توضیح تکمیلی خود را ثبت کنید':stage2?'با توجه به جمله کامل سند، دیدگاه‌های مرحله اول و تحلیل سامانه، نقد نهایی خود را بنویسید':'تعریف یا جمع‌بندی نهایی مفهوم را به‌صورت روشن، مستند و قابل اتکا تدوین کنید';
  const formHtml=!approved?`<form id="k983annotationform">
-      <label>مفهوم انتخاب‌شده<input name="concept" data-concept ${stage1?'placeholder="از متن سند انتخاب کنید یا در صورت نیاز بنویسید"':'readonly placeholder="از فهرست مفاهیم انتخاب کنید"' }></label>
+      <label>مفهوم انتخاب‌شده<input name="concept" data-concept ${stage1?'placeholder="از متن سند انتخاب کنید یا در صورت نیاز مفهوم جدید بنویسید"':'readonly placeholder="از فهرست مفاهیم انتخاب کنید"' }></label>
+      ${stage1?`<div class="k9914-new-concept-row"><button type="button" data-k9914-new-concept>＋ افزودن مفهوم جدید از همین سند</button><small>برای مفهومی که هنوز در فهرست نیست؛ عنوان مفهوم را بنویسید و جمله/شاهد مربوط را از متن انتخاب یا وارد کنید.</small></div>`:''}
       <label>${stage1?'شاهد متنی':'جمله کامل مبنا'}<textarea name="evidence" data-evidence rows="3" ${stage1?'placeholder="با انتخاب متن، این بخش خودکار تکمیل می‌شود"':'readonly'}></textarea></label>
       ${!stage1?`<section class="k999sidebar-system" data-system-box hidden><b>تحلیل سامانه</b><p data-system-text></p></section>`:''}
       <label>${analysisLabel}<textarea name="analysis" rows="7" placeholder="${analysisPlaceholder}"></textarea></label>
@@ -240,6 +241,7 @@ async function openCase(id){
    <aside class="k983annotation">
     <div class="k983questionbox"><b>راهنمای این مرحله</b>${(c.questions||[]).map(q=>`<p>• ${esc(q)}</p>`).join('')}</div>
     ${formHtml}
+    ${approved?`<section class="k9914-edit-approved"><b>نیاز به اصلاح یا افزودن مفهوم دارید؟</b><p>پرونده با حفظ همه سوابق به مرحله تحلیل مستقل بازمی‌گردد. مفاهیم نهایی قبلی تا تأیید مجدد از جریان دانش کلان کنار گذاشته می‌شوند.</p><button type="button" data-k9914-reopen>ویرایش مفهوم‌سازی / افزودن مفهوم جدید</button></section>`:''}
    </aside>
   </div>
   ${stage1?`<section class="k998history-summary"><div><b>دیدگاه‌های خبرگان در متن سند</b><span>${rs.length?`${fa(rs.length)} یادداشت روی ${fa(conceptGroups.length)} مفهوم ثبت شده است. برای مشاهده هر مجموعه، روی مفهوم رنگی در متن کلیک کنید.`:'هنوز دیدگاهی ثبت نشده است. با انتخاب یک مفهوم از متن، اولین یادداشت را ثبت کنید.'}</span></div>${conceptGroups.length?`<div class="k998concept-index">${conceptGroups.slice(0,8).map(g=>`<button type="button" data-k998-index="${esc(g.key)}">${esc(g.label)} <small>${fa(g.responses.length)}</small></button>`).join('')}${conceptGroups.length>8?`<em>+ ${fa(conceptGroups.length-8)} مفهوم دیگر در متن</em>`:''}</div>`:''}</section>`:
@@ -314,6 +316,20 @@ async function openCase(id){
    }catch(err){st.textContent=err.message}
   };
  }
+ const newConceptBtn=z.querySelector('[data-k9914-new-concept]');
+ if(newConceptBtn&&form)newConceptBtn.onclick=()=>{
+   form.reset();form.dataset.k999Key='';form.dataset.k999System='';
+   const sb=form.querySelector('[data-system-box]');if(sb)sb.hidden=true;
+   const concept=form.querySelector('[data-concept]');if(concept){concept.readOnly=false;concept.focus()}
+   form.querySelector('[data-evidence]')?.focus?.();
+   concept?.focus();
+ };
+ const reopen=z.querySelector('[data-k9914-reopen]');
+ if(reopen)reopen.onclick=async()=>{
+   if(!confirm('پرونده برای ویرایش باز شود؟ همه سوابق قبلی حفظ می‌شوند و نسخه نهایی فعلی تا تأیید مجدد از دانش کلان کنار گذاشته خواهد شد.'))return;
+   reopen.disabled=true;
+   try{await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'reopen_for_edit'})});await openCase(id);counters()}catch(err){reopen.disabled=false;alert(err.message)}
+ };
  const adv=z.querySelector('[data-k983-advance]');if(adv)adv.onclick=async()=>{
   const msg=stage3?'نسخه نهایی تأیید شود و آخرین جمع‌بندی هر مفهوم به‌عنوان «جمع‌بندی قابل اتکا» ثبت گردد؟':'مرحله جاری پایان یابد و پرونده به مرحله بعد منتقل شود؟';
   if(confirm(msg)){await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({caseId:c.id,action:'advance'})});openCase(id)}
