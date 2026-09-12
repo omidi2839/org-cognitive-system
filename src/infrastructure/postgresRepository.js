@@ -5,7 +5,7 @@ const emptyState = () => ({
 });
 
 const clone = value => structuredClone(value);
-const encode = state => gzipSync(Buffer.from(JSON.stringify(state),'utf8'), { level: 9 });
+const encode = state => gzipSync(Buffer.from(JSON.stringify(state),'utf8'), { level: 3 });
 const decode = value => {
   if(!value) return emptyState();
   const buf = Buffer.isBuffer(value) ? value : Buffer.from(value);
@@ -81,7 +81,7 @@ export class PostgresRepository {
     if(this.cacheState && this.cacheVersion===version) return clone(this.cacheState);
     const rows=await sql`select payload_gzip, version from runtime_state_v2 where id='primary'`;
     const state=decode(rows[0]?.payload_gzip);
-    this.cacheState=clone(state);
+    this.cacheState=state;
     this.cacheVersion=Number(rows[0]?.version || version);
     return clone(state);
   }
@@ -95,7 +95,7 @@ export class PostgresRepository {
       const packed=encode(state);
       const nextVersion=Number(rows[0]?.version || 1)+1;
       await tx`update runtime_state_v2 set payload_gzip=${packed}, codec='gzip-json-v1', version=${nextVersion}, updated_at=now() where id='primary'`;
-      this.cacheState=clone(state);
+      this.cacheState=state;
       this.cacheVersion=nextVersion;
       return result;
     });
