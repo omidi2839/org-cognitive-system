@@ -74,6 +74,14 @@
       "destination": "/api/knowledge-documents.js"
     },
     {
+      "source": "/api/v1/ai/status",
+      "destination": "/api/document-query.js"
+    },
+    {
+      "source": "/api/v1/ai/test",
+      "destination": "/api/document-query.js"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "/api/index.js"
     }
