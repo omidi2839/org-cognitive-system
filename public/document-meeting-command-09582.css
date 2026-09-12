@@ -361,3 +361,8 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 .k990-explicit-change.k990-repeal{border-right:4px solid #c93232!important;background:#fff3f3!important;color:#7d2020!important}
 .k990-explicit-change.k990-repeal .k990-explicit-head b{color:#a51f1f!important}
 .k990-explicit-change.k990-repeal .k990-explicit-text p{color:#7d2020!important;font-weight:700}
+
+/* 0.9.9.1.1 — SINA evidence-grounded answer */
+.k9911aianswer .k951qa{border-color:#cfe0f1;background:linear-gradient(180deg,#fbfdff,#f7fbff)}
+.k9911aisummary{white-space:pre-line;font-size:11px!important;line-height:2.05!important;color:#263f59!important}
+.k9911aianswer .k951evidence article small{display:inline-block;margin-inline-start:7px;color:#7890a7;font-size:8px}

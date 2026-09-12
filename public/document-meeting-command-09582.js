@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.0';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.1';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -133,6 +133,35 @@ function renderDocCommand(d){
  out.innerHTML=`<div class="k950answer"><div class="k950answerhead"><span>${d.answer?'◈ پرسش از اسناد':'□ جستجوی اسناد سازمان'}</span><b>${toFa(items.length)} سند</b></div>${filterSummary}${answer}${items.length?items.map(x=>`<article><button type="button" data-doc-preview="${esc(x.id)}">${esc(x.title||'بدون عنوان')}</button><div class="k950docmeta">${x.documentType?`<span>${esc(x.documentType)}</span>`:''}${x.documentNumber?`<span>شماره: ${esc(toFa(x.documentNumber))}</span>`:''}${x.subjectCategory?`<span>موضوع کلان: ${esc(x.subjectCategory)}</span>`:''}${x.subjectArea?`<span>زیرموضوع: ${esc(x.subjectArea)}</span>`:''}${x.issuer?`<span>مرجع: ${esc(x.issuer)}</span>`:''}${x.meetingNumber?`<span>جلسه: ${esc(toFa(x.meetingNumber))}</span>`:''}${x.meetingDate?`<span>تاریخ جلسه: ${esc(k9919DisplayDate(x.meetingDate))}</span>`:''}</div>${!d.answer&&x.excerpt?`<p>${esc(x.excerpt)}</p>`:''}</article>`).join(''):'<div class="k950empty">سندی مطابق این درخواست پیدا نشد.</div>'}<small class="k950notice">برای مشاهده متن کامل روی عنوان سند کلیک کنید.</small></div>`;
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+function k9911RenderAICommand(d){
+ const out=document.getElementById('commandResult');if(!out)return;
+ const ev=d.evidence||[];
+ out.classList.remove('hidden');
+ out.innerHTML=`<div class="k950answer k9911aianswer">
+   <div class="k950answerhead"><span>✦ پاسخ سینا بر پایه شواهد سازمان</span><b>${toFa(ev.length)} شاهد</b></div>
+   <section class="k951qa">
+    <div class="k951qatitle"><b>تحلیل سینا</b><span>${esc(d.model||'')}</span></div>
+    <p class="k951summary k9911aisummary">${esc(d.text||'')}</p>
+    ${ev.length?`<div class="k951evidence">${ev.map((a,i)=>`<article><span>${toFa(i+1)}</span><div><button type="button" data-doc-preview="${esc(a.documentId)}">${esc(a.documentTitle||'سند')}</button>${a.documentNumber?`<small>شماره ${esc(toFa(a.documentNumber))}</small>`:''}<p>${esc(a.text||'')}</p></div></article>`).join('')}</div>`:'<div class="k950empty">شاهد مستقیمی برای نمایش وجود ندارد.</div>'}
+    <small>پاسخ با استفاده از ابزارهای داخلی بانک اسناد تولید شده است؛ استنباط مدل جایگزین سند منبع نیست.</small>
+   </section>
+  </div>`;
+ out.scrollIntoView({behavior:'smooth',block:'start'});
+}
+async function k9911HandleAICommand(q){
+ const out=document.getElementById('commandResult');
+ if(out){out.classList.remove('hidden');out.innerHTML='<div class="k950loading">سینا در حال جستجو، خواندن شواهد و تحلیل اسناد سازمان است…</div>'}
+ try{
+   const d=await api('/api/v1/ai/command',{method:'POST',body:JSON.stringify({question:q})});
+   k9911RenderAICommand(d);
+   return true;
+ }catch(e){
+   console.warn('SINA_AI_COMMAND_FALLBACK',e);
+   return false;
+ }
+}
+
 async function handleDocumentCommand(q){
  k9935ClearCommandResult();
  const sp=new URLSearchParams({question:q,mode:isQuestion(q)?'qa':'search'});
@@ -150,8 +179,9 @@ window.addEventListener('click',e=>{
 },true);
 
 const commandValue=()=>document.getElementById('commandInput')?.value?.trim()||'';
-window.addEventListener('click',e=>{const b=e.target?.closest?.('#runCommand'),q=commandValue();if(!b||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();handleDocumentCommand(q)},true);
-window.addEventListener('keydown',e=>{const ta=e.target?.closest?.('#commandInput'),q=commandValue();if(!ta||e.key!=='Enter'||e.shiftKey||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();handleDocumentCommand(q)},true);
+async function k9911DispatchDocumentCommand(q){k9935ClearCommandResult();if(!await k9911HandleAICommand(q))await handleDocumentCommand(q)}
+window.addEventListener('click',e=>{const b=e.target?.closest?.('#runCommand'),q=commandValue();if(!b||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();k9911DispatchDocumentCommand(q)},true);
+window.addEventListener('keydown',e=>{const ta=e.target?.closest?.('#commandInput'),q=commandValue();if(!ta||e.key!=='Enter'||e.shiftKey||!q||!looksDocumentCommand(q))return;e.preventDefault();e.stopImmediatePropagation();k9911DispatchDocumentCommand(q)},true);
 
 
 
