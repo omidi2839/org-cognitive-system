@@ -377,13 +377,77 @@ const macroSimilarity=(a,b)=>{
   let n=0; for(const x of A)if(B.has(x))n++;
   return n/(A.size+B.size-n||1);
 };
+
+const macroIssueFa={
+  requires_review_with:'نیازمند بررسی معنایی',
+  same_as_candidate:'همانندی احتمالی',
+  ambiguity:'ابهام معنایی',
+  semantic_conflict:'تعارض معنایی'
+};
+const macroRelationFa={
+  same_as:'هم‌معنا',
+  broader_than:'عام‌تر از',
+  narrower_than:'خاص‌تر از',
+  overlaps_with:'همپوشانی معنایی',
+  related_with:'مرتبط دانشی',
+  supports_understanding_of:'تقویت‌کننده فهم'
+};
+const macroTopicRules=[
+  {label:'علم، پژوهش و دانش',words:['علم','علمی','پژوهش','دانش','مرجعیت','نخبگان','مقاله','تحقیق']},
+  {label:'آموزش و یادگیری',words:['آموزش','یادگیری','تربیت','مهارت','استعداد','استاد','دانشجو']},
+  {label:'حکمرانی و مدیریت',words:['حکمرانی','مدیریت','سیاست','راهبرد','راهبری','تصمیم','ساختار','هماهنگی']},
+  {label:'منابع و ظرفیت سازمانی',words:['منابع','مالی','بودجه','ظرفیت','نیروی','انسانی','زیرساخت','امکانات']},
+  {label:'فناوری و تحول دیجیتال',words:['فناوری','دیجیتال','هوشمند','اطلاعات','داده','سامانه']},
+  {label:'اجتماع، فرهنگ و اثرگذاری',words:['اجتماع','اجتماعی','فرهنگ','فرهنگی','جامعه','اثرگذاری','اعتماد','عمومی']}
+];
+function macroTopicOf(c){
+  const text=macroNorm(`${c.title||''} ${c.definition||''}`);
+  let best={label:'سایر مفاهیم سازمانی',score:0};
+  for(const r of macroTopicRules){
+    const score=r.words.reduce((n,w)=>n+(text.includes(macroNorm(w))?1:0),0);
+    if(score>best.score)best={label:r.label,score};
+  }
+  return best.label;
+}
+function macroEnsureCanonical(state,final,actor,now){
+  state.macroKnowledgeConcepts??=[];state.macroKnowledgeSourceLinks??=[];state.macroKnowledgeHistory??=[];
+  let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===final.id);
+  let c=link?state.macroKnowledgeConcepts.find(x=>x.id===link.canonicalRef):null;
+  if(c)return c;
+  c={
+    id:`MKC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+    organizationId:actor.organizationId,title:String(final.concept||'').trim(),
+    definition:String(final.finalStatement||'').trim(),alternativeTerms:[],semanticScope:'',
+    status:'canonical',version:1,confidence:1,createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+  };
+  state.macroKnowledgeConcepts.push(c);
+  state.macroKnowledgeSourceLinks.push({
+    id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+    canonicalRef:c.id,sourceConceptRef:final.id,relation:'source_of',createdAt:now,createdBy:actor.personRef
+  });
+  state.macroKnowledgeHistory.push({
+    id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+    canonicalRef:c.id,eventType:'canonical_created',sourceConceptRef:final.id,
+    actorRef:actor.personRef,actorName:actor.name,createdAt:now
+  });
+  return c;
+}
+function macroKnowledgeSynthesis(topic,concepts){
+  const titles=concepts.map(x=>x.title).filter(Boolean);
+  const first=titles.slice(0,4).join('، ');
+  const extra=titles.length>4?` و ${titles.length-4} مفهوم دیگر`:'';
+  return `ترکیب مفاهیم «${first}${extra}» یک خوشه دانشی در حوزه «${topic}» می‌سازد. این خوشه نشان می‌دهد این مفاهیم در اسناد معتبر سازمان به‌صورت منفرد قابل فهم کامل نیستند و کنار هم یک زمینه شناختی مشترک ایجاد می‌کنند. این جمع‌بندی، پیشنهاد دانشی سامانه است و برای تثبیت نهایی باید از نظر معنایی بررسی شود.`;
+}
 async function handleMacroKnowledge(req,res,repo,actor,u){
   const db=await repo.all();
   const finals=(db.collaborativeFinalConcepts||[]).filter(x=>x.organizationId===actor.organizationId&&x.status==='reliable_synthesis');
   const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId);
   const canonical=(db.macroKnowledgeConcepts||[]).filter(x=>x.organizationId===actor.organizationId);
   const links=(db.macroKnowledgeSourceLinks||[]).filter(x=>x.organizationId===actor.organizationId);
-  const conflicts=(db.macroKnowledgeIssues||[]).filter(x=>x.organizationId===actor.organizationId&&x.status!=='resolved');
+  const allIssues=(db.macroKnowledgeIssues||[]).filter(x=>x.organizationId===actor.organizationId);
+  const openIssues=allIssues.filter(x=>!['resolved','dismissed'].includes(x.status));
+  const semanticRelations=(db.macroKnowledgeSemanticRelations||[]).filter(x=>x.organizationId===actor.organizationId);
+  const savedKnowledge=(db.macroKnowledgeObjects||[]).filter(x=>x.organizationId===actor.organizationId);
 
   if(req.method==='GET'){
     const sourceItems=finals.map(f=>{
@@ -393,36 +457,135 @@ async function handleMacroKnowledge(req,res,repo,actor,u){
         id:c.id,title:c.title,definition:c.definition,
         similarity:macroSimilarity(`${f.concept} ${f.finalStatement}`,`${c.title} ${c.definition}`)
       })).filter(x=>x.similarity>=.12).sort((a,b)=>b.similarity-a.similarity).slice(0,3);
+      const issue=openIssues.find(i=>i.sourceConceptRef===f.id)||null;
       return {
         id:f.id,concept:f.concept,definition:f.finalStatement,evidence:f.evidence||'',
         documentRef:f.documentRef,documentTitle:d.title||'سند بالادستی',documentType:d.documentType||'',
-        finalizedAt:f.finalizedAt||null,status:link?'linked':'new',canonicalRef:link?.canonicalRef||null,
-        suggestions:ranked
+        finalizedAt:f.finalizedAt||null,
+        status:issue?'under_review':link?'linked':'new',
+        canonicalRef:link?.canonicalRef||null,issueRef:issue?.id||null,suggestions:ranked
       };
     });
-    const canonicalItems=canonical.map(c=>({
-      ...c,
+
+    const issueItems=openIssues.map(i=>{
+      const f=finals.find(x=>x.id===i.sourceConceptRef)||{};
+      const d=docs.find(x=>x.id===f.documentRef)||{};
+      const c=canonical.find(x=>x.id===i.canonicalRef)||null;
+      const similarity=c?macroSimilarity(`${f.concept||''} ${f.finalStatement||''}`,`${c.title||''} ${c.definition||''}`):0;
+      return {
+        ...i,
+        issueTypeLabel:macroIssueFa[i.issueType]||'نیازمند بررسی معنایی',
+        source:{id:f.id||'',concept:f.concept||'',definition:f.finalStatement||'',evidence:f.evidence||'',documentRef:f.documentRef||'',documentTitle:d.title||''},
+        target:c?{id:c.id,title:c.title,definition:c.definition}:null,
+        similarity
+      };
+    });
+
+    const blockedCanonicalIds=new Set();
+    for(const i of openIssues){
+      if(i.canonicalRef)blockedCanonicalIds.add(i.canonicalRef);
+      const l=links.find(x=>x.sourceConceptRef===i.sourceConceptRef);
+      if(l?.canonicalRef)blockedCanonicalIds.add(l.canonicalRef);
+    }
+    const stabilized=canonical.filter(c=>!blockedCanonicalIds.has(c.id));
+
+    // Derived semantic network for stabilized concepts. Persisted human-confirmed relations take precedence.
+    const relMap=new Map();
+    for(const r of semanticRelations){
+      if(stabilized.some(c=>c.id===r.sourceRef)&&stabilized.some(c=>c.id===r.targetRef)){
+        relMap.set(`${r.sourceRef}|${r.targetRef}|${r.type}`,{...r,typeLabel:macroRelationFa[r.type]||r.type,confirmed:true});
+      }
+    }
+    for(let i=0;i<stabilized.length;i++){
+      for(let j=i+1;j<stabilized.length;j++){
+        const a=stabilized[i],b=stabilized[j];
+        const sim=macroSimilarity(`${a.title} ${a.definition}`,`${b.title} ${b.definition}`);
+        const sameTopic=macroTopicOf(a)===macroTopicOf(b);
+        if(sim<.08&&!sameTopic)continue;
+        const strength=Math.min(.95,Math.max(.18,sim+(sameTopic?.16:0)));
+        const key=`${a.id}|${b.id}|related_with`;
+        if(!relMap.has(key))relMap.set(key,{
+          id:`DER:${a.id}:${b.id}`,sourceRef:a.id,targetRef:b.id,type:'related_with',
+          typeLabel:'هم‌پیوندی دانشی',strength,confirmed:false,
+          explanation:sameTopic?'اشتراک موضوعی و همپوشانی معنایی در مفاهیم تثبیت‌شده':'همپوشانی معنایی در تعاریف تثبیت‌شده'
+        });
+      }
+    }
+    const relations=[...relMap.values()];
+
+    const centrality={};
+    for(const c of stabilized)centrality[c.id]=0;
+    for(const r of relations){
+      const w=Number(r.strength||.35);
+      centrality[r.sourceRef]=(centrality[r.sourceRef]||0)+w;
+      centrality[r.targetRef]=(centrality[r.targetRef]||0)+w;
+    }
+    const maxCent=Math.max(1,...Object.values(centrality));
+    const stabilizedItems=stabilized.map(c=>({
+      ...c,topic:macroTopicOf(c),
       sourceCount:links.filter(x=>x.canonicalRef===c.id).length,
+      knowledgeCentrality:Number(((centrality[c.id]||0)/maxCent).toFixed(3)),
+      cognitivePriority:Number((.55*((centrality[c.id]||0)/maxCent)+.45*Math.min(1,links.filter(x=>x.canonicalRef===c.id).length/3)).toFixed(3)),
       sources:links.filter(x=>x.canonicalRef===c.id).map(l=>{
         const f=finals.find(x=>x.id===l.sourceConceptRef)||{};
         const d=docs.find(x=>x.id===f.documentRef)||{};
         return {sourceConceptRef:l.sourceConceptRef,concept:f.concept||'',documentRef:f.documentRef||'',documentTitle:d.title||'',relation:l.relation||'source_of'};
       })
     }));
+
+    const groups=new Map();
+    for(const c of stabilizedItems){
+      if(!groups.has(c.topic))groups.set(c.topic,[]);
+      groups.get(c.topic).push(c);
+    }
+    const generated=[];
+    for(const [topic,arr] of groups){
+      if(arr.length<2)continue;
+      const stableId=`MKG:${Buffer.from(topic).toString('base64url').slice(0,18)}`;
+      generated.push({
+        id:stableId,title:`دانش ترکیبی: ${topic}`,topic,
+        conceptRefs:arr.map(x=>x.id),conceptTitles:arr.map(x=>x.title),
+        synthesis:macroKnowledgeSynthesis(topic,arr),
+        status:'system_candidate',confidence:Number(Math.min(.92,.52+arr.length*.07).toFixed(2)),
+        size:arr.length
+      });
+    }
+    const acceptedIds=new Set(savedKnowledge.map(x=>x.candidateRef).filter(Boolean));
+    const knowledgeObjects=[
+      ...savedKnowledge.map(x=>({...x,status:x.status||'accepted',accepted:true})),
+      ...generated.filter(x=>!acceptedIds.has(x.id))
+    ];
+
+    const canonicalItems=canonical.map(c=>({
+      ...c,
+      stabilized:stabilized.some(x=>x.id===c.id),
+      sourceCount:links.filter(x=>x.canonicalRef===c.id).length,
+      topic:macroTopicOf(c)
+    }));
+
     return send(res,200,{
       summary:{
         validatedConcepts:finals.length,
         newForReview:sourceItems.filter(x=>x.status==='new').length,
+        underReview:sourceItems.filter(x=>x.status==='under_review').length,
         canonicalConcepts:canonical.length,
-        openIssues:conflicts.length
+        stabilizedConcepts:stabilized.length,
+        openIssues:issueItems.length,
+        knowledgeCandidates:knowledgeObjects.filter(x=>x.status==='system_candidate').length,
+        acceptedKnowledge:knowledgeObjects.filter(x=>x.accepted).length
       },
       sourceConcepts:sourceItems,
       canonicalConcepts:canonicalItems,
-      issues:conflicts,
+      stabilizedConcepts:stabilizedItems,
+      semanticRelations:relations,
+      knowledgeObjects,
+      issues:issueItems,
       contract:{
-        layer:'semantic_consolidation',
-        excludes:['concept_network','quantification','macro_indicators','realization_references'],
-        handoff:'canonical_organizational_concept'
+        layer:'macro_knowledge',
+        phase1:'semantic_resolution_and_stabilization',
+        phase2:'knowledge_synthesis',
+        excludes:['directional_concept_network','quantification','macro_indicators','realization_references'],
+        handoff:['stabilized_organizational_concept','macro_knowledge_object']
       }
     });
   }
@@ -435,26 +598,14 @@ async function handleMacroKnowledge(req,res,repo,actor,u){
     state.macroKnowledgeSourceLinks??=[];
     state.macroKnowledgeHistory??=[];
     state.macroKnowledgeIssues??=[];
+    state.macroKnowledgeSemanticRelations??=[];
+    state.macroKnowledgeObjects??=[];
     const now=new Date().toISOString();
     const final=(state.collaborativeFinalConcepts||[]).find(x=>x.id===input.sourceConceptId&&x.organizationId===actor.organizationId);
 
     if(action==='create_canonical'){
       if(!final)return;
-      const title=String(input.title||final.concept||'').trim();
-      const definition=String(input.definition||final.finalStatement||'').trim();
-      const c={
-        id:`MKC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
-        organizationId:actor.organizationId,title,definition,
-        alternativeTerms:[],semanticScope:'',status:'canonical',version:1,
-        confidence:Number(input.confidence||1),createdAt:now,createdBy:actor.personRef,createdByName:actor.name
-      };
-      state.macroKnowledgeConcepts.push(c);
-      state.macroKnowledgeSourceLinks.push({
-        id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
-        organizationId:actor.organizationId,canonicalRef:c.id,sourceConceptRef:final.id,
-        relation:'source_of',createdAt:now,createdBy:actor.personRef
-      });
-      state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'canonical_created',sourceConceptRef:final.id,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
+      const c=macroEnsureCanonical(state,final,actor,now);
       result=c;
     }else if(action==='link_existing'){
       if(!final)return;
@@ -464,16 +615,75 @@ async function handleMacroKnowledge(req,res,repo,actor,u){
       if(!link){
         link={id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,sourceConceptRef:final.id,relation:String(input.relation||'same_as'),createdAt:now,createdBy:actor.personRef};
         state.macroKnowledgeSourceLinks.push(link);
-        state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'source_linked',sourceConceptRef:final.id,relation:link.relation,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
-      }
+      }else link.canonicalRef=c.id;
+      state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'source_linked',sourceConceptRef:final.id,relation:link.relation,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
       result={canonical:c,link};
     }else if(action==='flag_issue'){
       if(!final)return;
+      const existing=state.macroKnowledgeIssues.find(x=>x.sourceConceptRef===final.id&&!['resolved','dismissed'].includes(x.status));
+      if(existing){result=existing;return}
       const issue={id:`MKI:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,sourceConceptRef:final.id,canonicalRef:String(input.canonicalId||''),issueType:String(input.issueType||'requires_review_with'),note:String(input.note||'نیازمند بررسی معنایی'),status:'open',createdAt:now,createdBy:actor.personRef,createdByName:actor.name};
-      state.macroKnowledgeIssues.push(issue); result=issue;
+      state.macroKnowledgeIssues.push(issue);result=issue;
+    }else if(action==='resolve_issue'){
+      const issue=state.macroKnowledgeIssues.find(x=>x.id===input.issueId&&x.organizationId===actor.organizationId);
+      if(!issue)return;
+      const f=(state.collaborativeFinalConcepts||[]).find(x=>x.id===issue.sourceConceptRef&&x.organizationId===actor.organizationId);
+      if(!f)return;
+      const decision=String(input.decision||'');
+      const target=issue.canonicalRef?state.macroKnowledgeConcepts.find(x=>x.id===issue.canonicalRef&&x.organizationId===actor.organizationId):null;
+      let sourceCanonical=null;
+
+      if(decision==='same_as'&&target){
+        let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===f.id);
+        if(!link)state.macroKnowledgeSourceLinks.push({id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:target.id,sourceConceptRef:f.id,relation:'same_as',createdAt:now,createdBy:actor.personRef});
+        else Object.assign(link,{canonicalRef:target.id,relation:'same_as'});
+        sourceCanonical=target;
+      }else{
+        sourceCanonical=macroEnsureCanonical(state,f,actor,now);
+        if(target&&['broader_than','narrower_than','overlaps_with','related_with'].includes(decision)){
+          const exists=state.macroKnowledgeSemanticRelations.find(r=>r.sourceRef===sourceCanonical.id&&r.targetRef===target.id&&r.type===decision);
+          if(!exists)state.macroKnowledgeSemanticRelations.push({
+            id:`MKR:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+            sourceRef:sourceCanonical.id,targetRef:target.id,type:decision,strength:Number(input.strength||.65),
+            explanation:String(input.note||issue.note||''),createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+          });
+        }
+      }
+      if(decision==='semantic_conflict'){
+        issue.status='contested';issue.resolution='semantic_conflict';issue.resolutionNote=String(input.note||'تعارض معنایی تأیید شد و تا رفع تعارض وارد دانش ترکیبی نمی‌شود.');issue.resolvedAt=now;issue.resolvedBy=actor.personRef;
+      }else{
+        issue.status='resolved';issue.resolution=decision||'independent';issue.resolutionNote=String(input.note||'');issue.resolvedAt=now;issue.resolvedBy=actor.personRef;
+      }
+      state.macroKnowledgeHistory.push({
+        id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+        canonicalRef:sourceCanonical?.id||target?.id||'',eventType:'semantic_issue_decided',sourceConceptRef:f.id,
+        decision,issueRef:issue.id,actorRef:actor.personRef,actorName:actor.name,createdAt:now
+      });
+      result={issue,sourceCanonical,target};
+    }else if(action==='accept_knowledge'){
+      const candidate=input.candidate||{};
+      if(!candidate.id||!Array.isArray(candidate.conceptRefs)||candidate.conceptRefs.length<2)return;
+      const existing=state.macroKnowledgeObjects.find(x=>x.candidateRef===candidate.id&&x.organizationId===actor.organizationId);
+      if(existing){result=existing;return}
+      const obj={
+        id:`MKO:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,candidateRef:String(candidate.id),
+        organizationId:actor.organizationId,title:String(candidate.title||'دانش ترکیبی').trim(),
+        topic:String(candidate.topic||'').trim(),conceptRefs:candidate.conceptRefs.map(String),
+        conceptTitles:Array.isArray(candidate.conceptTitles)?candidate.conceptTitles.map(String):[],
+        synthesis:String(input.synthesis||candidate.synthesis||'').trim(),
+        status:'accepted',confidence:Number(candidate.confidence||.6),
+        createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+      };
+      state.macroKnowledgeObjects.push(obj);
+      state.macroKnowledgeHistory.push({
+        id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+        eventType:'macro_knowledge_accepted',knowledgeRef:obj.id,conceptRefs:obj.conceptRefs,
+        actorRef:actor.personRef,actorName:actor.name,createdAt:now
+      });
+      result=obj;
     }
   });
-  if(!result)return send(res,404,{message:'مفهوم یا مفهوم سازمانی موردنظر پیدا نشد'});
+  if(!result)return send(res,404,{message:'مورد موردنظر برای این عملیات پیدا نشد یا داده کافی نیست'});
   return send(res,200,{ok:true,result});
 }
 
