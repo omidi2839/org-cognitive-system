@@ -125,3 +125,14 @@
 /* 0.9.9.0.15 — SINA approved product identity */
 .cognitive-brand{align-items:center!important}.cognitive-brand>div{display:grid;gap:1px}.cognitive-brand b{font-size:16px!important;letter-spacing:0!important;color:#12385f!important}.cognitive-brand small{font-size:7px!important;line-height:1.5!important;color:#7a8b9b!important;white-space:nowrap}.cognitive-logo{width:46px!important;height:46px!important;flex-basis:46px!important;background:linear-gradient(145deg,#f7fcff,#edf7fb)!important}.cognitive-logo img{width:43px!important;height:43px!important;object-fit:contain!important}
 .sina-login-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin:0 auto 18px;padding-bottom:15px;border-bottom:1px solid #e7edf3;direction:rtl}.sina-login-brand img{width:68px;height:68px;object-fit:contain}.sina-login-brand>div{display:grid;gap:2px;text-align:right}.sina-login-brand b{font-size:25px;color:#123b66}.sina-login-brand span{font-size:10px;font-weight:800;color:#405f7c}.sina-login-brand small{font-size:8px;color:#7d8e9d;margin-top:3px}
+
+/* 0.9.9.0.17 — SINA wake-word voice states */
+#voiceCommand.sina-listening{box-shadow:0 0 0 5px rgba(43,121,239,.12),0 0 0 10px rgba(43,121,239,.06);animation:k9917voicePulse 1.15s ease-in-out infinite}
+#voiceStatus[data-state="listening"],#voiceStatus[data-state="hearing"]{color:#2168a8;font-weight:700}
+#voiceStatus[data-state="error"]{color:#b4454f}
+#voiceStatus[data-state="ready"]{color:#2d7657}
+@keyframes k9917voicePulse{50%{transform:scale(1.035)}}
+
+/* 0.9.9.0.18 — expert comment commit status */
+#k983annotationform [data-save-status]{display:block;margin-top:7px;min-height:18px;font-size:9px;color:#60768a;line-height:1.8}
+#k983annotationform button[type="submit"]:disabled{opacity:.58;cursor:wait}

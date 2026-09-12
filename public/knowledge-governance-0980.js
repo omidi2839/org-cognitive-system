@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.16';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.18';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -300,20 +300,43 @@ async function openCase(id){
   file.onchange=async()=>{const f=file.files?.[0];if(!f)return;if(f.size>1572864){status.textContent='فایل صوتی باید حداکثر ۱.۵ مگابایت باشد.';file.value='';return}audioDataUrl=await blobToDataUrl(f);preview.src=audioDataUrl;preview.hidden=false;status.textContent='فایل صوتی آماده ثبت است.'};
 
   form.onsubmit=async e=>{
-   e.preventDefault();const fd=new FormData(form),analysis=String(fd.get('analysis')||'').trim(),concept=String(fd.get('concept')||'').trim(),evidence=String(fd.get('evidence')||'').trim(),st=form.querySelector('[data-save-status]');
+   e.preventDefault();
+   if(form.dataset.saving==='1')return;
+   const fd=new FormData(form),analysis=String(fd.get('analysis')||'').trim(),concept=String(fd.get('concept')||'').trim(),evidence=String(fd.get('evidence')||'').trim(),st=form.querySelector('[data-save-status]'),submit=form.querySelector('button[type="submit"]');
    if(!analysis&&!audioDataUrl){st.textContent=stage3?'جمع‌بندی نهایی را ثبت کنید.':'یک یادداشت متنی یا صوتی ثبت کنید.';return}
    if(!concept&&!evidence){st.textContent=stage1?'ابتدا یک مفهوم/شاهد از متن انتخاب کنید یا آن را وارد کنید.':'ابتدا یکی از مفاهیم فهرست را انتخاب کنید.';return}
    const g=!stage1?modelMap.get(form.dataset.k999Key):null;
    const reviewBasisIds=g?[...g.independent,...g.complementary].map(x=>x.id):[];
-   st.textContent=stage3?'در حال ثبت جمع‌بندی قابل اتکا…':stage2?'در حال ثبت نقد خبره ارشد…':'در حال ثبت یادداشت خبرگانی…';
+   const clientResponseKey=form.dataset.clientResponseKey||(`CRK:${Date.now()}:${Math.random().toString(36).slice(2,10)}`);
+   form.dataset.clientResponseKey=clientResponseKey;
+   const payload={caseId:c.id,action:'respond',concept,analysis,evidence,sourceSentence:g?.sentence||evidence,
+      systemAnalysis:g?.systemAnalysis||'',reviewBasisIds,audioDataUrl,clientResponseKey,
+      groupLabel:'گروه خبرگان تحلیل اسناد بالادستی'};
+   const label=stage3?'جمع‌بندی قابل اتکا':stage2?'نقد خبره ارشد':'یادداشت خبرگانی';
+   const request=async()=>{
+     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
+     try{return await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',signal:controller.signal,body:JSON.stringify(payload)})}
+     finally{clearTimeout(timer)}
+   };
+   form.dataset.saving='1';if(submit)submit.disabled=true;st.textContent=`در حال ثبت ${label}…`;
    try{
-    await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify({
-      caseId:c.id,action:'respond',concept,analysis,evidence,sourceSentence:g?.sentence||evidence,
-      systemAnalysis:g?.systemAnalysis||'',reviewBasisIds,audioDataUrl,
-      groupLabel:'گروه خبرگان تحلیل اسناد بالادستی'
-    })});
-    openCase(id);
-   }catch(err){st.textContent=err.message}
+     let result;
+     try{result=await request()}
+     catch(firstErr){
+       if(firstErr?.name!=='AbortError'&&!/abort/i.test(String(firstErr?.message||'')))throw firstErr;
+       st.textContent='پاسخ ثبت طولانی شد؛ در حال بررسی و تلاش مجدد…';
+       result=await request();
+     }
+     if(!result?.ok&&!result?.response)throw Error('پاسخ ثبت معتبر دریافت نشد.');
+     delete form.dataset.clientResponseKey;
+     st.textContent=`✓ ${label} ثبت شد.`;
+     await openCase(id);
+   }catch(err){
+     const timeout=err?.name==='AbortError'||/abort/i.test(String(err?.message||''));
+     st.textContent=timeout?'ثبت بیش از حد طول کشید. دوباره روی دکمه ثبت بزنید؛ سامانه با همان شناسه از ثبت تکراری جلوگیری می‌کند.':(err.message||'ثبت انجام نشد.');
+   }finally{
+     delete form.dataset.saving;if(submit)submit.disabled=false;
+   }
   };
  }
  const newConceptBtn=z.querySelector('[data-k9914-new-concept]');
