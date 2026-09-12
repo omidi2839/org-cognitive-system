@@ -16,3 +16,20 @@
 .k996-profile-menu button b{font-size:11.5px}.k996-profile-menu button small{font-size:9.5px;color:#a77979}
 #commandResult [data-doc-preview]{cursor:pointer}
 #commandResult [data-doc-preview]:hover{text-decoration:underline;text-underline-offset:4px}
+
+/* 0.9.9.0.31 — harmonious but visible workspace return CTA */
+.k91back{
+ background:#edf5fb!important;
+ border:1px solid #9fc1dd!important;
+ color:#245f8f!important;
+ box-shadow:0 3px 10px rgba(39,92,133,.10)!important;
+ font-weight:900!important
+}
+.k91back:hover{
+ background:#dfeef9!important;
+ border-color:#79a8ce!important;
+ color:#184d78!important;
+ box-shadow:0 5px 14px rgba(39,92,133,.15)!important;
+ transform:translateY(-1px)!important
+}
+.k91back:focus-visible{outline:3px solid rgba(64,126,177,.18)!important}

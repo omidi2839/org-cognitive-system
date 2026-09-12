@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.30';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.0.31';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{
@@ -94,59 +94,43 @@ function renderForm(kind){
 function decorate(){
  const ctx=document.getElementById('workspaceContext');
  if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
- ctx.querySelectorAll('.capability-card').forEach(card=>{
-   const kind=kindOf(card);
-   if(!kind)return;
 
-   // Remove only old legacy CTAs. Reuse the current CTA so MutationObserver cannot make it blink.
-   card.querySelectorAll('[data-k9922-register],[data-k9925-register]').forEach(x=>{if(x.isConnected)x.remove()});
+ // First pass: convert the two old clickable capability cards into static cards.
+ ctx.querySelectorAll('.capability-card').forEach(original=>{
+   const kind=kindOf(original);if(!kind)return;
+   const label=kind==='upstream'?'اسناد بالادستی':'اسناد عمومی';
 
+   // Cloning removes any direct click listeners attached by the old workspace.
+   const card=original.cloneNode(true);
+   card.removeAttribute('data-capability');
+   card.classList.remove('capability-card','live');
+   card.classList.add('k9931-static-document-card','k9926-source-card');
+   card.dataset.k9931Kind=kind;
+   card.dataset.k9931Label=label;
+   card.style.cursor='default';
+   card.querySelectorAll('[data-k9922-register],[data-k9925-register],[data-k9926-register]').forEach(x=>x.remove());
+   original.replaceWith(card);
+ });
+
+ // Second pass: static cards get exactly one explicit registration action.
+ ctx.querySelectorAll('.k9931-static-document-card').forEach(card=>{
+   const kind=card.dataset.k9931Kind;if(!kind)return;
    let btn=card.querySelector('[data-k9926-register]');
-   if(btn){
-     const desired=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
-     if(btn.dataset.k9926Register!==kind)btn.dataset.k9926Register=kind;
-     if(btn.textContent!==desired)btn.textContent=desired;
-     card.classList.add('k9926-source-card');
-     return;
+   if(!btn){
+     btn=document.createElement('button');
+     btn.type='button';
+     btn.className='k9926-register';
+     btn.dataset.k9926Register=kind;
+     btn.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
+     btn.addEventListener('click',e=>{
+       e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+       renderForm(kind);
+     },true);
+     card.appendChild(btn);
    }
-
-   btn=document.createElement('button');
-   btn.type='button';
-   btn.className='k9926-register';
-   btn.dataset.k9926Register=kind;
-   btn.textContent=kind==='upstream'?'ثبت سند بالادستی':'ثبت سند عمومی';
-
-   // Critical fix: before the click event exists, temporarily make the
-   // ancestor invisible to old card-level click handlers.
-   const disarm=()=>{
-     if(btn.dataset.disarmed==='1')return;
-     btn.dataset.disarmed='1';
-     btn.dataset.oldCapability=card.getAttribute('data-capability')||'';
-     card.removeAttribute('data-capability');
-     card.classList.remove('capability-card');
-     card.classList.add('k9926-card-disarmed');
-   };
-   const rearm=()=>{
-     if(btn.dataset.disarmed!=='1')return;
-     card.classList.remove('k9926-card-disarmed');
-     card.classList.add('capability-card');
-     if(btn.dataset.oldCapability)card.setAttribute('data-capability',btn.dataset.oldCapability);
-     delete btn.dataset.disarmed;
-   };
-   btn.addEventListener('pointerdown',disarm);
-   btn.addEventListener('mousedown',disarm);
-   btn.addEventListener('touchstart',disarm,{passive:true});
-   btn.addEventListener('click',e=>{
-     e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-     const k=btn.dataset.k9926Register;
-     renderForm(k);
-     setTimeout(rearm,0);
-   });
-
-   card.appendChild(btn);
-   card.classList.add('k9926-source-card');
  });
 }
+
 let t;
 new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,80)}).observe(document.documentElement,{childList:true,subtree:true});
 decorate();

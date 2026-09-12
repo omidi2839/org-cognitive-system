@@ -1,5 +1,5 @@
 (()=>{
-window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.30';
+window.__KNOWLEDGE_GOVERNANCE_BUILD__='0.9.9.0.31';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹',fa=v=>String(v??'').replace(/\d/g,d=>FA[d]),esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 function currentUserName(){
  const named=document.querySelector('[data-user-name],.user-name,.profile-name')?.textContent?.trim();
@@ -12,17 +12,45 @@ const api=async(p,o={})=>{
  const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا');return d
 };
 
-async function counters(){
- try{
-  const d=await api('/api/v1/knowledge/documents'),a=d.items||[];
-  let analyzed=0,canonical=0;
-  try{const r=await api('/api/v1/knowledge/collaborative-analysis');analyzed=(r.items||[]).filter(x=>x.case).length}catch{}
-  try{const k=await api('/api/v1/knowledge/macro-knowledge');canonical=Number(k.summary?.canonicalConcepts||0)}catch{}
-  const m={'اسناد بالادستی':a.filter(x=>x.documentClass==='upstream').length,'اسناد عمومی':a.filter(x=>x.documentClass==='general').length,'بانک اسناد':a.length,'تحلیل اسناد':analyzed,'دانش کلان':canonical};
-  document.querySelectorAll('.capability-card').forEach(c=>{const n=c.dataset.capability||c.querySelector('b')?.textContent?.trim();if(!(n in m))return;let b=c.querySelector('.k980count');if(!b){b=document.createElement('span');b.className='k980count';c.appendChild(b)}b.textContent=fa(m[n])+(n==='دانش کلان'?' مفهوم':' سند')})
- }catch{}
+let k9931CounterCache=null,k9931CounterFetchedAt=0,k9931CounterInFlight=null;
+function k9931ApplyCounters(){
+ const m=k9931CounterCache;if(!m)return;
+ document.querySelectorAll('.capability-card,.k9931-static-document-card').forEach(c=>{
+   const n=c.dataset.k9931Label||c.dataset.capability||c.querySelector('b')?.textContent?.trim();
+   if(!(n in m))return;
+   let b=c.querySelector('.k980count');if(!b){b=document.createElement('span');b.className='k980count';c.appendChild(b)}
+   const next=fa(m[n])+(n==='دانش کلان'?' مفهوم':' سند');
+   if(b.textContent!==next)b.textContent=next;
+ });
 }
-let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(counters,100)}).observe(document.documentElement,{childList:true,subtree:true});counters();
+async function counters(force=false){
+ const now=Date.now();
+ if(k9931CounterInFlight)return k9931CounterInFlight;
+ if(!force&&k9931CounterCache&&(now-k9931CounterFetchedAt)<30000){k9931ApplyCounters();return k9931CounterCache}
+ k9931CounterInFlight=(async()=>{
+  try{
+   const [docsR,analysisR,macroR]=await Promise.allSettled([
+    api('/api/v1/knowledge/documents'),
+    api('/api/v1/knowledge/collaborative-analysis'),
+    api('/api/v1/knowledge/macro-knowledge')
+   ]);
+   const a=docsR.status==='fulfilled'?(docsR.value.items||[]):[];
+   const analyzed=analysisR.status==='fulfilled'?(analysisR.value.items||[]).filter(x=>x.case).length:(k9931CounterCache?.['تحلیل اسناد']||0);
+   const canonical=macroR.status==='fulfilled'?Number(macroR.value.summary?.canonicalConcepts||0):(k9931CounterCache?.['دانش کلان']||0);
+   k9931CounterCache={
+    'اسناد بالادستی':docsR.status==='fulfilled'?a.filter(x=>x.documentClass==='upstream').length:(k9931CounterCache?.['اسناد بالادستی']||0),
+    'اسناد عمومی':docsR.status==='fulfilled'?a.filter(x=>x.documentClass==='general').length:(k9931CounterCache?.['اسناد عمومی']||0),
+    'بانک اسناد':docsR.status==='fulfilled'?a.length:(k9931CounterCache?.['بانک اسناد']||0),
+    'تحلیل اسناد':analyzed,'دانش کلان':canonical
+   };
+   k9931CounterFetchedAt=Date.now();k9931ApplyCounters();return k9931CounterCache;
+  }finally{k9931CounterInFlight=null}
+ })();
+ return k9931CounterInFlight;
+}
+// DOM mutations only apply cached values. They never trigger network requests.
+let ct;new MutationObserver(()=>{clearTimeout(ct);ct=setTimeout(k9931ApplyCounters,120)}).observe(document.documentElement,{childList:true,subtree:true});
+counters(true);
 
 function k9922CardName(card){
  return String(card?.dataset?.capability||card?.querySelector('b')?.textContent||'').trim();
@@ -405,27 +433,19 @@ async function openCase(id){
       systemAnalysis:g?.systemAnalysis||'',reviewBasisIds,audioDataUrl,clientResponseKey,
       groupLabel:'گروه خبرگان تحلیل اسناد بالادستی',expertRole:(window.__CURRENT_USER__?.role||window.__CURRENT_USER__?.roleLabel||'')};
    const label=stage3?'جمع‌بندی قابل اتکا':stage2?'نقد خبره ارشد':'نظر خبرگانی';
-   const request=async()=>{
-     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),18000);
-     try{return await api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',signal:controller.signal,body:JSON.stringify(payload)})}
-     finally{clearTimeout(timer)}
-   };
+   const request=async()=>api('/api/v1/knowledge/collaborative-analysis',{method:'PATCH',body:JSON.stringify(payload)});
    form.dataset.saving='1';if(submit)submit.disabled=true;st.textContent=`در حال ثبت ${label}…`;
    try{
-     let result;
-     try{result=await request()}
-     catch(firstErr){
-       if(firstErr?.name!=='AbortError'&&!/abort/i.test(String(firstErr?.message||'')))throw firstErr;
-       st.textContent='پاسخ ثبت طولانی شد؛ در حال بررسی و تلاش مجدد…';
-       result=await request();
-     }
+     const result=await request();
      if(!result?.ok&&!result?.response)throw Error('پاسخ ثبت معتبر دریافت نشد.');
      delete form.dataset.clientResponseKey;
      st.textContent=`✓ ${label} ثبت شد.`;
      await openCase(id);
    }catch(err){
-     const timeout=err?.name==='AbortError'||/abort/i.test(String(err?.message||''));
-     st.textContent=timeout?'ثبت بیش از حد طول کشید. دوباره روی دکمه ثبت بزنید؛ سامانه با همان شناسه از ثبت تکراری جلوگیری می‌کند.':(err.message||'ثبت انجام نشد.');
+     const msg=String(err?.message||'ثبت انجام نشد.');
+     st.textContent=/504|timeout|زمان/i.test(msg)
+       ?'ارتباط با سرور در زمان ثبت کامل نشد. چند لحظه بعد وضعیت پرونده را بررسی کنید؛ شناسه این پاسخ برای جلوگیری از ثبت تکراری حفظ شده است.'
+       :msg;
    }finally{
      delete form.dataset.saving;if(submit)submit.disabled=false;
    }

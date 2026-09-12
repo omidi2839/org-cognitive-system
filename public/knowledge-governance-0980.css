@@ -186,3 +186,19 @@
 /* 0.9.9.0.30 — single CTA owner; legacy CTA permanently hidden */
 [data-k9922-register],[data-k9925-register]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 .k9926-source-card .k9926-register{animation:none!important;transition:color .15s ease,text-decoration-color .15s ease!important}
+
+/* 0.9.9.0.31 — static document cards + clearer registration CTA */
+.k9931-static-document-card{
+ position:relative!important;display:block!important;cursor:default!important;
+ padding-bottom:32px!important
+}
+.k9931-static-document-card:hover{transform:none!important;box-shadow:none!important}
+.k9931-static-document-card .k9926-register{
+ font-size:10.2px!important;font-weight:900!important;color:#d97706!important;
+ line-height:18px!important;letter-spacing:-.1px
+}
+.k9931-static-document-card .k9926-register:hover{color:#b45309!important;text-decoration:underline!important}
+.k9931-static-document-card .k980count{
+ position:absolute!important;left:10px!important;right:auto!important;bottom:8px!important;
+ display:inline-flex!important;opacity:1!important;visibility:visible!important
+}
