@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.1.3';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.1.5';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -102,6 +102,7 @@ function bankMarkup(){
   <div class="k91filters k958filters">
    <label>رده سند<select name="documentClass"><option value="">همه اسناد</option><option value="upstream">بالادستی</option><option value="general">عمومی</option></select></label>
    ${comboMarkup('subjectCategory','k958subject','موضوع کلان سند','جستجو یا انتخاب موضوع کلان…')}
+   ${comboMarkup('subjectArea','k9915subjectarea','زیرموضوع سند','جستجو یا انتخاب زیرموضوع…')}
    ${comboMarkup('meetingType','k958meetingtype','نوع جلسه','جستجو یا انتخاب نوع جلسه…')}
    <label>شماره جلسه<input name="meetingNumber" placeholder="مثلاً ۱۲۵"></label>
    <label>شماره مصوبه / تصمیم / سند<input name="documentNumber" placeholder="مثلاً ۲۱۵"></label>
@@ -137,9 +138,11 @@ function bindCombo(input,values){
 }
 function applyFacets(d){
  const s=document.getElementById('k958subject'),
+       a=document.getElementById('k9915subjectarea'),
        m=document.getElementById('k958meetingtype'),
        i=document.getElementById('k971issuer');
  s?._k958SetValues?.(d.facets?.subjects||[]);
+ a?._k958SetValues?.(d.facets?.subjectAreas||[]);
  m?._k958SetValues?.(d.facets?.meetingTypes||[]);
  i?._k958SetValues?.(d.facets?.issuers||[]);
 }
@@ -502,6 +505,7 @@ async function openBank(){
  const ctx=document.getElementById('workspaceContext');if(ctx)ctx.classList.add('k91-hidden-workspace');
  const x=ensureShell(),b=x.querySelector('#k76body');b.innerHTML=bankMarkup();
  bindCombo(document.getElementById('k958subject'),[]);
+ bindCombo(document.getElementById('k9915subjectarea'),[]);
  bindCombo(document.getElementById('k958meetingtype'),[]);
  await k982LoadEditPermission();
  document.getElementById('k91search').onsubmit=e=>{e.preventDefault();runBankSearch()};
@@ -524,6 +528,13 @@ async function openBank(){
  }
  await runBankSearch();
 }
+window.__SINA_OPEN_DOCUMENT_BANK__=async(filters={})=>{
+ await openBank();
+ const form=document.getElementById('k91search');if(!form)return;
+ for(const [k,v] of Object.entries(filters||{})){const el=form.elements.namedItem(k);if(el)el.value=String(v??'')}
+ await runBankSearch();
+};
+
 window.addEventListener('click',e=>{
  const c=e.target?.closest?.('[data-capability="بانک اسناد"],[data-kbank]');
  if(c){e.preventDefault();e.stopPropagation();openBank()}

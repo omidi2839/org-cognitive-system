@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.3';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -137,8 +137,8 @@ function renderDocCommand(d){
 
 function k9912InlineFormat(text){return esc(String(text||'')).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>')}
 function k9913SemanticCallout(line){
- const rules=[['شاهد مستقیم','evidence','✓'],['استنباط','inference','↗'],['نکته کنترلی','control','!'],['نکته قابل پیگیری','followup','→'],['ابهام','ambiguity','?'],['هشدار','warning','!'],['تعارض','conflict','⚠']],plain=line.replace(/\*\*/g,'').trim();
- for(const [label,kind,icon] of rules)if(plain.startsWith(label+':')||plain.startsWith(label+'：'))return `<div class="k9913callout k9913-${kind}"><span class="k9913callout-icon">${icon}</span><div><b>${label}</b><p>${k9912InlineFormat(plain.slice(label.length+1).trim())}</p></div></div>`;return null;
+ const rules=[['شاهد مستقیم','evidence','✓'],['استنباط','inference','↗'],['نکته کنترلی','control','!'],['نکته قابل پیگیری','followup','→'],['ابهام','ambiguity','?'],['هشدار','warning','!'],['تعارض','conflict','⚠'],['پیشنهاد','suggestion','✦']],plain=line.replace(/\*\*/g,'').trim();
+ for(const [label,kind,icon] of rules)if(plain.startsWith(label+':')||plain.startsWith(label+'：'))return `<div class="k9913callout k9913-${kind}" data-k9914-finding="${kind}" data-k9914-label="${label}" data-k9914-text="${esc(plain.slice(label.length+1).trim())}"><span class="k9913callout-icon">${icon}</span><div><b>${label}</b><p>${k9912InlineFormat(plain.slice(label.length+1).trim())}</p>${kind!=='evidence'?'<button type="button" class="k9914-track-finding" data-k9914-track>＋ تبدیل به پیگیری</button>':''}</div></div>`;return null;
 }
 function k9912RenderMarkdownLite(text){
  const lines=String(text||'').replace(/\r/g,'').split('\n');let html='',list=false;const close=()=>{if(list){html+='</ul>';list=false}};
@@ -156,8 +156,30 @@ function k9911RenderAICommand(d){
  <div class="k9912answer-grid"><article class="k9912analysis-card"><div class="k9912section-head"><span>تحلیل و جمع‌بندی</span><i>AI + Evidence</i></div><div class="k9912richtext">${k9912RenderMarkdownLite(d.text||'')}</div><footer><span>استنباط سینا جایگزین سند منبع نیست.</span></footer></article>
  <aside class="k9912evidence-panel"><div class="k9912section-head"><span>شواهد کلیدی</span><i>${toFa(Math.min(ev.length,4))} مورد اول</i></div><div class="k9912evidence-list">${top.length?top.map(k9912EvidenceCard).join(''):'<div class="k950empty">شاهد مستقیمی برای نمایش وجود ندارد.</div>'}</div>${rest.length?`<button type="button" class="k9912more" data-k9912-toggle>مشاهده ${toFa(rest.length)} شاهد دیگر</button><div class="k9912evidence-list k9912evidence-rest" hidden>${rest.map((x,i)=>k9912EvidenceCard(x,i+top.length)).join('')}</div>`:''}</aside></div></section>`;
  const btn=out.querySelector('[data-k9912-toggle]');if(btn)btn.onclick=()=>{const box=out.querySelector('.k9912evidence-rest'),h=box.hidden;box.hidden=!h;btn.textContent=h?'بستن شواهد تکمیلی':`مشاهده ${toFa(rest.length)} شاهد دیگر`};
+ k9914BindFindingActions(out,d);
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
+
+async function k9914CreateFollowupModal(el,d){
+ const findingType=el.dataset.k9914Finding||'followup',label=el.dataset.k9914Label||'پیگیری',text=el.dataset.k9914Text||el.querySelector('p')?.textContent||'';
+ const evidenceRefs=(d.evidence||[]).slice(0,8).map(x=>({documentId:x.documentId,documentTitle:x.documentTitle,documentNumber:x.documentNumber||null,location:x.location||null}));
+ const wrap=document.createElement('div');wrap.className='k9914follow-overlay';wrap.innerHTML=`<form class="k9914follow-card"><header><div><small>از تحلیل به اقدام</small><h3>ایجاد امر قابل پیگیری</h3></div><button type="button" data-close>×</button></header><label>عنوان<input name="title" value="${esc(label+' — '+text.slice(0,100))}" required></label><label>نوع یافته<select name="findingType"><option value="${esc(findingType)}">${esc(label)}</option></select></label><div class="k9914follow-grid"><label>اولویت<select name="priority"><option value="normal">عادی</option><option value="high">مهم</option><option value="critical">بحرانی</option><option value="low">کم</option></select></label><label>مسئول پیگیری<input name="owner" placeholder="نام فرد یا واحد"></label><label>مهلت<input type="date" name="dueDate"></label></div><label>شرح یافته<textarea name="findingText" rows="4">${esc(text)}</textarea></label><label>یادداشت اجرایی<textarea name="note" rows="3" placeholder="در صورت نیاز اقدام یا توضیح تکمیلی را بنویسید"></textarea></label><div class="k9914follow-evidence"><b>${toFa(evidenceRefs.length)} شاهد همراه این پیگیری ذخیره می‌شود</b><span>ردیابی منبع تحلیل برای پیگیری حفظ خواهد شد.</span></div><footer><button type="button" data-close2>انصراف</button><button type="submit">ثبت برای پیگیری</button></footer><div data-status></div></form>`;document.body.appendChild(wrap);
+ const close=()=>wrap.remove();wrap.querySelector('[data-close]').onclick=close;wrap.querySelector('[data-close2]').onclick=close;
+ wrap.querySelector('form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.currentTarget),st=wrap.querySelector('[data-status]');st.textContent='در حال ثبت…';try{const r=await api('/api/v1/cognitive-followups',{method:'POST',body:JSON.stringify({title:fd.get('title'),findingType, findingText:fd.get('findingText'),priority:fd.get('priority'),owner:fd.get('owner'),dueDate:fd.get('dueDate'),note:fd.get('note'),sourceQuestion:document.getElementById('commandInput')?.value||'',evidenceRefs})});el.querySelector('[data-k9914-track]').textContent='✓ در جریان پیگیری';el.querySelector('[data-k9914-track]').disabled=true;st.textContent='✓ مورد برای پیگیری ثبت شد.';setTimeout(close,650)}catch(err){st.textContent=err.message}};
+}
+function k9914BindFindingActions(out,d){out.querySelectorAll('[data-k9914-track]').forEach(btn=>btn.onclick=()=>k9914CreateFollowupModal(btn.closest('[data-k9914-finding]'),d))}
+async function k9914OpenFollowups(){
+ let d;try{d=await api('/api/v1/cognitive-followups')}catch(e){return}
+ document.querySelector('.k9914follow-list-overlay')?.remove();const w=document.createElement('div');w.className='k9914follow-list-overlay';const items=d.items||[];
+ w.innerHTML=`<section class="k9914follow-list"><header><div><small>حافظه اجرایی سینا</small><h3>پیگیری‌های شناختی</h3></div><button type="button" data-close>×</button></header><div class="k9914follow-summary"><span>باز: <b>${toFa(d.summary?.open||0)}</b></span><span>در حال اقدام: <b>${toFa(d.summary?.inProgress||0)}</b></span><span>انجام‌شده: <b>${toFa(d.summary?.done||0)}</b></span></div><div class="k9914follow-items">${items.length?items.map(x=>`<article data-id="${esc(x.id)}"><div><em>${esc(({conflict:'تعارض',control:'نکته کنترلی',followup:'نکته قابل پیگیری',inference:'استنباط',ambiguity:'ابهام',warning:'هشدار',suggestion:'پیشنهاد'})[x.findingType]||x.findingType)}</em><b>${esc(x.title)}</b><p>${esc(x.findingText||'')}</p><small>${x.owner?'مسئول: '+esc(x.owner):'مسئول تعیین نشده'}${x.dueDate?' · مهلت: '+esc(x.dueDate):''}</small></div><select data-status><option value="open"${x.status==='open'?' selected':''}>باز</option><option value="in_progress"${x.status==='in_progress'?' selected':''}>در حال اقدام</option><option value="done"${x.status==='done'?' selected':''}>انجام‌شده</option></select></article>`).join(''):'<div class="k950empty">هنوز مورد پیگیری ثبت نشده است.</div>'}</div></section>`;document.body.appendChild(w);w.querySelector('[data-close]').onclick=()=>w.remove();
+ w.querySelectorAll('[data-status]').forEach(sel=>sel.onchange=async()=>{const id=sel.closest('[data-id]').dataset.id;await api('/api/v1/cognitive-followups',{method:'PATCH',body:JSON.stringify({id,status:sel.value})})});
+}
+function k9914EnsureFollowupButton(){
+ const box=document.getElementById('personalSuggestions');if(!box||box.querySelector('[data-k9914-followups]'))return;
+ const b=document.createElement('button');b.type='button';b.dataset.k9914Followups='1';b.className='k9914-followups-entry';b.textContent='◈ پیگیری‌های شناختی';b.onclick=k9914OpenFollowups;box.appendChild(b);
+}
+setInterval(k9914EnsureFollowupButton,900);k9914EnsureFollowupButton();
 
 async function k9911HandleAICommand(q){
  const out=document.getElementById('commandResult');
