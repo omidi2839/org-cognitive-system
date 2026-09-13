@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_BULK_INTAKE_BUILD__='0.9.9.1.4';
+window.__SINA_BULK_INTAKE_BUILD__='0.9.9.1.9';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const fa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -103,23 +103,11 @@ async function discardUncommitted(w){
  if(window.SinaDialog&&!(await SinaDialog.confirm('فایل‌های بارگذاری‌شده‌ای که ثبت نهایی نشده‌اند از بانک پنهان شوند؟',{title:'پاک‌سازی پذیرش دسته‌جمعی'})))return;
  try{const d=await api('/api/v1/bulk-intake/discard',{method:'POST',body:JSON.stringify({documentIds:ids})});rows=rows.filter(r=>!ids.includes(r.documentId));renderRows(w);w.querySelector('[data-summary]').textContent=`${fa(d.removed||0)} مورد ثبت‌نشده پاک‌سازی شد.`}catch(e){w.querySelector('[data-summary]').textContent=e.message}
 }
-function k9916Toolbar(ctx){
- let bar=ctx.querySelector('.k9916-doc-toolbar');
- if(bar)return bar;
- const section=[...ctx.querySelectorAll('.capability-section,.workspace-section,.section-card')].find(x=>/اسناد سازمان/.test(x.textContent||''))||ctx.querySelector('.capability-section,.workspace-section,.section-card')||ctx;
- bar=document.createElement('div');bar.className='k9916-doc-toolbar';
- const firstCard=section.querySelector('.capability-card,.k9931-static-document-card');
- if(firstCard)firstCard.parentElement.insertBefore(bar,firstCard);else section.prepend(bar);
- return bar;
+function findDocSection9919(ctx){
+ const cards=[...ctx.querySelectorAll('.k9931-static-document-card')].filter(c=>['upstream','general'].includes(c.dataset.k9931Kind||''));if(cards.length<2)return cards[0]?.parentElement||null;
+ const labels=[...ctx.querySelectorAll('b,h1,h2,h3,h4,span,div')].filter(el=>String(el.textContent||'').trim()==='اسناد سازمان');for(const label of labels){let n=label;while(n&&n!==ctx){if(cards.every(c=>n.contains(c)))return n;n=n.parentElement}}let a=cards[0];while(a&&a!==ctx){if(cards.every(c=>a.contains(c)))return a;a=a.parentElement}return cards[0].parentElement;
 }
-function decorate(){
- const ctx=document.getElementById('workspaceContext');if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
- // remove any old top-level bulk buttons created by 0.9.9.1.4
- ctx.querySelectorAll('[data-k9914-bulk]').forEach(x=>{if(!x.closest('.k9916-doc-toolbar'))x.remove()});
- const bar=k9916Toolbar(ctx);
- if(bar.querySelector('[data-k9914-bulk]'))return;
- const b=document.createElement('button');b.type='button';b.dataset.k9914Bulk='1';b.className='k9914entry k9916tool';b.innerHTML='<span>⇧</span><div><b>ورود دسته‌جمعی اسناد</b><small>بارگذاری، شناسایی و ثبت چند سند</small></div>';
- b.onclick=e=>{e.preventDefault();e.stopPropagation();mount()};bar.appendChild(b);
-}
-let t;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,120)}).observe(document.documentElement,{childList:true,subtree:true});decorate();
+function ensureToolbar9919(ctx){if(window.__SINA_ENSURE_DOCUMENT_TOOLBAR__)return window.__SINA_ENSURE_DOCUMENT_TOOLBAR__(ctx);let bar=ctx.querySelector('#sinaDocumentToolbar9919'),section=findDocSection9919(ctx);if(!section)return bar;if(!bar){bar=document.createElement('div');bar.id='sinaDocumentToolbar9919';bar.className='k9919-doc-toolbar';bar.dataset.release='0.9.9.1.9'}if(section.parentElement&&bar.nextElementSibling!==section)section.parentElement.insertBefore(bar,section);return bar}
+function decorate(){const ctx=document.getElementById('workspaceContext');if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;ctx.querySelectorAll('[data-k9914-bulk]').forEach(x=>{if(!x.closest('#sinaDocumentToolbar9919'))x.remove()});const bar=ensureToolbar9919(ctx);if(!bar||bar.querySelector('[data-k9914-bulk]'))return;const b=document.createElement('button');b.type='button';b.dataset.k9914Bulk='1';b.className='k9914entry k9919tool';b.innerHTML='<span>⇧</span><div><b>ورود دسته‌جمعی اسناد</b><small>بارگذاری، شناسایی و ثبت چند سند</small></div>';b.onclick=e=>{e.preventDefault();e.stopPropagation();mount()};bar.prepend(b)}
+window.__SINA_OPEN_BULK_INTAKE__=(kind='')=>{mount();requestAnimationFrame(()=>{const sel=document.querySelector('.k9914overlay [data-class]');if(sel&&['upstream','general'].includes(kind))sel.value=kind})};let t;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,80)}).observe(document.documentElement,{childList:true,subtree:true});decorate();
 })();
