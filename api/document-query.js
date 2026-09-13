@@ -218,6 +218,24 @@ function k9911GetRelations(db,org,id){
     })
   };
 }
+
+/* ---------- SINA Document Intelligence V1 / 0.9.9.1.3 ---------- */
+function k9913Tokens(v){return [...new Set(norm(v).split(/[^\p{L}\p{N}]+/u).filter(x=>x.length>2&&!stop.has(x)))]}
+function k9913Similarity(a,b){const A=new Set(k9913Tokens(a)),B=new Set(k9913Tokens(b));if(!A.size||!B.size)return 0;let hit=0;for(const x of A)if(B.has(x))hit++;return hit/Math.max(1,new Set([...A,...B]).size)}
+function k9913DateValue(v){const d=digits(v||'').replace(/[^\d]/g,'');return d?Number(d.slice(0,8).padEnd(8,'0')):0}
+function k9913Patterns(text){
+ const ss=sentences(text||''),n=x=>norm(x),action=/(موظف|مکلف|اقدام|اجرا|پیگیری|تهیه|تدوین|ابلاغ|ارسال|ارائه|بررسی|تصویب|گزارش|تأمین|ایجاد|اصلاح|بازنگری|انجام)/,resp=/(مسئول|دبیرخانه|معاونت|مدیریت|اداره|کمیسیون|کارگروه|واحد|مرکز|شورا|سازمان)/,amb=/(حسب مورد|در صورت لزوم|در اسرع وقت|مقتضی|مناسب|لازم|ذیربط|مرتبط|سایر|و غیره|حتی الامکان|امکان پذیر)/,obl=/(باید|نباید|موظف|مکلف|الزام|ممنوع|ضروری)/;
+ return{actions:ss.filter(x=>action.test(n(x))).slice(0,20),responsibilities:ss.filter(x=>action.test(n(x))&&resp.test(n(x))).slice(0,20),ambiguities:ss.filter(x=>amb.test(n(x))).slice(0,15),obligations:ss.filter(x=>obl.test(n(x))).slice(0,20)};
+}
+function k9913AnalyzeDocument(db,org,id){
+ const {docs,byId,textByDoc}=k9911BuildIndex(db,org),d=byId.get(id);if(!d)return{found:false,documentId:id};
+ const m=metaOf(d),text=textByDoc.get(id)||String(d.content||''),pat=k9913Patterns(text),ownDate=field(d,m,'promulgationDate')||field(d,m,'meetingDate')||field(d,m,'issuedAt'),ownTopic=[d.title,field(d,m,'subjectCategory'),field(d,m,'subjectArea'),text.slice(0,3500)].join(' '),similar=[];
+ for(const other of docs){if(other.id===id)continue;const om=metaOf(other),ot=textByDoc.get(other.id)||String(other.content||''),score=k9913Similarity(ownTopic,[other.title,field(other,om,'subjectCategory'),field(other,om,'subjectArea'),ot.slice(0,3500)].join(' '));if(score<.035)continue;const od=field(other,om,'promulgationDate')||field(other,om,'meetingDate')||field(other,om,'issuedAt');similar.push({document:k9911DocItem(other,ot),similarity:Number(score.toFixed(3)),chronology:!ownDate||!od?'unknown':k9913DateValue(od)>k9913DateValue(ownDate)?'later':k9913DateValue(od)<k9913DateValue(ownDate)?'earlier':'same_date'})}
+ similar.sort((a,b)=>b.similarity-a.similarity);
+ return{found:true,document:k9911DocItem(d,text),patterns:pat,similarDocuments:similar.slice(0,10),legalRelations:k9911GetRelations(db,org,id).relations,analysisContract:{similarity:'شباهت موضوعی فقط سیگنال بازیابی است.',conflict:'تعارض فقط با شاهد از هر دو سند.',chronology:'تقدم زمانی از تقدم حقوقی جداست.',alignment:'همراستایی با شاهد از سند عمومی و بالادستی.'}};
+}
+function k9913Portfolio(db,org,query){const found=k9911Search(db,org,query,'qa',10);return{query,candidates:found.results.map(x=>({document:x.document,evidence:x.evidence,intelligence:k9913AnalyzeDocument(db,org,x.document.id)}))}}
+
 const k9911Tools=[
   {
     type:'function',name:'search_documents',
@@ -249,7 +267,10 @@ const k9911Tools=[
       properties:{document_id:{type:'string'}},
       required:['document_id']
     },strict:true
-  }
+  },
+ {type:'function',name:'analyze_document_intelligence',description:'تحلیل سند برای اقدامات اجرایی، مسئولیت‌ها، ابهام‌ها، الزامات، اسناد مشابه، تقدم و تأخر و روابط حقوقی.',parameters:{type:'object',additionalProperties:false,properties:{document_id:{type:'string'}},required:['document_id']},strict:true},
+ {type:'function',name:'compare_document_portfolio',description:'مقایسه اسناد یک موضوع برای مشابهت، تداخل، تعارض، تقدم و تأخر و همراستایی با اسناد بالادستی.',parameters:{type:'object',additionalProperties:false,properties:{query:{type:'string'}},required:['query']},strict:true}
+
 ];
 async function k9911OpenAI(body){
   const key=process.env.OPENAI_API_KEY;
@@ -303,6 +324,9 @@ async function k9911RunEvidenceCommand(db,org,question){
 هیچ داده سازمانی را از حافظه عمومی خودت نساز.
 بین «شاهد مستقیم»، «استنباط»، «پیشنهاد» و «مجهول» تمایز بگذار.
 اگر شواهد کافی نیست صریح بگو «شواهد کافی در بانک اسناد پیدا نشد».
+در تحلیل اسناد متناسب با پرسش: مشابهت، تداخل/تعارض، تقدم/تأخر، اقدامات اجرایی، مسئولیت‌ها، ابهام‌ها و همراستایی سند عمومی با بالادستی را بررسی کن.
+از analyze_document_intelligence برای سند و compare_document_portfolio برای مجموعه اسناد استفاده کن. شباهت به معنی تعارض نیست؛ تعارض فقط با شاهد روشن از دو سند. تقدم زمانی را از تقدم حقوقی جدا کن. همراستایی را با شاهد از هر دو سطح و یکی از وضعیت‌های «همراستا»، «همراستایی جزئی»، «نامشخص»، «ناسازگار» اعلام کن.
+برای نکات مهم از برچسب‌های «شاهد مستقیم:»، «استنباط:»، «نکته کنترلی:»، «نکته قابل پیگیری:»، «ابهام:» و «تعارض:» استفاده کن.
 پاسخ را فارسی، مدیریتی و موجز بنویس.
 در متن پاسخ برای ارجاع از عنوان سند/شماره سند استفاده کن؛ سامانه فهرست شواهد را جداگانه نمایش می‌دهد.`;
 
@@ -330,6 +354,8 @@ async function k9911RunEvidenceCommand(db,org,question){
       if(call.name==='search_documents')result=k9911Search(db,org,args.query||question,args.mode||'qa',args.limit||8);
       else if(call.name==='get_document')result=k9911GetDocument(db,org,args.document_id);
       else if(call.name==='get_document_relations')result=k9911GetRelations(db,org,args.document_id);
+      else if(call.name==='analyze_document_intelligence')result=k9913AnalyzeDocument(db,org,args.document_id);
+      else if(call.name==='compare_document_portfolio')result=k9913Portfolio(db,org,args.query||question);
       else result={error:'UNKNOWN_TOOL'};
       toolResults.push({name:call.name,args,result});
       input.push({type:'function_call_output',call_id:call.call_id,output:JSON.stringify(result)});
