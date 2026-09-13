@@ -1,0 +1,998 @@
+import { createRepository } from '../src/infrastructure/repositoryFactory.js';
+import { PostgresRepository } from '../src/infrastructure/postgresRepository.js';
+
+import { requireAuthenticated, sessionOf, validateAdminLogin, createSession, setSessionCookie, clearSessionCookie } from '../src/infrastructure/authSession.js';
+const ORG='ORG:SYN-001';
+const send=(res,status,data)=>{
+  res.statusCode=status;
+  res.setHeader('content-type','application/json; charset=utf-8');
+  res.end(JSON.stringify(data));
+};
+const bodyOf=req=>{
+  if(!req.body) return {};
+  if(typeof req.body==='object') return req.body;
+  try{return JSON.parse(req.body)}catch{return{}}
+};
+const actorOf=req=>{
+  const h=req.headers||{};
+  const role=String(h['x-role']||'admin').toLowerCase();
+  return {
+    organizationId:String(h['x-org-id']||ORG),
+    role,
+    personRef:String(h['x-person-id']||h['x-user-id']||'current-user'),
+    name:(()=>{try{return decodeURIComponent(String(h['x-person-name']||'کاربر فعلی'))}catch{return String(h['x-person-name']||'کاربر فعلی')}})(),
+    canEdit:String(h['x-document-edit-permission']||'').toLowerCase()==='true'||
+      ['admin','administrator','document_editor','knowledge_admin'].includes(role)
+  };
+};
+const editable=['title','documentType','documentNumber','issuer','versionLabel','issuedAt','promulgationDate','meetingType','meetingNumber','meetingDate','validUntil','validityStatus','classification','organizationalLevel','scopeType','organizationalUnitRef','organizationalUnitName','subjectCategory','subjectArea'];
+const stages=['independent_analysis','complementary_review','final_synthesis','approved'];
+const stageFa={independent_analysis:'تحلیل مستقل خبرگان',complementary_review:'تحلیل تکمیلی و نقد',final_synthesis:'جمع‌بندی و نهایی‌سازی',approved:'تأیید نهایی'};
+const questions=(stage,rs=[])=>{
+  if(stage==='independent_analysis') return [
+    'مفاهیم کلیدی این سند را با استناد به عبارت‌های خود سند مشخص کنید.',
+    'منظور دقیق سند از هر مفهوم کلیدی چیست و چه ابعادی برای آن در نظر می‌گیرید؟',
+    'کدام بخش از متن سند شاهد تفسیر شماست؟'
+  ];
+  if(stage==='complementary_review') return [
+    `تا این مرحله ${rs.filter(x=>x.stage==='independent_analysis').length} تحلیل مستقل ثبت شده است. نقاط توافق و اختلاف این دیدگاه‌ها را بررسی کنید.`,
+    'آیا برداشت‌های ارائه‌شده مکمل یکدیگرند یا تعارض مفهومی دارند؟ دلیل و شاهد خود را ذکر کنید.',
+    'کدام ابهام‌ها هنوز برای رسیدن به معنای معتبر سازمانی نیازمند توضیح است؟'
+  ];
+  return [
+    'با توجه به همه تحلیل‌ها و نقدهای ثبت‌شده، تعریف نهایی و قابل استناد مفهوم را تدوین کنید.',
+    'دیدگاه‌های اقلیت یا اختلاف‌های حل‌نشده را صریحاً ثبت کنید؛ تعداد موافقان به‌تنهایی معیار اعتبار نیست.',
+    'عبارت یا شواهد سند که مبنای جمع‌بندی نهایی است مشخص کنید.'
+  ];
+};
+const summary=rs=>({
+  total:rs.length,
+  independent:rs.filter(x=>x.stage==='independent_analysis').length,
+  complementary:rs.filter(x=>x.stage==='complementary_review').length,
+  final:rs.filter(x=>x.stage==='final_synthesis').length
+});
+
+
+const migrationAuthorized=req=>{
+  const expected=String(process.env.MIGRATION_ADMIN_SECRET||'');
+  const actual=String((req.headers||{})['x-migration-secret']||'');
+  return Boolean(expected)&&actual===expected;
+};
+const migrationError=(e,stage)=>({
+  ok:false,
+  stage,
+  code:e?.code||(
+    /data transfer quota/i.test(String(e?.message||'')) ? 'DATABASE_TRANSFER_QUOTA_EXCEEDED' :
+    'DATABASE_MIGRATION_ERROR'
+  ),
+  message:e?.message||String(e)||'Database migration error',
+  retryable:!['MIGRATION_TARGET_NOT_EMPTY','MIGRATION_SNAPSHOT_INVALID'].includes(String(e?.code||''))
+});
+async function migrationStats(repo,stage){
+  try{
+    return {ok:true,stage,stats:await repo.stats()};
+  }catch(e){
+    console.error(`DATABASE_MIGRATION_${stage.toUpperCase()}_ERROR`,e);
+    return migrationError(e,stage);
+  }
+}
+async function handleDatabaseMigration(req,res,repo){
+  if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
+  if(!migrationAuthorized(req)) return send(res,403,{message:'دسترسی مهاجرت مجاز نیست.',code:'MIGRATION_FORBIDDEN'});
+
+  const input=bodyOf(req),action=String(input.action||'probe-target').toLowerCase();
+  const needsTarget=['probe-target','probe','copy'].includes(action);
+  const targetUrl=String(process.env.MIGRATION_TARGET_DATABASE_URL||'');
+  if(needsTarget&&!targetUrl) return send(res,503,{ok:false,stage:'target',message:'MIGRATION_TARGET_DATABASE_URL تنظیم نشده است.',code:'MIGRATION_TARGET_URL_REQUIRED'});
+
+  if(action==='probe-source'){
+    const source=await migrationStats(repo,'source');
+    return send(res,source.ok?200:503,source);
+  }
+
+  const target=needsTarget?new PostgresRepository(targetUrl):null;
+  try{
+    if(action==='probe-target'){
+      const result=await migrationStats(target,'target');
+      return send(res,result.ok?200:503,result);
+    }
+
+    // Backward-compatible combined probe, now target-first so a blocked source does not hide target health.
+    if(action==='probe'){
+      const targetResult=await migrationStats(target,'target');
+      if(!targetResult.ok) return send(res,503,{ok:false,target:targetResult,source:{ok:false,stage:'source',skipped:true,reason:'TARGET_PROBE_FAILED'}});
+      const sourceResult=await migrationStats(repo,'source');
+      return send(res,sourceResult.ok?200:503,{ok:targetResult.ok&&sourceResult.ok,target:targetResult,source:sourceResult});
+    }
+
+    if(action!=='copy') return send(res,400,{ok:false,message:'عملیات مهاجرت نامعتبر است.',code:'MIGRATION_ACTION_INVALID',allowed:['probe-target','probe-source','probe','copy']});
+
+    let snapshot;
+    try{
+      snapshot=await repo.exportSnapshot();
+    }catch(e){
+      console.error('DATABASE_MIGRATION_SOURCE_EXPORT_ERROR',e);
+      return send(res,503,migrationError(e,'source-export'));
+    }
+
+    let result;
+    try{
+      result=await target.importSnapshot(snapshot,{requireEmpty:true});
+    }catch(e){
+      console.error('DATABASE_MIGRATION_TARGET_IMPORT_ERROR',e);
+      return send(res,503,migrationError(e,'target-import'));
+    }
+
+    let verify;
+    try{
+      verify=await target.exportSnapshot();
+    }catch(e){
+      console.error('DATABASE_MIGRATION_TARGET_VERIFY_ERROR',e);
+      return send(res,503,migrationError(e,'target-verify'));
+    }
+
+    const same=JSON.stringify(snapshot.counts)===JSON.stringify(verify.counts);
+    if(!same) return send(res,500,{ok:false,message:'صحت‌سنجی شمارشی مهاجرت ناموفق بود.',code:'MIGRATION_VERIFY_FAILED',stage:'verify',source:snapshot.counts,target:verify.counts});
+    return send(res,200,{ok:true,migrated:true,source:snapshot.counts,target:verify.counts,compressedBytes:result.compressedBytes});
+  }catch(e){
+    console.error('DATABASE_MIGRATION_HANDLER_ERROR',e);
+    return send(res,500,migrationError(e,'handler'));
+  }finally{
+    if(target) await target.close().catch(()=>{});
+  }
+}
+
+function k9923ResolveDocument(db,requestedId,organizationId){
+  const id=String(requestedId||'').trim();
+  if(!id)return null;
+  const docs=(db.documents||[]).filter(x=>x.organizationId===organizationId);
+  let d=docs.find(x=>String(x.id)===id);
+  if(d)return d;
+  const norm=(db.normalizedDocuments||[]).find(x=>x.organizationId===organizationId&&(
+    String(x.id||'')===id||String(x.documentRef||'')===id||String(x.documentId||'')===id
+  ));
+  if(norm){
+    const ref=String(norm.documentRef||norm.documentId||'');
+    d=docs.find(x=>String(x.id)===ref||String(x.normalizedRef||'')===String(norm.id||''));
+    if(d)return d;
+  }
+  const art=(db.artifacts||[]).find(x=>x.organizationId===organizationId&&String(x.id||'')===id);
+  if(art){
+    d=docs.find(x=>String(x.id)===String(art.documentRef||'')||String(x.artifactRef||'')===String(art.id||''));
+    if(d)return d;
+  }
+  return docs.find(x=>String(x.normalizedRef||'')===id||String(x.artifactRef||'')===id)||null;
+}
+
+async function handleGovernance(req,res,repo,actor,u){
+  const id=String(u.searchParams.get('documentId')||'');
+  const db=await repo.all();
+
+  if(req.method==='GET'){
+    if(!id) return send(res,200,{permissions:{documentEdit:actor.canEdit,role:actor.role}});
+    const d=k9923ResolveDocument(db,id,actor.organizationId);
+    if(!d) return send(res,404,{message:'سند پیدا نشد',code:'DOCUMENT_NOT_FOUND',requestedId:id});
+    const artifacts=(db.artifacts||[]).filter(x=>x.documentRef===d.id&&x.organizationId===actor.organizationId);
+    const currentPrimary=artifacts.find(x=>x.id===d.artifactRef)||artifacts.filter(x=>x.role!=='attachment'&&x.status==='committed').sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))[0]||null;
+    const attachments=artifacts.filter(x=>x.role==='attachment'&&x.status==='committed').map(x=>({id:x.id,fileName:x.fileName,mimeType:x.mimeType,size:x.size||0,createdAt:x.createdAt||null}));
+    return send(res,200,{
+      document:d,
+      files:{primary:currentPrimary?{id:currentPrimary.id,fileName:currentPrimary.fileName,mimeType:currentPrimary.mimeType,size:currentPrimary.size||0}:null,attachments},
+      permissions:{documentEdit:actor.canEdit,role:actor.role}
+    });
+  }
+
+  if(req.method!=='PATCH') return send(res,405,{message:'Method not allowed'});
+  if(!actor.canEdit) return send(res,403,{message:'شما مجوز ویرایش سند را ندارید',code:'DOCUMENT_EDIT_FORBIDDEN'});
+  if(!id) return send(res,400,{message:'شناسه سند الزامی است'});
+
+  const input=bodyOf(req),patch={};
+  for(const k of editable){
+    if(Object.prototype.hasOwnProperty.call(input,k)) patch[k]=input[k]===undefined?null:input[k];
+  }
+  if(!Object.keys(patch).length) return send(res,400,{message:'هیچ فیلد قابل ویرایشی ارسال نشده است'});
+
+  const now=new Date().toISOString();
+  let updated=null;
+  await repo.mutate(s=>{
+    s.documents??=[];
+    const snapshot={documents:s.documents||[],normalizedDocuments:s.normalizedDocuments||[],artifacts:s.artifacts||[]};
+    const d=k9923ResolveDocument(snapshot,id,actor.organizationId);
+    if(!d) return;
+    const before={};
+    for(const k of Object.keys(patch)) before[k]=d[k]??null;
+    Object.assign(d,patch,{editedAt:now,editedBy:actor.personRef});
+    s.documentEditAudit??=[];
+    s.documentEditAudit.push({
+      id:`DEA:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+      organizationId:actor.organizationId,
+      documentRef:d.id,
+      editedAt:now,
+      editedBy:actor.personRef,
+      before,
+      after:patch
+    });
+    updated={...d};
+  });
+  if(!updated) return send(res,404,{message:'سند پیدا نشد'});
+  return send(res,200,{document:updated,auditRecorded:true});
+}
+
+async function handleCollaborative(req,res,repo,actor,u){
+  const documentId=String(u.searchParams.get('documentId')||'');
+
+  if(req.method==='GET'){
+    const db=await repo.all();
+    const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId&&x.documentClass==='upstream');
+    const cases=(db.collaborativeAnalysisCases||[]).filter(x=>x.organizationId===actor.organizationId);
+    const responses=(db.collaborativeAnalysisResponses||[]).filter(x=>x.organizationId===actor.organizationId);
+    const items=docs.map(d=>{
+      const c=cases.find(x=>x.documentRef===d.id)||null;
+      const rs=c?responses.filter(x=>x.caseRef===c.id):[];
+      return {
+        document:{id:d.id,title:d.title,documentType:d.documentType,status:d.status},
+        case:c?{...c,stageLabel:stageFa[c.stage],summary:summary(rs),questions:questions(c.stage,rs)}:null
+      };
+    });
+    if(documentId){
+      const item=items.find(x=>x.document.id===documentId);
+      if(!item) return send(res,404,{message:'سند بالادستی پیدا نشد'});
+      const rs=item.case?responses.filter(x=>x.caseRef===item.case.id).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))):[];
+      const history=item.case?(db.collaborativeConceptHistory||[]).filter(x=>x.caseRef===item.case.id).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))):[];
+      const finalConcepts=item.case?(db.collaborativeFinalConcepts||[]).filter(x=>x.caseRef===item.case.id):[];
+      return send(res,200,{...item,responses:rs,conceptHistory:history,finalConcepts});
+    }
+    return send(res,200,{items,policy:{analyzableClass:'upstream',generalDocuments:'reference_only'}});
+  }
+
+  const input=bodyOf(req);
+
+  if(req.method==='POST'){
+    const db=await repo.all();
+    const d=(db.documents||[]).find(x=>x.id===input.documentId&&x.organizationId===actor.organizationId);
+    if(!d) return send(res,404,{message:'سند پیدا نشد'});
+    if(d.documentClass!=='upstream'){
+      return send(res,409,{
+        message:'اسناد عمومی وارد تحلیل شناختی نمی‌شوند و فقط برای استناد و بازیابی پردازش می‌شوند.',
+        code:'GENERAL_DOCUMENT_REFERENCE_ONLY'
+      });
+    }
+    let created=null;
+    await repo.mutate(s=>{
+      s.collaborativeAnalysisCases??=[];
+      created=s.collaborativeAnalysisCases.find(x=>x.organizationId===actor.organizationId&&x.documentRef===d.id);
+      if(!created){
+        created={
+          id:`CAC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,
+          documentRef:d.id,
+          stage:'independent_analysis',
+          status:'in_progress',
+          createdAt:new Date().toISOString(),
+          createdBy:actor.personRef
+        };
+        s.collaborativeAnalysisCases.push(created);
+      }
+    });
+    return send(res,200,{case:{...created,stageLabel:stageFa[created.stage],questions:questions(created.stage,[])}});
+  }
+
+  if(req.method==='PATCH'){
+    let updated=null,createdResponse=null;
+    await repo.mutate(s=>{
+      s.collaborativeAnalysisCases??=[];
+      s.collaborativeAnalysisResponses??=[];
+      const c=s.collaborativeAnalysisCases.find(x=>x.id===input.caseId&&x.organizationId===actor.organizationId);
+      if(!c) return;
+      if(input.action==='respond'){
+        const now=new Date().toISOString();
+        const concept=String(input.concept||'').trim();
+        const clientResponseKey=String(input.clientResponseKey||'').trim().slice(0,120);
+        const duplicate=clientResponseKey?s.collaborativeAnalysisResponses.find(x=>x.caseRef===c.id&&x.clientResponseKey===clientResponseKey):null;
+        if(duplicate){
+          createdResponse={...duplicate};
+        }else{
+        const response={
+          id:`CAR:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,
+          caseRef:c.id,
+          stage:c.stage,
+          expertRef:input.expertRef||actor.personRef,
+          expertName:input.expertName||actor.name,
+          expertRole:input.expertRole||actor.role||'',
+          groupLabel:input.groupLabel||'گروه خبرگان تحلیل اسناد بالادستی',
+          concept,
+          analysis:String(input.analysis||'').trim(),
+          evidence:String(input.evidence||'').trim(),
+          sourceSentence:String(input.sourceSentence||'').trim(),
+          systemAnalysis:String(input.systemAnalysis||'').trim(),
+          reviewBasisIds:Array.isArray(input.reviewBasisIds)?input.reviewBasisIds.map(String).slice(0,100):[],
+          audioDataUrl:String(input.audioDataUrl||'').slice(0,2200000),
+          clientResponseKey,
+          createdAt:now
+        };
+        s.collaborativeAnalysisResponses.push(response);
+        createdResponse={...response};
+        s.collaborativeConceptHistory??=[];
+        const eventType=c.stage==='independent_analysis'?'independent_expert_view':
+          c.stage==='complementary_review'?'senior_expert_critique':
+          c.stage==='final_synthesis'?'reliable_synthesis_candidate':'expert_response';
+        s.collaborativeConceptHistory.push({
+          id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,
+          caseRef:c.id,
+          documentRef:c.documentRef,
+          concept,
+          stage:c.stage,
+          eventType,
+          responseRef:response.id,
+          actorRef:actor.personRef,
+          actorName:actor.name,
+          actorRole:actor.role||'',
+          createdAt:now
+        });
+
+        // Experts submit their own work; they do not operate a separate workflow button.
+        // The case is handed to the next research layer immediately after submission.
+        // Final synthesis still requires explicit final approval.
+        if(c.stage==='independent_analysis'){
+          c.stage='complementary_review';
+          c.status='in_progress';
+          c.autoAdvancedAt=now;
+          c.autoAdvancedReason='expert_response_submitted';
+        }else if(c.stage==='complementary_review'){
+          c.stage='final_synthesis';
+          c.status='in_progress';
+          c.autoAdvancedAt=now;
+          c.autoAdvancedReason='senior_expert_critique_submitted';
+        }
+        }
+      }else if(input.action==='reopen_for_edit'){
+        const now=new Date().toISOString();
+        if(c.stage!=='approved') return;
+        c.stage='independent_analysis';
+        c.status='in_progress';
+        c.reopenedAt=now;
+        c.reopenedBy=actor.personRef;
+        c.reopenedByName=actor.name;
+        c.approvedAt=null;
+        c.approvedBy=null;
+        // A reopened conceptualization invalidates the previously published snapshot
+        // until the full expert-review cycle is approved again. History is preserved.
+        s.collaborativeFinalConcepts??=[];
+        for(const f of s.collaborativeFinalConcepts){
+          if(f.caseRef===c.id&&f.status==='reliable_synthesis'){
+            f.status='superseded_pending_review';
+            f.supersededAt=now;
+            f.supersededReason='research_case_reopened_for_edit';
+          }
+        }
+        s.collaborativeConceptHistory??=[];
+        s.collaborativeConceptHistory.push({
+          id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+          organizationId:actor.organizationId,caseRef:c.id,documentRef:c.documentRef,
+          concept:'',stage:'independent_analysis',eventType:'research_case_reopened_for_edit',
+          actorRef:actor.personRef,actorName:actor.name,createdAt:now
+        });
+      }else if(input.action==='advance'){
+        if(c.stage!=='final_synthesis') return;
+        const previousStage=c.stage;
+        const i=stages.indexOf(c.stage);
+        if(i>=0&&i<stages.length-1) c.stage=stages[i+1];
+        if(c.stage==='approved'){
+          const now=new Date().toISOString();
+          c.status='approved';
+          c.approvedAt=now;
+          c.approvedBy=actor.personRef;
+          s.collaborativeFinalConcepts??=[];
+          s.collaborativeConceptHistory??=[];
+          const all=s.collaborativeAnalysisResponses.filter(x=>x.caseRef===c.id);
+          const finals=all.filter(x=>x.stage==='final_synthesis'&&String(x.concept||'').trim());
+          const norm=v=>String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
+          const latest=new Map();
+          for(const r of finals) latest.set(norm(r.concept),r);
+          for(const r of latest.values()){
+            const key=norm(r.concept);
+            const prior=all.filter(x=>norm(x.concept)===key);
+            const existing=s.collaborativeFinalConcepts.find(x=>x.caseRef===c.id&&norm(x.concept)===key);
+            const snapshot={
+              organizationId:actor.organizationId,
+              caseRef:c.id,
+              documentRef:c.documentRef,
+              concept:r.concept,
+              finalStatement:r.analysis,
+              evidence:r.evidence||r.sourceSentence||'',
+              status:'reliable_synthesis',
+              finalizedBy:actor.personRef,
+              finalizedByName:actor.name,
+              finalizedAt:now,
+              basis:{
+                independentResponseIds:prior.filter(x=>x.stage==='independent_analysis').map(x=>x.id),
+                complementaryResponseIds:prior.filter(x=>x.stage==='complementary_review').map(x=>x.id),
+                finalResponseId:r.id
+              }
+            };
+            if(existing) Object.assign(existing,snapshot,{updatedAt:now});
+            else s.collaborativeFinalConcepts.push({id:`CFC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,...snapshot});
+            s.collaborativeConceptHistory.push({
+              id:`CCH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+              organizationId:actor.organizationId,
+              caseRef:c.id,
+              documentRef:c.documentRef,
+              concept:r.concept,
+              stage:'approved',
+              eventType:'reliable_synthesis_approved',
+              responseRef:r.id,
+              actorRef:actor.personRef,
+              actorName:actor.name,
+              createdAt:now
+            });
+          }
+        }
+      }
+      c.updatedAt=new Date().toISOString();
+      updated={...c};
+    });
+    if(!updated) return send(res,404,{message:'پرونده تحلیل پیدا نشد'});
+    if(input.action==='respond'&&createdResponse){
+      return send(res,200,{
+        ok:true,
+        response:createdResponse,
+        case:{...updated,stageLabel:stageFa[updated.stage]}
+      });
+    }
+    const db=await repo.all();
+    const rs=(db.collaborativeAnalysisResponses||[]).filter(x=>x.caseRef===updated.id);
+    return send(res,200,{
+      case:{...updated,stageLabel:stageFa[updated.stage],summary:summary(rs),questions:questions(updated.stage,rs)},
+      responses:rs
+    });
+  }
+
+  return send(res,405,{message:'Method not allowed'});
+}
+
+
+const macroNorm=v=>String(v||'').replace(/[\u200c\u200d\u200e\u200f]/g,' ').replace(/[يى]/g,'ی').replace(/ك/g,'ک').replace(/\s+/g,' ').trim().toLowerCase();
+const macroTokens=v=>new Set(macroNorm(v).replace(/[^\u0600-\u06FFa-zA-Z0-9\s]/g,' ').split(/\s+/).filter(x=>x.length>2&&!['این','آن','برای','است','شود','شده','مفهوم','سازمان','سازمانی','در','از','به','با','که','را','و','یا'].includes(x)));
+const macroSimilarity=(a,b)=>{
+  const A=macroTokens(a),B=macroTokens(b); if(!A.size||!B.size)return 0;
+  let n=0; for(const x of A)if(B.has(x))n++;
+  return n/(A.size+B.size-n||1);
+};
+
+const macroIssueFa={
+  requires_review_with:'نیازمند بررسی معنایی',
+  same_as_candidate:'همانندی احتمالی',
+  ambiguity:'ابهام معنایی',
+  semantic_conflict:'تعارض معنایی'
+};
+const macroRelationFa={
+  same_as:'هم‌معنا',
+  broader_than:'عام‌تر از',
+  narrower_than:'خاص‌تر از',
+  overlaps_with:'همپوشانی معنایی',
+  related_with:'مرتبط دانشی',
+  supports_understanding_of:'تقویت‌کننده فهم'
+};
+const macroTopicRules=[
+  {label:'علم، پژوهش و دانش',words:['علم','علمی','پژوهش','دانش','مرجعیت','نخبگان','مقاله','تحقیق']},
+  {label:'آموزش و یادگیری',words:['آموزش','یادگیری','تربیت','مهارت','استعداد','استاد','دانشجو']},
+  {label:'حکمرانی و مدیریت',words:['حکمرانی','مدیریت','سیاست','راهبرد','راهبری','تصمیم','ساختار','هماهنگی']},
+  {label:'منابع و ظرفیت سازمانی',words:['منابع','مالی','بودجه','ظرفیت','نیروی','انسانی','زیرساخت','امکانات']},
+  {label:'فناوری و تحول دیجیتال',words:['فناوری','دیجیتال','هوشمند','اطلاعات','داده','سامانه']},
+  {label:'اجتماع، فرهنگ و اثرگذاری',words:['اجتماع','اجتماعی','فرهنگ','فرهنگی','جامعه','اثرگذاری','اعتماد','عمومی']}
+];
+function macroTopicOf(c){
+  const text=macroNorm(`${c.title||''} ${c.definition||''}`);
+  let best={label:'سایر مفاهیم سازمانی',score:0};
+  for(const r of macroTopicRules){
+    const score=r.words.reduce((n,w)=>n+(text.includes(macroNorm(w))?1:0),0);
+    if(score>best.score)best={label:r.label,score};
+  }
+  return best.label;
+}
+function macroEnsureCanonical(state,final,actor,now){
+  state.macroKnowledgeConcepts??=[];state.macroKnowledgeSourceLinks??=[];state.macroKnowledgeHistory??=[];
+  let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===final.id);
+  let c=link?state.macroKnowledgeConcepts.find(x=>x.id===link.canonicalRef):null;
+  if(c)return c;
+  c={
+    id:`MKC:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,
+    organizationId:actor.organizationId,title:String(final.concept||'').trim(),
+    definition:String(final.finalStatement||'').trim(),alternativeTerms:[],semanticScope:'',
+    status:'canonical',version:1,confidence:1,createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+  };
+  state.macroKnowledgeConcepts.push(c);
+  state.macroKnowledgeSourceLinks.push({
+    id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+    canonicalRef:c.id,sourceConceptRef:final.id,relation:'source_of',createdAt:now,createdBy:actor.personRef
+  });
+  state.macroKnowledgeHistory.push({
+    id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+    canonicalRef:c.id,eventType:'canonical_created',sourceConceptRef:final.id,
+    actorRef:actor.personRef,actorName:actor.name,createdAt:now
+  });
+  return c;
+}
+function macroKnowledgeSynthesis(topic,concepts){
+  const titles=concepts.map(x=>x.title).filter(Boolean);
+  const first=titles.slice(0,4).join('، ');
+  const extra=titles.length>4?` و ${titles.length-4} مفهوم دیگر`:'';
+  return `ترکیب مفاهیم «${first}${extra}» یک خوشه دانشی در حوزه «${topic}» می‌سازد. این خوشه نشان می‌دهد این مفاهیم در اسناد معتبر سازمان به‌صورت منفرد قابل فهم کامل نیستند و کنار هم یک زمینه شناختی مشترک ایجاد می‌کنند. این جمع‌بندی، پیشنهاد دانشی سامانه است و برای تثبیت نهایی باید از نظر معنایی بررسی شود.`;
+}
+async function handleMacroKnowledge(req,res,repo,actor,u){
+  const db=await repo.all();
+  const finals=(db.collaborativeFinalConcepts||[]).filter(x=>x.organizationId===actor.organizationId&&x.status==='reliable_synthesis');
+  const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId);
+  const canonical=(db.macroKnowledgeConcepts||[]).filter(x=>x.organizationId===actor.organizationId);
+  const links=(db.macroKnowledgeSourceLinks||[]).filter(x=>x.organizationId===actor.organizationId);
+  const allIssues=(db.macroKnowledgeIssues||[]).filter(x=>x.organizationId===actor.organizationId);
+  const openIssues=allIssues.filter(x=>!['resolved','dismissed'].includes(x.status));
+  const semanticRelations=(db.macroKnowledgeSemanticRelations||[]).filter(x=>x.organizationId===actor.organizationId);
+  const savedKnowledge=(db.macroKnowledgeObjects||[]).filter(x=>x.organizationId===actor.organizationId);
+
+  if(req.method==='GET'){
+    const sourceItems=finals.map(f=>{
+      const d=docs.find(x=>x.id===f.documentRef)||{};
+      const link=links.find(x=>x.sourceConceptRef===f.id)||null;
+      const ranked=canonical.map(c=>({
+        id:c.id,title:c.title,definition:c.definition,
+        similarity:macroSimilarity(`${f.concept} ${f.finalStatement}`,`${c.title} ${c.definition}`)
+      })).filter(x=>x.similarity>=.12).sort((a,b)=>b.similarity-a.similarity).slice(0,3);
+      const issue=openIssues.find(i=>i.sourceConceptRef===f.id)||null;
+      return {
+        id:f.id,concept:f.concept,definition:f.finalStatement,evidence:f.evidence||'',
+        documentRef:f.documentRef,documentTitle:d.title||'سند بالادستی',documentType:d.documentType||'',
+        finalizedAt:f.finalizedAt||null,
+        status:issue?'under_review':link?'linked':'new',
+        canonicalRef:link?.canonicalRef||null,issueRef:issue?.id||null,suggestions:ranked
+      };
+    });
+
+    const issueItems=openIssues.map(i=>{
+      const f=finals.find(x=>x.id===i.sourceConceptRef)||{};
+      const d=docs.find(x=>x.id===f.documentRef)||{};
+      const c=canonical.find(x=>x.id===i.canonicalRef)||null;
+      const similarity=c?macroSimilarity(`${f.concept||''} ${f.finalStatement||''}`,`${c.title||''} ${c.definition||''}`):0;
+      return {
+        ...i,
+        issueTypeLabel:macroIssueFa[i.issueType]||'نیازمند بررسی معنایی',
+        source:{id:f.id||'',concept:f.concept||'',definition:f.finalStatement||'',evidence:f.evidence||'',documentRef:f.documentRef||'',documentTitle:d.title||''},
+        target:c?{id:c.id,title:c.title,definition:c.definition}:null,
+        similarity
+      };
+    });
+
+    const blockedCanonicalIds=new Set();
+    for(const i of openIssues){
+      if(i.canonicalRef)blockedCanonicalIds.add(i.canonicalRef);
+      const l=links.find(x=>x.sourceConceptRef===i.sourceConceptRef);
+      if(l?.canonicalRef)blockedCanonicalIds.add(l.canonicalRef);
+    }
+    const stabilized=canonical.filter(c=>!blockedCanonicalIds.has(c.id));
+
+    // Derived semantic network for stabilized concepts. Persisted human-confirmed relations take precedence.
+    const relMap=new Map();
+    for(const r of semanticRelations){
+      if(stabilized.some(c=>c.id===r.sourceRef)&&stabilized.some(c=>c.id===r.targetRef)){
+        relMap.set(`${r.sourceRef}|${r.targetRef}|${r.type}`,{...r,typeLabel:macroRelationFa[r.type]||r.type,confirmed:true});
+      }
+    }
+    for(let i=0;i<stabilized.length;i++){
+      for(let j=i+1;j<stabilized.length;j++){
+        const a=stabilized[i],b=stabilized[j];
+        const sim=macroSimilarity(`${a.title} ${a.definition}`,`${b.title} ${b.definition}`);
+        const sameTopic=macroTopicOf(a)===macroTopicOf(b);
+        if(sim<.08&&!sameTopic)continue;
+        const strength=Math.min(.95,Math.max(.18,sim+(sameTopic?.16:0)));
+        const key=`${a.id}|${b.id}|related_with`;
+        if(!relMap.has(key))relMap.set(key,{
+          id:`DER:${a.id}:${b.id}`,sourceRef:a.id,targetRef:b.id,type:'related_with',
+          typeLabel:'هم‌پیوندی دانشی',strength,confirmed:false,
+          explanation:sameTopic?'اشتراک موضوعی و همپوشانی معنایی در مفاهیم تثبیت‌شده':'همپوشانی معنایی در تعاریف تثبیت‌شده'
+        });
+      }
+    }
+    const relations=[...relMap.values()];
+
+    const centrality={};
+    for(const c of stabilized)centrality[c.id]=0;
+    for(const r of relations){
+      const w=Number(r.strength||.35);
+      centrality[r.sourceRef]=(centrality[r.sourceRef]||0)+w;
+      centrality[r.targetRef]=(centrality[r.targetRef]||0)+w;
+    }
+    const maxCent=Math.max(1,...Object.values(centrality));
+    const stabilizedItems=stabilized.map(c=>({
+      ...c,topic:macroTopicOf(c),
+      sourceCount:links.filter(x=>x.canonicalRef===c.id).length,
+      knowledgeCentrality:Number(((centrality[c.id]||0)/maxCent).toFixed(3)),
+      cognitivePriority:Number((.55*((centrality[c.id]||0)/maxCent)+.45*Math.min(1,links.filter(x=>x.canonicalRef===c.id).length/3)).toFixed(3)),
+      sources:links.filter(x=>x.canonicalRef===c.id).map(l=>{
+        const f=finals.find(x=>x.id===l.sourceConceptRef)||{};
+        const d=docs.find(x=>x.id===f.documentRef)||{};
+        return {sourceConceptRef:l.sourceConceptRef,concept:f.concept||'',documentRef:f.documentRef||'',documentTitle:d.title||'',relation:l.relation||'source_of'};
+      })
+    }));
+
+    const groups=new Map();
+    for(const c of stabilizedItems){
+      if(!groups.has(c.topic))groups.set(c.topic,[]);
+      groups.get(c.topic).push(c);
+    }
+    const generated=[];
+    for(const [topic,arr] of groups){
+      if(arr.length<2)continue;
+      const stableId=`MKG:${Buffer.from(topic).toString('base64url').slice(0,18)}`;
+      generated.push({
+        id:stableId,title:`دانش ترکیبی: ${topic}`,topic,
+        conceptRefs:arr.map(x=>x.id),conceptTitles:arr.map(x=>x.title),
+        synthesis:macroKnowledgeSynthesis(topic,arr),
+        status:'system_candidate',confidence:Number(Math.min(.92,.52+arr.length*.07).toFixed(2)),
+        size:arr.length
+      });
+    }
+    const acceptedIds=new Set(savedKnowledge.map(x=>x.candidateRef).filter(Boolean));
+    const knowledgeObjects=[
+      ...savedKnowledge.map(x=>({...x,status:x.status||'accepted',accepted:true})),
+      ...generated.filter(x=>!acceptedIds.has(x.id))
+    ];
+
+    const canonicalItems=canonical.map(c=>({
+      ...c,
+      stabilized:stabilized.some(x=>x.id===c.id),
+      sourceCount:links.filter(x=>x.canonicalRef===c.id).length,
+      topic:macroTopicOf(c)
+    }));
+
+    return send(res,200,{
+      summary:{
+        validatedConcepts:finals.length,
+        newForReview:sourceItems.filter(x=>x.status==='new').length,
+        underReview:sourceItems.filter(x=>x.status==='under_review').length,
+        canonicalConcepts:canonical.length,
+        stabilizedConcepts:stabilized.length,
+        openIssues:issueItems.length,
+        knowledgeCandidates:knowledgeObjects.filter(x=>x.status==='system_candidate').length,
+        acceptedKnowledge:knowledgeObjects.filter(x=>x.accepted).length
+      },
+      sourceConcepts:sourceItems,
+      canonicalConcepts:canonicalItems,
+      stabilizedConcepts:stabilizedItems,
+      semanticRelations:relations,
+      knowledgeObjects,
+      issues:issueItems,
+      contract:{
+        layer:'macro_knowledge',
+        phase1:'semantic_resolution_and_stabilization',
+        phase2:'knowledge_synthesis',
+        excludes:['directional_concept_network','quantification','macro_indicators','realization_references'],
+        handoff:['stabilized_organizational_concept','macro_knowledge_object']
+      }
+    });
+  }
+
+  if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
+  const input=bodyOf(req),action=String(input.action||'');
+  let result=null;
+  await repo.mutate(state=>{
+    state.macroKnowledgeConcepts??=[];
+    state.macroKnowledgeSourceLinks??=[];
+    state.macroKnowledgeHistory??=[];
+    state.macroKnowledgeIssues??=[];
+    state.macroKnowledgeSemanticRelations??=[];
+    state.macroKnowledgeObjects??=[];
+    const now=new Date().toISOString();
+    const final=(state.collaborativeFinalConcepts||[]).find(x=>x.id===input.sourceConceptId&&x.organizationId===actor.organizationId);
+
+    if(action==='create_canonical'){
+      if(!final)return;
+      const c=macroEnsureCanonical(state,final,actor,now);
+      result=c;
+    }else if(action==='link_existing'){
+      if(!final)return;
+      const c=state.macroKnowledgeConcepts.find(x=>x.id===input.canonicalId&&x.organizationId===actor.organizationId);
+      if(!c)return;
+      let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===final.id);
+      if(!link){
+        link={id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,sourceConceptRef:final.id,relation:String(input.relation||'same_as'),createdAt:now,createdBy:actor.personRef};
+        state.macroKnowledgeSourceLinks.push(link);
+      }else link.canonicalRef=c.id;
+      state.macroKnowledgeHistory.push({id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:c.id,eventType:'source_linked',sourceConceptRef:final.id,relation:link.relation,actorRef:actor.personRef,actorName:actor.name,createdAt:now});
+      result={canonical:c,link};
+    }else if(action==='flag_issue'){
+      if(!final)return;
+      const existing=state.macroKnowledgeIssues.find(x=>x.sourceConceptRef===final.id&&!['resolved','dismissed'].includes(x.status));
+      if(existing){result=existing;return}
+      const issue={id:`MKI:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,sourceConceptRef:final.id,canonicalRef:String(input.canonicalId||''),issueType:String(input.issueType||'requires_review_with'),note:String(input.note||'نیازمند بررسی معنایی'),status:'open',createdAt:now,createdBy:actor.personRef,createdByName:actor.name};
+      state.macroKnowledgeIssues.push(issue);result=issue;
+    }else if(action==='resolve_issue'){
+      const issue=state.macroKnowledgeIssues.find(x=>x.id===input.issueId&&x.organizationId===actor.organizationId);
+      if(!issue)return;
+      const f=(state.collaborativeFinalConcepts||[]).find(x=>x.id===issue.sourceConceptRef&&x.organizationId===actor.organizationId);
+      if(!f)return;
+      const decision=String(input.decision||'');
+      const target=issue.canonicalRef?state.macroKnowledgeConcepts.find(x=>x.id===issue.canonicalRef&&x.organizationId===actor.organizationId):null;
+      let sourceCanonical=null;
+
+      if(decision==='same_as'&&target){
+        let link=state.macroKnowledgeSourceLinks.find(x=>x.sourceConceptRef===f.id);
+        if(!link)state.macroKnowledgeSourceLinks.push({id:`MKL:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,canonicalRef:target.id,sourceConceptRef:f.id,relation:'same_as',createdAt:now,createdBy:actor.personRef});
+        else Object.assign(link,{canonicalRef:target.id,relation:'same_as'});
+        sourceCanonical=target;
+      }else{
+        sourceCanonical=macroEnsureCanonical(state,f,actor,now);
+        if(target&&['broader_than','narrower_than','overlaps_with','related_with'].includes(decision)){
+          const exists=state.macroKnowledgeSemanticRelations.find(r=>r.sourceRef===sourceCanonical.id&&r.targetRef===target.id&&r.type===decision);
+          if(!exists)state.macroKnowledgeSemanticRelations.push({
+            id:`MKR:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+            sourceRef:sourceCanonical.id,targetRef:target.id,type:decision,strength:Number(input.strength||.65),
+            explanation:String(input.note||issue.note||''),createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+          });
+        }
+      }
+      if(decision==='semantic_conflict'){
+        issue.status='contested';issue.resolution='semantic_conflict';issue.resolutionNote=String(input.note||'تعارض معنایی تأیید شد و تا رفع تعارض وارد دانش ترکیبی نمی‌شود.');issue.resolvedAt=now;issue.resolvedBy=actor.personRef;
+      }else{
+        issue.status='resolved';issue.resolution=decision||'independent';issue.resolutionNote=String(input.note||'');issue.resolvedAt=now;issue.resolvedBy=actor.personRef;
+      }
+      state.macroKnowledgeHistory.push({
+        id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+        canonicalRef:sourceCanonical?.id||target?.id||'',eventType:'semantic_issue_decided',sourceConceptRef:f.id,
+        decision,issueRef:issue.id,actorRef:actor.personRef,actorName:actor.name,createdAt:now
+      });
+      result={issue,sourceCanonical,target};
+    }else if(action==='accept_knowledge'){
+      const candidate=input.candidate||{};
+      if(!candidate.id||!Array.isArray(candidate.conceptRefs)||candidate.conceptRefs.length<2)return;
+      const existing=state.macroKnowledgeObjects.find(x=>x.candidateRef===candidate.id&&x.organizationId===actor.organizationId);
+      if(existing){result=existing;return}
+      const obj={
+        id:`MKO:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,candidateRef:String(candidate.id),
+        organizationId:actor.organizationId,title:String(candidate.title||'دانش ترکیبی').trim(),
+        topic:String(candidate.topic||'').trim(),conceptRefs:candidate.conceptRefs.map(String),
+        conceptTitles:Array.isArray(candidate.conceptTitles)?candidate.conceptTitles.map(String):[],
+        synthesis:String(input.synthesis||candidate.synthesis||'').trim(),
+        status:'accepted',confidence:Number(candidate.confidence||.6),
+        createdAt:now,createdBy:actor.personRef,createdByName:actor.name
+      };
+      state.macroKnowledgeObjects.push(obj);
+      state.macroKnowledgeHistory.push({
+        id:`MKH:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,
+        eventType:'macro_knowledge_accepted',knowledgeRef:obj.id,conceptRefs:obj.conceptRefs,
+        actorRef:actor.personRef,actorName:actor.name,createdAt:now
+      });
+      result=obj;
+    }
+  });
+  if(!result)return send(res,404,{message:'مورد موردنظر برای این عملیات پیدا نشد یا داده کافی نیست'});
+  return send(res,200,{ok:true,result});
+}
+
+async function handleKnowledgeDocuments(req,res,repo,actor,u){
+  if(req.method!=='GET') return send(res,405,{message:'Method not allowed'});
+  const documentClass=u.searchParams.get('class')||null;
+  const db=await repo.all();
+
+  const all=(Array.isArray(db.documents)?db.documents:[]).filter(x=>x.organizationId===actor.organizationId);
+  const docs=documentClass?all.filter(x=>x.documentClass===documentClass):all;
+  const ids=new Set(docs.map(x=>x.id));
+
+  const candidates=(Array.isArray(db.candidates)?db.candidates:[])
+    .filter(x=>x.organizationId===actor.organizationId&&ids.has(x.documentRef));
+  const artifacts=(Array.isArray(db.artifacts)?db.artifacts:[])
+    .filter(x=>x.organizationId===actor.organizationId&&ids.has(x.documentRef));
+
+  const groups={};
+  for(const a of artifacts){
+    const key=String(a.checksum||a.id||'');
+    (groups[key]??=[]).push(a);
+  }
+  const duplicateGroups=Object.values(groups).filter(g=>g.length>1);
+
+  const items=docs.slice()
+    .sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')))
+    .map(d=>{
+      const dc=candidates.filter(c=>c.documentRef===d.id);
+      return {
+        id:d.id,
+        title:d.title||'بدون عنوان',
+        documentClass:d.documentClass||'unclassified',
+        documentType:d.documentType||null,
+        documentNumber:d.documentNumber||null,
+        status:d.status||'registered',
+        version:d.version||1,
+        versionLabel:d.versionLabel||null,
+        issuer:d.issuer||null,
+        issuedAt:d.issuedAt||null,
+        promulgationDate:d.promulgationDate||null,
+        meetingNumber:d.meetingNumber||null,
+        meetingDate:d.meetingDate||null,
+        meetingType:d.meetingType||null,
+        validUntil:d.validUntil||null,
+        validityStatus:d.validityStatus||'unknown',
+        classification:d.classification||'internal',
+        organizationalLevel:d.organizationalLevel||null,
+        organizationalUnitRef:d.organizationalUnitRef||null,
+        organizationalUnitName:d.organizationalUnitName||null,
+        subjectCategory:d.subjectCategory||null,
+        subjectArea:d.subjectArea||null,
+        sourceFileName:d.sourceFileName||null,
+        createdAt:d.createdAt||null,
+        editedAt:d.editedAt||null,
+        editedBy:d.editedBy||null,
+        candidates:{
+          total:dc.length,
+          pending:dc.filter(x=>x.status==='ready_for_review').length,
+          accepted:dc.filter(x=>['accepted','corrected'].includes(x.status)).length
+        }
+      };
+    });
+
+  return send(res,200,{
+    filter:{documentClass:documentClass||'all'},
+    summary:{
+      documents:items.length,
+      upstreamDocuments:all.filter(x=>x.documentClass==='upstream').length,
+      generalDocuments:all.filter(x=>x.documentClass==='general').length,
+      allDocuments:all.length,
+      reviewPending:candidates.filter(x=>x.status==='ready_for_review').length,
+      duplicateGroups:duplicateGroups.length
+    },
+    items
+  });
+}
+
+
+function k9881OriginalFileName(name){
+ // Preserve the user's display filename, but never use it as the signed Blob object key.
+ // Unicode filenames (especially Persian/Arabic) can be encoded differently inside a signed-token scope.
+ const raw=String(name||'').normalize('NFC').replace(/[\u0000-\u001F\u007F]/g,'').trim();
+ const base=raw.split(/[\\/]/).pop()||'';
+ return base.slice(-220);
+}
+function k9881BlobExtension(fileName,mimeType){
+ const m=String(mimeType||'').toLowerCase();
+ if(/\.docx$/i.test(fileName)||m==='application/vnd.openxmlformats-officedocument.wordprocessingml.document')return'docx';
+ if(/\.pdf$/i.test(fileName)||m==='application/pdf')return'pdf';
+ return'';
+}
+function k9881AsciiSegment(value,fallback='org'){
+ const out=String(value||'').normalize('NFKD').replace(/[^A-Za-z0-9._-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);
+ return out||fallback;
+}
+async function handleBlobUploadUrl(req,res,actor){
+ if(req.method!=='POST')return send(res,405,{message:'Method not allowed'});
+ const input=bodyOf(req),fileName=k9881OriginalFileName(input.fileName),mimeType=String(input.mimeType||'application/octet-stream');
+ const size=Math.max(0,Number(input.size||0)),role=String(input.role||'attachment')==='primary'?'primary':'attachment';
+ if(!fileName)return send(res,400,{message:'نام فایل الزامی است.'});
+ // Keep display/original filename in metadata, while the physical Blob pathname is ASCII-only.
+ const extension=k9881BlobExtension(fileName,mimeType);
+ if(!extension)return send(res,400,{message:'در این مرحله آپلود مستقیم فقط برای Word و PDF فعال است.',code:'DIRECT_UPLOAD_TYPE_NOT_ALLOWED'});
+ const nonce=`${Date.now().toString(36)}-${Math.random().toString(36).slice(2,12)}`;
+ const orgSegment=k9881AsciiSegment(actor.organizationId,'org');
+ const dateSegment=new Date().toISOString().slice(0,10);
+ const pathname=`${orgSegment}/direct/${dateSegment}/${role}-${nonce}.${extension}`;
+ const validUntil=Date.now()+15*60*1000;
+ try{
+  const {issueSignedToken,presignUrl}=await import('@vercel/blob');
+  // IMPORTANT: issue and consume the signed token with the exact same canonical ASCII pathname.
+  const token=await issueSignedToken({pathname,operations:['put'],validUntil});
+  const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
+  const blobUrl=String(presignedUrl||'').split('?')[0];
+  return send(res,200,{presignedUrl,blobUrl,pathname,fileName,mimeType,size,validUntil,direct:true,pathStrategy:'ascii-canonical-v1'});
+ }catch(e){
+  console.error('BLOB_PRESIGN_ERROR',e);
+  return send(res,503,{message:'آپلود مستقیم Blob در دسترس نیست. اتصال Vercel Blob/OIDC را بررسی کنید.',code:'DIRECT_UPLOAD_UNAVAILABLE',detail:e?.message||String(e)});
+ }
+}
+
+async function handleAuthSession(req,res){
+ if(req.method==='GET'){
+   const session=sessionOf(req);return session?send(res,200,{authenticated:true,user:{username:session.u,role:'system_admin'}}):send(res,401,{authenticated:false,code:'AUTH_REQUIRED'});
+ }
+ if(req.method==='POST'){
+   const input=bodyOf(req);if(!validateAdminLogin(input.username,input.password))return send(res,401,{authenticated:false,message:'نام کاربری یا رمز عبور صحیح نیست.',code:'INVALID_CREDENTIALS'});
+   const token=createSession(String(input.username||'admin'));setSessionCookie(res,token);return send(res,200,{authenticated:true,user:{username:String(input.username||'admin'),role:'system_admin'}});
+ }
+ if(req.method==='DELETE'){clearSessionCookie(res);return send(res,200,{authenticated:false});}
+ return send(res,405,{message:'Method not allowed'});
+}
+
+function k994ArtifactFor(db,artifactId,actor){
+ return (db.artifacts||[]).find(x=>x.id===artifactId&&x.organizationId===actor.organizationId&&x.status==='committed')||null;
+}
+function k994ArtifactPath(artifact){
+ return String(artifact?.storage?.objectKey||'').replace(/^\/+/, '');
+}
+function k994DispositionName(name){
+ return String(name||'file').replace(/[\r\n"]/g,'_').slice(0,180);
+}
+async function handleDocumentFileContent(req,res,repo,actor,u){
+ if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
+ const artifactId=String(u.searchParams.get('artifactId')||'');
+ if(!artifactId)return send(res,400,{message:'شناسه پیوست الزامی است.'});
+ const db=await repo.all(),artifact=k994ArtifactFor(db,artifactId,actor);
+ if(!artifact)return send(res,404,{message:'فایل پیوست پیدا نشد.'});
+ const pathname=k994ArtifactPath(artifact);
+ if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
+ try{
+   const {get}=await import('@vercel/blob');
+   const result=await get(pathname,{access:'private',useCache:false});
+   if(!result?.stream)return send(res,404,{message:'محتوای پیوست در فضای ذخیره‌سازی پیدا نشد.'});
+   const mime=String(artifact.mimeType||result?.blob?.contentType||'application/octet-stream');
+   const name=k994DispositionName(artifact.fileName);
+   res.statusCode=200;
+   res.setHeader('content-type',mime);
+   res.setHeader('cache-control','private, no-store, max-age=0');
+   res.setHeader('x-content-type-options','nosniff');
+   const disposition=mime==='application/pdf'?'inline':'attachment';
+   res.setHeader('content-disposition',`${disposition}; filename="attachment"; filename*=UTF-8''${encodeURIComponent(name)}`);
+   const reader=result.stream.getReader?result.stream.getReader():null;
+   if(reader){
+     while(true){
+       const {done,value}=await reader.read();if(done)break;
+       if(value?.length)res.write(Buffer.from(value));
+     }
+     return res.end();
+   }
+   const ab=await new Response(result.stream).arrayBuffer();
+   return res.end(Buffer.from(ab));
+ }catch(e){
+   console.error('ATTACHMENT_CONTENT_ERROR',{code:e?.code||e?.name||'ATTACHMENT_CONTENT_FAILED',artifactId,detail:e?.message||String(e)});
+   return send(res,503,{message:'دریافت محتوای پیوست در حال حاضر ممکن نیست.',code:'ATTACHMENT_CONTENT_FAILED'});
+ }
+}
+
+async function handleDocumentFileAccess(req,res,repo,actor,u){
+ if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
+ const artifactId=String(u.searchParams.get('artifactId')||'');if(!artifactId)return send(res,400,{message:'شناسه پیوست الزامی است.'});
+ const db=await repo.all(),artifact=k994ArtifactFor(db,artifactId,actor);
+ if(!artifact)return send(res,404,{message:'فایل پیوست پیدا نشد.'});
+ const pathname=k994ArtifactPath(artifact);if(!pathname)return send(res,404,{message:'مسیر ذخیره‌سازی پیوست موجود نیست.'});
+ // Use a same-origin authenticated streaming URL. This avoids making the UI depend
+ // on a second signed-GET exchange and keeps each document's files authorization-bound.
+ return send(res,200,{
+   url:`/api/v1/knowledge/document-file-content?artifactId=${encodeURIComponent(artifactId)}`,
+   fileName:artifact.fileName,mimeType:artifact.mimeType,size:artifact.size||0,
+   delivery:'authenticated-stream'
+ });
+}
+
+export default async function handler(req,res){
+  try{
+    const u=new URL(req.url,'https://local');
+    const pathname=u.pathname;
+    if(pathname.endsWith('/auth/session')) return handleAuthSession(req,res);
+    if(!requireAuthenticated(req,res)) return;
+    const actor=actorOf(req);
+    const repo=createRepository();
+
+    if(pathname.endsWith('/database-migration')){
+      return handleDatabaseMigration(req,res,repo);
+    }
+    if(pathname.endsWith('/blob-upload-url')){
+      return handleBlobUploadUrl(req,res,actor);
+    }
+    if(pathname.endsWith('/document-file-access')){
+      return handleDocumentFileAccess(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/document-file-content')){
+      return handleDocumentFileContent(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/document-governance')){
+      return handleGovernance(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/collaborative-analysis')){
+      return handleCollaborative(req,res,repo,actor,u);
+    }
+    if(pathname.endsWith('/macro-knowledge') || pathname==='macro-knowledge' || pathname==='/macro-knowledge'){
+      return handleMacroKnowledge(req,res,repo,actor,u);
+    }
+    return handleKnowledgeDocuments(req,res,repo,actor,u);
+  }catch(e){
+    console.error('SAFE_KNOWLEDGE_DOCUMENTS_ERROR',e);
+    return send(res,500,{message:e?.message||'خطا در سرویس دانش و اسناد',code:e?.code||'SAFE_DOCUMENTS_ERROR'});
+  }
+}
