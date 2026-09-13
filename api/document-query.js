@@ -375,6 +375,172 @@ async function k9911RunEvidenceCommand(db,org,question){
   };
 }
 
+
+/* ---------- 0.9.9.1.4 Bulk Document Intake + Cognitive Follow-up ---------- */
+function k9914Body(req){
+  if(!req?.body)return{};
+  if(typeof req.body==='object')return req.body;
+  try{return JSON.parse(req.body)}catch{return{}}
+}
+function k9914Id(prefix='ID'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
+function k9914CleanDate(v){const x=String(v||'').trim();return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:null}
+function k9914JsonFromText(text){
+  let t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+  const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)t=t.slice(a,b+1);
+  try{return JSON.parse(t)}catch{return{}}
+}
+async function k9914BulkPreflight(db,org,input){
+  const hash=String(input.hash||'').toLowerCase().trim(),name=String(input.fileName||'').trim(),size=Number(input.size||0);
+  const arts=(db.artifacts||[]).filter(x=>x.organizationId===org&&x.status!=='deleted');
+  const exact=hash?arts.find(x=>String(x.checksum||'').toLowerCase()===hash):null;
+  if(exact){
+    const doc=(db.documents||[]).find(x=>x.organizationId===org&&x.id===exact.documentRef&&x.status!=='deleted');
+    if(doc)return{duplicate:true,reason:'exact_hash',document:{id:doc.id,title:doc.title,documentNumber:doc.documentNumber||null,issuer:doc.issuer||null},artifact:{fileName:exact.fileName,size:exact.size||0}};
+  }
+  const soft=arts.find(x=>x.fileName===name&&Number(x.size||0)===size);
+  if(soft){
+    const doc=(db.documents||[]).find(x=>x.organizationId===org&&x.id===soft.documentRef&&x.status!=='deleted');
+    if(doc)return{duplicate:false,possibleDuplicate:true,reason:'same_name_size',document:{id:doc.id,title:doc.title,documentNumber:doc.documentNumber||null,issuer:doc.issuer||null}};
+  }
+  return{duplicate:false,possibleDuplicate:false};
+}
+async function k9914ClassifyDocument(db,org,documentId,defaultClass='auto'){
+  const {byId,textByDoc}=k9911BuildIndex(db,org),doc=byId.get(documentId);
+  if(!doc)throw Object.assign(new Error('سند برای طبقه‌بندی پیدا نشد.'),{code:'DOCUMENT_NOT_FOUND'});
+  const text=textByDoc.get(documentId)||String(doc.content||'');
+  if(!text.trim())return{documentId,suggestion:{title:doc.title,documentClass:defaultClass==='auto'?'unclassified':defaultClass,documentType:'سایر',confidence:.15,warnings:['متن قابل استخراج برای تحلیل خودکار پیدا نشد.'],possibleRelations:[]},duplicateCandidates:[]};
+  const prompt=`از متن سند سازمانی زیر فقط یک JSON معتبر برگردان. هیچ توضیح دیگری ننویس.
+Schema:
+{
+ "title": string|null,
+ "documentClass": "upstream"|"general"|"unclassified",
+ "documentType": string|null,
+ "documentNumber": string|null,
+ "issuer": string|null,
+ "meetingNumber": string|null,
+ "meetingDate": "YYYY-MM-DD"|null,
+ "issuedAt": "YYYY-MM-DD"|null,
+ "promulgationDate": "YYYY-MM-DD"|null,
+ "validityStatus": "active"|"draft"|"expired"|"unknown",
+ "subjectCategory": string|null,
+ "subjectArea": string|null,
+ "confidence": number,
+ "warnings": string[],
+ "possibleRelations": [{"relationType":"amends"|"extends"|"repeals"|"clarifies"|"related_to","targetHint":string,"evidence":string}]
+}
+قواعد:
+- upstream فقط برای مأموریت، چشم‌انداز، اهداف کلان، سیاست، راهبرد، چارچوب حاکم یا الزام بالادستی.
+- general برای آیین‌نامه، دستورالعمل، بخشنامه، گزارش، صورتجلسه، نامه و اسناد اجرایی/عمومی.
+- اگر مطمئن نیستی unclassified.
+- confidence بین 0 و 1.
+- اطلاعات را اختراع نکن.
+نام فایل: ${doc.sourceFileName||doc.title||''}
+متن:
+${text.slice(0,26000)}`;
+  const raw=await k9911OpenAI({
+    model:String(process.env.SINA_AI_MODEL||'gpt-5.6-terra'),
+    instructions:'تو موتور پذیرش دسته‌جمعی اسناد سینا هستی. فقط JSON مطابق Schema بده و هیچ داده‌ای را بدون شاهد از متن نساز.',
+    input:[{role:'user',content:[{type:'input_text',text:prompt}]}],
+    store:false,max_output_tokens:1800
+  });
+  const parsed=k9914JsonFromText(k9910AiOutputText(raw));
+  const suggestion={
+    title:String(parsed.title||doc.title||doc.sourceFileName||'بدون عنوان').trim(),
+    documentClass:['upstream','general','unclassified'].includes(parsed.documentClass)?parsed.documentClass:(defaultClass==='auto'?'unclassified':defaultClass),
+    documentType:String(parsed.documentType||'سایر').trim(),
+    documentNumber:parsed.documentNumber?String(parsed.documentNumber).trim():null,
+    issuer:parsed.issuer?String(parsed.issuer).trim():null,
+    meetingNumber:parsed.meetingNumber?String(parsed.meetingNumber).trim():null,
+    meetingDate:k9914CleanDate(parsed.meetingDate),
+    issuedAt:k9914CleanDate(parsed.issuedAt),
+    promulgationDate:k9914CleanDate(parsed.promulgationDate),
+    validityStatus:['active','draft','expired','unknown'].includes(parsed.validityStatus)?parsed.validityStatus:'unknown',
+    subjectCategory:parsed.subjectCategory?String(parsed.subjectCategory).trim():null,
+    subjectArea:parsed.subjectArea?String(parsed.subjectArea).trim():null,
+    confidence:Math.max(0,Math.min(1,Number(parsed.confidence||0))),
+    warnings:Array.isArray(parsed.warnings)?parsed.warnings.map(String).slice(0,8):[],
+    possibleRelations:Array.isArray(parsed.possibleRelations)?parsed.possibleRelations.slice(0,8):[]
+  };
+  if(defaultClass!=='auto')suggestion.documentClass=defaultClass;
+
+  const docs=(db.documents||[]).filter(x=>x.organizationId===org&&x.id!==documentId&&x.status!=='deleted');
+  const dups=[];
+  for(const d of docs){
+    let score=0,reasons=[];
+    if(suggestion.documentNumber&&d.documentNumber&&norm(suggestion.documentNumber)===norm(d.documentNumber)){score+=.55;reasons.push('شماره سند یکسان')}
+    if(suggestion.issuer&&d.issuer&&norm(suggestion.issuer)===norm(d.issuer)){score+=.18;reasons.push('مرجع یکسان')}
+    const ts=k9913Similarity(suggestion.title,d.title||'');if(ts>.18){score+=Math.min(.35,ts);reasons.push('عنوان مشابه')}
+    if(score>=.45)dups.push({document:{id:d.id,title:d.title,documentNumber:d.documentNumber||null,issuer:d.issuer||null},score:Number(Math.min(1,score).toFixed(2)),reasons});
+  }
+  dups.sort((a,b)=>b.score-a.score);
+  return{documentId,suggestion,duplicateCandidates:dups.slice(0,5),textAvailable:true};
+}
+async function k9914CommitBulk(repo,org,input){
+  const items=Array.isArray(input.items)?input.items.slice(0,250):[];
+  const allowed=['title','documentClass','documentType','documentNumber','issuer','meetingNumber','meetingDate','issuedAt','promulgationDate','validityStatus','subjectCategory','subjectArea'];
+  const result=[];
+  await repo.mutate(db=>{
+    db.documents??=[];db.audit??=[];db.bulkIntakeReviews??=[];
+    for(const item of items){
+      const id=String(item.documentId||''),doc=db.documents.find(x=>x.organizationId===org&&x.id===id&&x.status!=='deleted');
+      if(!doc){result.push({documentId:id,ok:false,reason:'not_found'});continue}
+      const patch={};for(const k of allowed)if(Object.prototype.hasOwnProperty.call(item,k))patch[k]=item[k]||null;
+      if(!['upstream','general','unclassified'].includes(patch.documentClass))patch.documentClass=doc.documentClass||'unclassified';
+      if(!['active','draft','expired','unknown'].includes(patch.validityStatus))patch.validityStatus='unknown';
+      Object.assign(doc,patch,{status:'registered',bulkIntakeCommittedAt:new Date().toISOString(),bulkIntakeConfidence:Number(item.confidence||0)});
+      db.bulkIntakeReviews.push({id:k9914Id('BIR'),organizationId:org,documentRef:id,status:'committed',confidence:Number(item.confidence||0),warnings:Array.isArray(item.warnings)?item.warnings.slice(0,8):[],possibleRelations:Array.isArray(item.possibleRelations)?item.possibleRelations.slice(0,8):[],createdAt:new Date().toISOString()});
+      db.audit.push({id:k9914Id('AUD'),organizationId:org,action:'document.bulk_intake.commit',objectRef:id,occurredAt:new Date().toISOString(),details:{documentClass:doc.documentClass,confidence:Number(item.confidence||0)}});
+      result.push({documentId:id,ok:true});
+    }
+    return db;
+  });
+  return{ok:true,committed:result.filter(x=>x.ok).length,items:result};
+}
+async function k9914DiscardBulk(repo,org,input){
+  const ids=new Set((Array.isArray(input.documentIds)?input.documentIds:[]).map(String));
+  let removed=0;
+  await repo.mutate(db=>{
+    for(const d of(db.documents||[]))if(d.organizationId===org&&ids.has(String(d.id))&&d.bulkIntakeCommittedAt==null){d.status='deleted';d.bulkDiscardedAt=new Date().toISOString();removed++}
+    for(const a of(db.artifacts||[]))if(a.organizationId===org&&ids.has(String(a.documentRef))){a.status='deleted'}
+    for(const n of(db.normalizedDocuments||[]))if(n.organizationId===org&&ids.has(String(n.documentRef||n.documentId))){n.status='superseded'}
+    return db;
+  });
+  return{ok:true,removed};
+}
+async function k9914Followups(req,repo,org){
+  const input=k9914Body(req),now=new Date().toISOString();
+  if(req.method==='GET'){
+    const db=await repo.all(),items=(db.cognitiveFollowUps||[]).filter(x=>x.organizationId===org&&x.status!=='deleted').sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    return{items,summary:{total:items.length,open:items.filter(x=>x.status==='open').length,inProgress:items.filter(x=>x.status==='in_progress').length,done:items.filter(x=>x.status==='done').length}};
+  }
+  if(req.method==='POST'){
+    let created;
+    await repo.mutate(db=>{
+      db.cognitiveFollowUps??=[];db.audit??=[];
+      created={id:k9914Id('CFU'),organizationId:org,title:String(input.title||input.text||'پیگیری شناختی').slice(0,240),findingType:String(input.findingType||'followup'),findingText:String(input.findingText||input.text||'').slice(0,4000),sourceQuestion:String(input.sourceQuestion||'').slice(0,1500),priority:['low','normal','high','critical'].includes(input.priority)?input.priority:'normal',owner:String(input.owner||'').slice(0,160),dueDate:k9914CleanDate(input.dueDate),note:String(input.note||'').slice(0,2000),evidenceRefs:Array.isArray(input.evidenceRefs)?input.evidenceRefs.slice(0,20):[],status:'open',createdAt:now,updatedAt:now};
+      db.cognitiveFollowUps.push(created);db.audit.push({id:k9914Id('AUD'),organizationId:org,action:'cognitive_followup.create',objectRef:created.id,occurredAt:now,details:{findingType:created.findingType,priority:created.priority}});
+      return db;
+    });
+    return{ok:true,item:created};
+  }
+  if(req.method==='PATCH'){
+    let updated=null;
+    await repo.mutate(db=>{
+      const x=(db.cognitiveFollowUps||[]).find(y=>y.organizationId===org&&y.id===String(input.id||''));
+      if(!x)return db;
+      if(['open','in_progress','done','deleted'].includes(input.status))x.status=input.status;
+      if(['low','normal','high','critical'].includes(input.priority))x.priority=input.priority;
+      if(Object.prototype.hasOwnProperty.call(input,'owner'))x.owner=String(input.owner||'').slice(0,160);
+      if(Object.prototype.hasOwnProperty.call(input,'dueDate'))x.dueDate=k9914CleanDate(input.dueDate);
+      if(Object.prototype.hasOwnProperty.call(input,'note'))x.note=String(input.note||'').slice(0,2000);
+      x.updatedAt=now;updated={...x};return db;
+    });
+    if(!updated)throw Object.assign(new Error('مورد پیگیری پیدا نشد.'),{code:'FOLLOWUP_NOT_FOUND'});
+    return{ok:true,item:updated};
+  }
+  throw Object.assign(new Error('Method not allowed'),{code:'METHOD_NOT_ALLOWED'});
+}
+
 export default async function handler(req,res){
  if(!requireAuthenticated(req,res))return;
  try{
@@ -397,6 +563,28 @@ export default async function handler(req,res){
     if(!question)return send(res,400,{code:'QUESTION_REQUIRED',message:'پرسش الزامی است.'});
     const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),db=await repo.all();
     return send(res,200,await k9911RunEvidenceCommand(db,org,question));
+  }
+  if(u.pathname==='/api/v1/bulk-intake/preflight'&&req.method==='POST'){
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),db=await repo.all();
+    return send(res,200,await k9914BulkPreflight(db,org,k9914Body(req)));
+  }
+  if(u.pathname==='/api/v1/bulk-intake/classify'&&req.method==='POST'){
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001'),db=await repo.all(),b=k9914Body(req);
+    const r=await k9914ClassifyDocument(db,org,String(b.documentId||''),String(b.defaultClass||'auto'));
+    await repo.mutate(st=>{st.bulkIntakeReviews??=[];st.bulkIntakeReviews.push({id:k9914Id('BIR'),organizationId:org,documentRef:r.documentId,status:'review',suggestion:r.suggestion,duplicateCandidates:r.duplicateCandidates,createdAt:new Date().toISOString()});return st});
+    return send(res,200,r);
+  }
+  if(u.pathname==='/api/v1/bulk-intake/commit'&&req.method==='POST'){
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
+    return send(res,200,await k9914CommitBulk(repo,org,k9914Body(req)));
+  }
+  if(u.pathname==='/api/v1/bulk-intake/discard'&&req.method==='POST'){
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
+    return send(res,200,await k9914DiscardBulk(repo,org,k9914Body(req)));
+  }
+  if(u.pathname==='/api/v1/cognitive-followups'){
+    const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');
+    return send(res,200,await k9914Followups(req,repo,org));
   }
   if(req.method!=='GET')return send(res,405,{message:'Method not allowed'});
   const repo=createRepository(),org=String(req.headers['x-org-id']||'ORG:SYN-001');

@@ -22,6 +22,7 @@ export default async function handler(req,res){
   const meetingNumber=String(u.searchParams.get('meetingNumber')||'').trim();
   const documentNumber=String(u.searchParams.get('documentNumber')||'').trim();
   const subjectCategory=String(u.searchParams.get('subjectCategory')||'').trim();
+  const subjectArea=String(u.searchParams.get('subjectArea')||'').trim();
   const hasRelations=String(u.searchParams.get('hasRelations')||'').trim();
 
   const base=await buildDocumentBankResponse(req,repo);
@@ -51,6 +52,7 @@ export default async function handler(req,res){
       meetingNumber:d.meetingNumber||null,
       documentNumber:d.documentNumber||null,
       subjectCategory:d.subjectCategory||null,
+      subjectArea:d.subjectArea||null,
       meetingDate:d.meetingDate||null,
       relationCount,
       hasRelations:relationCount>0
@@ -62,6 +64,7 @@ export default async function handler(req,res){
   if(meetingNumber)items=items.filter(x=>norm(x.meetingNumber).includes(norm(meetingNumber)));
   if(documentNumber)items=items.filter(x=>norm(x.documentNumber).includes(norm(documentNumber)));
   if(subjectCategory)items=items.filter(x=>norm(x.subjectCategory)===norm(subjectCategory));
+  if(subjectArea)items=items.filter(x=>norm(x.subjectArea)===norm(subjectArea));
   if(hasRelations==='yes')items=items.filter(x=>x.hasRelations);
   if(hasRelations==='no')items=items.filter(x=>!x.hasRelations);
 
@@ -82,9 +85,10 @@ export default async function handler(req,res){
       totalOccurrences:items.reduce((s,x)=>s+Number(x.matchCount||0),0),
       metadataMatches:items.filter(x=>x.metadataMatch).length
     },
-    filters:{...(base.filters||{}),meetingType,meetingNumber,documentNumber,subjectCategory,hasRelations},
+    filters:{...(base.filters||{}),meetingType,meetingNumber,documentNumber,subjectCategory,subjectArea,hasRelations},
     facets:{
       subjects:uniq(allItems.map(x=>x.subjectCategory||x.subjectArea)),
+      subjectAreas:uniq(allItems.map(x=>x.subjectArea)),
       meetingTypes:uniq(allItems.map(x=>x.meetingType)),
       issuers:uniq(allItems.map(x=>x.issuer))
     },
