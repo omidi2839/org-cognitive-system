@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.2';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.3';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -136,14 +136,13 @@ function renderDocCommand(d){
 
 
 function k9912InlineFormat(text){return esc(String(text||'')).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>')}
+function k9913SemanticCallout(line){
+ const rules=[['شاهد مستقیم','evidence','✓'],['استنباط','inference','↗'],['نکته کنترلی','control','!'],['نکته قابل پیگیری','followup','→'],['ابهام','ambiguity','?'],['هشدار','warning','!'],['تعارض','conflict','⚠']],plain=line.replace(/\*\*/g,'').trim();
+ for(const [label,kind,icon] of rules)if(plain.startsWith(label+':')||plain.startsWith(label+'：'))return `<div class="k9913callout k9913-${kind}"><span class="k9913callout-icon">${icon}</span><div><b>${label}</b><p>${k9912InlineFormat(plain.slice(label.length+1).trim())}</p></div></div>`;return null;
+}
 function k9912RenderMarkdownLite(text){
- const lines=String(text||'').replace(/\r/g,'').split('\n');let html='',list=false;
- const close=()=>{if(list){html+='</ul>';list=false}};
- for(const raw of lines){const line=raw.trim();if(!line){close();continue}
-  const h=line.match(/^(#{1,4})\s+(.+)$/);if(h){close();html+=`<h${Math.min(4,h[1].length)}>${k9912InlineFormat(h[2])}</h${Math.min(4,h[1].length)}>`;continue}
-  if(/^[-•]\s+/.test(line)){if(!list){html+='<ul>';list=true}html+=`<li>${k9912InlineFormat(line.replace(/^[-•]\s+/,''))}</li>`;continue}
-  close();html+=`<p>${k9912InlineFormat(line)}</p>`;
- }close();return html||'<p>پاسخی تولید نشد.</p>';
+ const lines=String(text||'').replace(/\r/g,'').split('\n');let html='',list=false;const close=()=>{if(list){html+='</ul>';list=false}};
+ for(const raw of lines){const line=raw.trim();if(!line){close();continue}const c=k9913SemanticCallout(line);if(c){close();html+=c;continue}const h=line.match(/^(#{1,4})\s+(.+)$/);if(h){close();const n=Math.min(4,h[1].length);html+=`<h${n}>${k9912InlineFormat(h[2])}</h${n}>`;continue}if(/^[-•]\s+/.test(line)){if(!list){html+='<ul>';list=true}html+=`<li>${k9912InlineFormat(line.replace(/^[-•]\s+/,''))}</li>`;continue}close();html+=`<p>${k9912InlineFormat(line)}</p>`}close();return html||'<p>پاسخی تولید نشد.</p>';
 }
 function k9912EvidenceCard(a,i){
  const meta=[a.documentNumber?`شماره ${esc(toFa(a.documentNumber))}`:'',a.issuer?esc(a.issuer):'',a.location?esc(a.location):''].filter(Boolean).join(' · ');
