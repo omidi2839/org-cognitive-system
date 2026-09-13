@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="recovery-build" content="0.9.9.2.1"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="recovery-build" content="0.9.9.2.2"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>پلتفرم هوش شناختی سازمان</title>
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./workspace-shell-075.css">
@@ -12,8 +12,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./knowledge-governance-0980.css?v=0.9.9.1.0">\n<link rel="stylesheet" href="./platform-unified-09889.css?v=0.9.9.1.0">
 <link rel="stylesheet" href="./sina-dialog-09927.css?v=0.9.9.0.27">
-<link rel="stylesheet" href="./sina-bulk-document-intake-09919.css?v=0.9.9.2.1">
-<link rel="stylesheet" href="./sina-topic-tree-09921.css?v=0.9.9.2.1">
+<link rel="stylesheet" href="./sina-bulk-document-intake-09919.css?v=0.9.9.2.2">
+<link rel="stylesheet" href="./sina-topic-tree-09921.css?v=0.9.9.2.2">
 </head>
 <body>
 <div class="app-layout role-aware-layout">
@@ -50,10 +50,8 @@
       <button id="runCommand" class="send-btn"><span>ارسال</span><span class="paper">➤</span></button>
       <textarea id="commandInput" rows="1" placeholder="مثلاً: سینا، لیست جلسات من را بیاور…"></textarea>
     </div><div id="voiceStatus" class="voice-status"></div>
+    <div id="cognitiveFollowupSlot" class="cognitive-followup-slot"></div>
   </section>
-  <section class="suggestion-area" id="personalSuggestions"><div class="suggestion-title"><span>✦</span> پیشنهادهای هوشمند <span>✦</span></div><div class="suggestion-chips">
-    <button class="suggestion-chip" data-command="روی چه چیزی تمرکز کنم؟">◎ اولویت‌های توجه</button><button data-command="مسائل راهبردی مهم را نشان بده">◇ مسائل راهبردی</button><button data-command="وضعیت مطلوبیت سازمان را نشان بده">↗ وضعیت مطلوبیت سازمان</button><button data-command="تصمیمات نیازمند اقدام را نشان بده">◎ تصمیمات نیازمند اقدام</button><button data-command="امروز چه جلساتی دارم؟">▣ جلسات مدیریتی</button>
-  </div></section>
   <section id="commandResult" class="workspace-result hidden"></section>
   <section class="privacy-note"><span>♢</span> اطلاعات شما ایمن و محرمانه است</section>
   <section id="home" class="view"><div class="sheet"><div class="sheet-head"><span><b>تحلیل اسناد</b><small>فایل را وارد کنید تا تحلیل شناختی آغاز شود</small></span><button class="close-sheet" data-close>×</button></div><div class="upload-grid"><input id="docTitle" placeholder="عنوان اختیاری"><input id="realFile" type="file"><button id="runFlow" class="primary">ورود و تحلیل</button><span id="flowStatus"></span></div><div id="candidates"></div></div></section>
@@ -72,5 +70,5 @@
 
 
 
-\n<script src="./auth-gate-09919.js?v=0.9.9.2.1"></script>
+\n<script src="./auth-gate-09919.js?v=0.9.9.2.2"></script>
 </body></html>

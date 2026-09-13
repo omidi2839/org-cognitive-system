@@ -176,7 +176,7 @@ async function k9914OpenFollowups(){
  w.querySelectorAll('[data-status]').forEach(sel=>sel.onchange=async()=>{const id=sel.closest('[data-id]').dataset.id;await api('/api/v1/cognitive-followups',{method:'PATCH',body:JSON.stringify({id,status:sel.value})})});
 }
 function k9914EnsureFollowupButton(){
- const box=document.getElementById('personalSuggestions');if(!box||box.querySelector('[data-k9914-followups]'))return;
+ const box=document.getElementById('cognitiveFollowupSlot')||document.querySelector('#personalHero .command-row');if(!box||box.querySelector('[data-k9914-followups]'))return;
  const b=document.createElement('button');b.type='button';b.dataset.k9914Followups='1';b.className='k9914-followups-entry';b.textContent='◈ پیگیری‌های شناختی';b.onclick=k9914OpenFollowups;box.appendChild(b);
 }
 setInterval(k9914EnsureFollowupButton,900);k9914EnsureFollowupButton();

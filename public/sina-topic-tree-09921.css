@@ -98,3 +98,9 @@ body.k9915-open{overflow:hidden}.k9915card-tree{margin-inline-start:7px;border:0
  .k9916radial-cloud .k9916macro-center{font-size:clamp(28px,7vw,48px)!important;max-width:52%!important}
  .k9916radial-cloud .k9916word{max-width:35%!important}
 }
+/* 0.9.9.2.2 — macro topics are visually distinct from their subtopics */
+.k9915topic{border-color:#cddcf2;background:#fbfdff}
+.k9915topic-head{background:linear-gradient(90deg,#eef5ff,#f3f0ff);border-bottom-color:#d8e3f4}
+.k9915topic-head b{color:#183f70;font-weight:950}
+.k9915chev{background:#dcecff;color:#245f96}
+.k9915subs{background:#fff}
