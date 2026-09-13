@@ -104,22 +104,25 @@ async function discardUncommitted(w){
  try{const d=await api('/api/v1/bulk-intake/discard',{method:'POST',body:JSON.stringify({documentIds:ids})});rows=rows.filter(r=>!ids.includes(r.documentId));renderRows(w);w.querySelector('[data-summary]').textContent=`${fa(d.removed||0)} مورد ثبت‌نشده پاک‌سازی شد.`}catch(e){w.querySelector('[data-summary]').textContent=e.message}
 }
 function k9916Toolbar(ctx){
- let bar=ctx.querySelector('.k9916-doc-toolbar');
- if(bar)return bar;
- const section=[...ctx.querySelectorAll('.capability-section,.workspace-section,.section-card')].find(x=>/اسناد سازمان/.test(x.textContent||''))||ctx.querySelector('.capability-section,.workspace-section,.section-card')||ctx;
- bar=document.createElement('div');bar.className='k9916-doc-toolbar';
- const firstCard=section.querySelector('.capability-card,.k9931-static-document-card');
- if(firstCard)firstCard.parentElement.insertBefore(bar,firstCard);else section.prepend(bar);
+ let bar=ctx.querySelector('.k9916-doc-toolbar');if(bar)return bar;
+ const cards=[...ctx.querySelectorAll('.k9931-static-document-card')].filter(c=>['upstream','general'].includes(c.dataset.k9931Kind||''));
+ const seed=cards[0];let section=seed?.parentElement||null,n=section,best=null;
+ while(n&&n!==ctx){if(n.querySelectorAll('.k9931-static-document-card').length>=2&&/اسناد سازمان/.test(String(n.textContent||''))){best=n;if(n.parentElement===ctx)break}n=n.parentElement}
+ section=best||section;
+ bar=document.createElement('div');bar.className='k9916-doc-toolbar';bar.dataset.k9918Toolbar='1';
+ if(section&&section.parentElement)section.parentElement.insertBefore(bar,section);else ctx.prepend(bar);
  return bar;
 }
 function decorate(){
  const ctx=document.getElementById('workspaceContext');if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
- // remove any old top-level bulk buttons created by 0.9.9.1.4
  ctx.querySelectorAll('[data-k9914-bulk]').forEach(x=>{if(!x.closest('.k9916-doc-toolbar'))x.remove()});
  const bar=k9916Toolbar(ctx);
- if(bar.querySelector('[data-k9914-bulk]'))return;
- const b=document.createElement('button');b.type='button';b.dataset.k9914Bulk='1';b.className='k9914entry k9916tool';b.innerHTML='<span>⇧</span><div><b>ورود دسته‌جمعی اسناد</b><small>بارگذاری، شناسایی و ثبت چند سند</small></div>';
- b.onclick=e=>{e.preventDefault();e.stopPropagation();mount()};bar.appendChild(b);
+ if(!bar.querySelector('[data-k9914-bulk]')){
+   const b=document.createElement('button');b.type='button';b.dataset.k9914Bulk='1';b.className='k9914entry k9916tool';
+   b.innerHTML='<span>⇧</span><div><b>ورود دسته‌جمعی اسناد</b><small>بارگذاری، شناسایی و ثبت چند سند</small></div>';
+   b.onclick=e=>{e.preventDefault();e.stopPropagation();mount()};bar.appendChild(b);
+ }
 }
+window.__SINA_OPEN_BULK_INTAKE__=(kind='')=>{mount();requestAnimationFrame(()=>{const sel=document.querySelector('.k9914overlay [data-class]');if(sel&&['upstream','general'].includes(kind))sel.value=kind})};
 let t;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,120)}).observe(document.documentElement,{childList:true,subtree:true});decorate();
 })();

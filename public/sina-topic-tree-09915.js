@@ -1,8 +1,9 @@
 (()=>{
-window.__SINA_TOPIC_TREE_BUILD__='0.9.9.1.7';
+window.__SINA_TOPIC_TREE_BUILD__='0.9.9.1.8';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';const fa=v=>String(v??'').replace(/\d/g,d=>FA[d]);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async p=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':ORG}}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت درختواره موضوعی');return d};
 const nz=v=>String(v||'').trim()||'بدون موضوع';
+const labelKind=kind=>kind==='upstream'?'اسناد بالادستی':kind==='general'?'اسناد عمومی':'اسناد سازمان';
 function build(items,kind){const map=new Map();for(const d of items||[]){if(kind&&d.documentClass!==kind)continue;const c=nz(d.subjectCategory),a=nz(d.subjectArea);if(!map.has(c))map.set(c,new Map());const sm=map.get(c);if(!sm.has(a))sm.set(a,[]);sm.get(a).push(d)}return[...map.entries()].map(([category,subs])=>({category,total:[...subs.values()].reduce((n,x)=>n+x.length,0),subs:[...subs.entries()].map(([area,docs])=>({area,total:docs.length})).sort((a,b)=>b.total-a.total||a.area.localeCompare(b.area,'fa'))})).sort((a,b)=>b.total-a.total||a.category.localeCompare(b.category,'fa'))}
 function openBank(filters){document.querySelector('.k9915overlay')?.remove();document.body.classList.remove('k9915-open');return window.__SINA_OPEN_DOCUMENT_BANK__?.(filters)}
 function render(root,tree,q=''){const n=String(q||'').trim().toLowerCase(),f=tree.map(x=>{const ch=x.category.toLowerCase().includes(n);return{...x,subs:x.subs.filter(s=>ch||s.area.toLowerCase().includes(n))}}).filter(x=>!n||x.category.toLowerCase().includes(n)||x.subs.length);root.innerHTML=f.length?f.map((x,i)=>`<article class="k9915topic"><button type="button" class="k9915topic-head" data-topic="${esc(x.category)}" aria-expanded="${i<2}"><span class="k9915chev">${i<2?'⌄':'‹'}</span><div><b>${esc(x.category)}</b><small>${fa(x.total)} سند</small></div></button><div class="k9915subs"${i<2?'':' hidden'}>${x.subs.map(s=>`<button type="button" class="k9915sub" data-sub="${esc(s.area)}" data-parent="${esc(x.category)}"><span>${esc(s.area)}</span><b>${fa(s.total)} سند</b></button>`).join('')}</div></article>`).join(''):'<div class="k9915empty">موضوعی مطابق جستجو پیدا نشد.</div>';root.querySelectorAll('.k9915topic-head').forEach(b=>{b.onclick=()=>{const box=b.nextElementSibling,op=box.hidden;box.hidden=!op;b.querySelector('.k9915chev').textContent=op?'⌄':'‹'};b.ondblclick=()=>openBank({subjectCategory:b.dataset.topic})});root.querySelectorAll('[data-sub]').forEach(b=>b.onclick=()=>openBank({subjectCategory:b.dataset.parent,subjectArea:b.dataset.sub}))}
@@ -50,12 +51,23 @@ async function openTree(kind=''){
   w.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{view=btn.dataset.view;w.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===btn));rerender()});
  }catch(e){w.querySelector('[data-tree]').innerHTML=`<div class="k9915empty">${esc(e.message)}</div>`}
 }
+function k9916DocsSection(ctx){
+ const cards=[...ctx.querySelectorAll('.k9931-static-document-card')].filter(c=>['upstream','general'].includes(c.dataset.k9931Kind||''));
+ const seed=cards[0];if(!seed)return null;
+ let n=seed.parentElement,best=null;
+ while(n&&n!==ctx){
+   const count=n.querySelectorAll('.k9931-static-document-card').length;
+   const txt=String(n.textContent||'');
+   if(count>=2&&/اسناد سازمان/.test(txt)){best=n;if(n.parentElement===ctx)break}
+   n=n.parentElement;
+ }
+ return best||seed.parentElement;
+}
 function k9916Toolbar(ctx){
  let bar=ctx.querySelector('.k9916-doc-toolbar');if(bar)return bar;
- const section=[...ctx.querySelectorAll('.capability-section,.workspace-section,.section-card')].find(x=>/اسناد سازمان/.test(x.textContent||''))||ctx.querySelector('.capability-section,.workspace-section,.section-card')||ctx;
- bar=document.createElement('div');bar.className='k9916-doc-toolbar';
- const firstCard=section.querySelector('.capability-card,.k9931-static-document-card');
- if(firstCard)firstCard.parentElement.insertBefore(bar,firstCard);else section.prepend(bar);
+ const section=k9916DocsSection(ctx);
+ bar=document.createElement('div');bar.className='k9916-doc-toolbar';bar.dataset.k9918Toolbar='1';
+ if(section&&section.parentElement)section.parentElement.insertBefore(bar,section);else ctx.prepend(bar);
  return bar;
 }
 function k9916DedupeBankCards(ctx){
@@ -65,22 +77,32 @@ function k9916DedupeBankCards(ctx){
  });
  cards.slice(1).forEach(c=>c.remove());
 }
+function k9918Sep(){const s=document.createElement('span');s.className='k9918sep';s.textContent='|';return s}
 function decorate(){
  const ctx=document.getElementById('workspaceContext');if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
  k9916DedupeBankCards(ctx);
  const bar=k9916Toolbar(ctx);
- // remove legacy standalone tree button from grid
+ // One top-level tree/cloud button, above the entire Documents section.
  ctx.querySelectorAll('[data-k9915-global-tree]').forEach(x=>{if(!x.closest('.k9916-doc-toolbar'))x.remove()});
  if(!bar.querySelector('[data-k9915-global-tree]')){
-   const b=document.createElement('button');b.type='button';b.className='k9915global-tree k9916tool';b.dataset.k9915GlobalTree='1';b.innerHTML='<span>⌘</span><div><b>درختواره و ابر کلمات</b><small>مرور موضوعات، زیرموضوعات و فراوانی</small></div>';b.onclick=()=>openTree('');bar.appendChild(b);
+   const b=document.createElement('button');b.type='button';b.className='k9915global-tree k9916tool';b.dataset.k9915GlobalTree='1';
+   b.innerHTML='<span>⌘</span><div><b>درختواره و ابر کلمات</b><small>مرور موضوعات، زیرموضوعات و فراوانی</small></div>';
+   b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openTree('')});bar.appendChild(b);
  }
+ // Compact three-action rail on each document-type card.
  ctx.querySelectorAll('.k9931-static-document-card').forEach(card=>{
    const kind=card.dataset.k9931Kind;if(!kind)return;
-   let rail=card.querySelector('.k9916-card-actions');
-   if(!rail){rail=document.createElement('div');rail.className='k9916-card-actions';card.appendChild(rail)}
-   let b=rail.querySelector('[data-k9915-topic-tree]');
-   if(!b){b=document.createElement('button');b.type='button';b.className='k9915card-tree';b.dataset.k9915TopicTree=kind;b.textContent='موضوعات';b.onclick=e=>{e.preventDefault();e.stopPropagation();openTree(kind)};rail.appendChild(b)}
+   let rail=card.querySelector('.k9918-card-actions');
+   if(!rail){rail=document.createElement('div');rail.className='k9918-card-actions';card.appendChild(rail)}
+   const reg=card.querySelector('.k9926-register');
+   if(reg&&reg.parentElement!==rail){reg.textContent='ثبت سند';rail.appendChild(reg)}
+   if(reg)reg.textContent='ثبت سند';
+   let bulk=rail.querySelector('[data-k9918-card-bulk]');
+   if(!bulk){rail.appendChild(k9918Sep());bulk=document.createElement('button');bulk.type='button';bulk.className='k9918-card-bulk';bulk.dataset.k9918CardBulk=kind;bulk.textContent='ثبت جمعی';bulk.onclick=e=>{e.preventDefault();e.stopPropagation();window.__SINA_OPEN_BULK_INTAKE__?.(kind)};rail.appendChild(bulk)}
+   let tree=rail.querySelector('[data-k9915-topic-tree]');
+   if(!tree){rail.appendChild(k9918Sep());tree=document.createElement('button');tree.type='button';tree.className='k9915card-tree';tree.dataset.k9915TopicTree=kind;tree.textContent='درختواره';tree.onclick=e=>{e.preventDefault();e.stopPropagation();openTree(kind)};rail.appendChild(tree)}
  });
 }
+window.__SINA_OPEN_TOPIC_TREE__=openTree;
 let t;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,120)}).observe(document.documentElement,{childList:true,subtree:true});decorate();
 })();

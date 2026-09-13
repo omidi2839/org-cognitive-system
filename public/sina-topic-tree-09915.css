@@ -102,3 +102,43 @@ body.k9915-open{overflow:hidden}.k9915card-tree{margin-inline-start:7px;border:0
 .k9916word,.k9916word:hover,.k9916word:focus{
  border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;border-radius:0!important
 }
+
+
+/* 0.9.9.1.8 — toolbar above Documents section + stable compact card actions */
+.k9916-doc-toolbar{
+ display:flex!important;align-items:stretch!important;gap:10px!important;width:100%!important;
+ margin:0 0 12px!important;padding:0!important;background:transparent!important;border:0!important;
+ box-sizing:border-box!important;grid-column:1/-1!important
+}
+.k9916-doc-toolbar .k9916tool{
+ flex:0 1 255px!important;width:auto!important;min-height:46px!important;margin:0!important;
+ padding:8px 11px!important;box-sizing:border-box!important
+}
+.k9931-static-document-card{
+ position:relative!important;min-width:0!important;min-height:112px!important;
+ padding:13px 13px 37px!important;overflow:hidden!important;box-sizing:border-box!important
+}
+.k9931-static-document-card>b,.k9931-static-document-card h3,.k9931-static-document-card h4{
+ font-size:9.4px!important;line-height:1.5!important;max-width:calc(100% - 38px)!important;
+ white-space:normal!important;overflow-wrap:anywhere!important
+}
+.k9931-static-document-card small,.k9931-static-document-card p{font-size:7.2px!important;line-height:1.55!important}
+.k9916-card-actions{display:none!important}
+.k9918-card-actions{
+ position:absolute!important;right:12px!important;bottom:8px!important;left:55px!important;z-index:20!important;
+ display:flex!important;align-items:center!important;gap:5px!important;white-space:nowrap!important;overflow:visible!important;
+ direction:rtl!important;pointer-events:auto!important
+}
+.k9918-card-actions .k9926-register,.k9918-card-actions .k9918-card-bulk,.k9918-card-actions .k9915card-tree{
+ position:static!important;display:inline-flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+ width:auto!important;min-width:0!important;height:auto!important;margin:0!important;padding:0!important;border:0!important;
+ background:transparent!important;font-family:inherit!important;font-size:7.5px!important;line-height:15px!important;
+ font-weight:900!important;white-space:nowrap!important;cursor:pointer!important;text-decoration:none!important
+}
+.k9918-card-actions .k9926-register{color:#d97706!important}
+.k9918-card-actions .k9918-card-bulk{color:#506f9d!important}
+.k9918-card-actions .k9915card-tree{color:#2b6fa8!important}
+.k9918-card-actions .k9915card-tree:before{content:none!important}
+.k9918sep{font-size:7px!important;color:#bcc7d2!important;line-height:15px!important;user-select:none!important}
+.k9931-static-document-card .k980count{left:9px!important;right:auto!important;bottom:8px!important;font-size:6.9px!important;padding:2px 5px!important}
+@media(max-width:850px){.k9916-doc-toolbar{flex-wrap:wrap!important}.k9916-doc-toolbar .k9916tool{flex:1 1 210px!important}}
