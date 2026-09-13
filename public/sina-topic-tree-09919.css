@@ -18,3 +18,33 @@ body.k9915-open{overflow:hidden}.k9915card-tree{margin-inline-start:7px;border:0
 .k9916cloud{min-height:380px;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;align-items:center;gap:8px 14px;padding:26px 30px 34px;line-height:1.12;direction:rtl;background:transparent!important}
 .k9916word,.k9916word:hover,.k9916word:focus{border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;border-radius:0!important;padding:1px 2px!important;margin:0!important;font-family:inherit!important;font-weight:600!important;cursor:pointer!important;line-height:1.12!important;white-space:nowrap!important;transition:transform .15s ease,opacity .15s ease!important}.k9916word.main{font-weight:900!important}.k9916word:hover{transform:scale(1.08)!important;opacity:.8!important}
 @media(max-width:850px){.k9919-doc-toolbar{flex-wrap:wrap!important}.k9919-doc-toolbar .k9919tool,.k9919-doc-toolbar .k9914entry{flex:1 1 210px!important}.k9916cloud{min-height:320px;padding:18px 14px;gap:7px 10px}}
+
+
+/* 0.9.9.2.0 — minimal visual polish requested: unified toolbar color, stronger orange card actions, clearer counters */
+/* Keep the current layout/spacing untouched; only visual emphasis changes below. */
+.k9919-doc-toolbar .k9919tree-tool{
+  border:1px dashed #93bee7!important;
+  background:linear-gradient(135deg,#f4faff,#f8f5ff)!important;
+  color:#214f7b!important;
+}
+.k9919-doc-toolbar .k9919tree-tool>span{
+  background:linear-gradient(135deg,#287fe4,#7559d9)!important;
+  color:#fff!important;
+}
+.k9919-doc-toolbar .k9919tree-tool small{color:#71869b!important;}
+.k9919-card-actions .k9926-register,
+.k9919-card-actions .k9919-card-bulk,
+.k9919-card-actions .k9919-card-tree{
+  color:#d97706!important;
+  font-size:8.35px!important;
+  line-height:15px!important;
+  font-weight:950!important;
+}
+.k9919-card-actions{gap:5px!important;}
+.k9919sep{font-size:7.2px!important;line-height:15px!important;color:#c6cbd1!important;}
+.k9931-static-document-card .k980count{
+  font-size:7.8px!important;
+  line-height:14px!important;
+  padding:2px 5px!important;
+  font-weight:950!important;
+}
