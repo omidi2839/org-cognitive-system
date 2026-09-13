@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.1.1';
+window.__SINA_DIRECT_REGISTRATION_BUILD__='0.9.9.1.2';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{

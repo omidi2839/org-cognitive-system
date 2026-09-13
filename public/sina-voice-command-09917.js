@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_VOICE_COMMAND_BUILD__='0.9.9.1.1';
+window.__SINA_VOICE_COMMAND_BUILD__='0.9.9.1.2';
 const WAKE=/^\s*(?:سینا|سينا)\s*[,،:؛\-–—]?\s*/i;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 const getInput=()=>document.getElementById('commandInput');

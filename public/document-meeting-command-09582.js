@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.1';
+window.__DOCUMENT_MEETING_COMMAND_BUILD__='0.9.9.1.2';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -134,21 +134,32 @@ function renderDocCommand(d){
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
+
+function k9912InlineFormat(text){return esc(String(text||'')).replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>')}
+function k9912RenderMarkdownLite(text){
+ const lines=String(text||'').replace(/\r/g,'').split('\n');let html='',list=false;
+ const close=()=>{if(list){html+='</ul>';list=false}};
+ for(const raw of lines){const line=raw.trim();if(!line){close();continue}
+  const h=line.match(/^(#{1,4})\s+(.+)$/);if(h){close();html+=`<h${Math.min(4,h[1].length)}>${k9912InlineFormat(h[2])}</h${Math.min(4,h[1].length)}>`;continue}
+  if(/^[-•]\s+/.test(line)){if(!list){html+='<ul>';list=true}html+=`<li>${k9912InlineFormat(line.replace(/^[-•]\s+/,''))}</li>`;continue}
+  close();html+=`<p>${k9912InlineFormat(line)}</p>`;
+ }close();return html||'<p>پاسخی تولید نشد.</p>';
+}
+function k9912EvidenceCard(a,i){
+ const meta=[a.documentNumber?`شماره ${esc(toFa(a.documentNumber))}`:'',a.issuer?esc(a.issuer):'',a.location?esc(a.location):''].filter(Boolean).join(' · ');
+ return `<article class="k9912evidence-card"><div class="k9912evidence-index">${toFa(i+1)}</div><div class="k9912evidence-body"><button type="button" class="k9912evidence-title" data-doc-preview="${esc(a.documentId)}">${esc(a.documentTitle||'سند')}</button>${meta?`<div class="k9912evidence-meta">${meta}</div>`:''}<p>${esc(a.text||'')}</p></div></article>`;
+}
 function k9911RenderAICommand(d){
- const out=document.getElementById('commandResult');if(!out)return;
- const ev=d.evidence||[];
+ const out=document.getElementById('commandResult');if(!out)return;const ev=d.evidence||[],top=ev.slice(0,4),rest=ev.slice(4);
  out.classList.remove('hidden');
- out.innerHTML=`<div class="k950answer k9911aianswer">
-   <div class="k950answerhead"><span>✦ پاسخ سینا بر پایه شواهد سازمان</span><b>${toFa(ev.length)} شاهد</b></div>
-   <section class="k951qa">
-    <div class="k951qatitle"><b>تحلیل سینا</b><span>${esc(d.model||'')}</span></div>
-    <p class="k951summary k9911aisummary">${esc(d.text||'')}</p>
-    ${ev.length?`<div class="k951evidence">${ev.map((a,i)=>`<article><span>${toFa(i+1)}</span><div><button type="button" data-doc-preview="${esc(a.documentId)}">${esc(a.documentTitle||'سند')}</button>${a.documentNumber?`<small>شماره ${esc(toFa(a.documentNumber))}</small>`:''}<p>${esc(a.text||'')}</p></div></article>`).join('')}</div>`:'<div class="k950empty">شاهد مستقیمی برای نمایش وجود ندارد.</div>'}
-    <small>پاسخ با استفاده از ابزارهای داخلی بانک اسناد تولید شده است؛ استنباط مدل جایگزین سند منبع نیست.</small>
-   </section>
-  </div>`;
+ out.innerHTML=`<section class="k9912answer-shell">
+ <header class="k9912answer-hero"><div class="k9912answer-brand"><span>✦</span><div><small>تحلیل شواهدمحور</small><b>پاسخ سینا</b></div></div><div class="k9912answer-badges"><span>${toFa(ev.length)} شاهد</span><span>مبتنی بر اسناد سازمان</span></div></header>
+ <div class="k9912answer-grid"><article class="k9912analysis-card"><div class="k9912section-head"><span>تحلیل و جمع‌بندی</span><i>AI + Evidence</i></div><div class="k9912richtext">${k9912RenderMarkdownLite(d.text||'')}</div><footer><span>استنباط سینا جایگزین سند منبع نیست.</span></footer></article>
+ <aside class="k9912evidence-panel"><div class="k9912section-head"><span>شواهد کلیدی</span><i>${toFa(Math.min(ev.length,4))} مورد اول</i></div><div class="k9912evidence-list">${top.length?top.map(k9912EvidenceCard).join(''):'<div class="k950empty">شاهد مستقیمی برای نمایش وجود ندارد.</div>'}</div>${rest.length?`<button type="button" class="k9912more" data-k9912-toggle>مشاهده ${toFa(rest.length)} شاهد دیگر</button><div class="k9912evidence-list k9912evidence-rest" hidden>${rest.map((x,i)=>k9912EvidenceCard(x,i+top.length)).join('')}</div>`:''}</aside></div></section>`;
+ const btn=out.querySelector('[data-k9912-toggle]');if(btn)btn.onclick=()=>{const box=out.querySelector('.k9912evidence-rest'),h=box.hidden;box.hidden=!h;btn.textContent=h?'بستن شواهد تکمیلی':`مشاهده ${toFa(rest.length)} شاهد دیگر`};
  out.scrollIntoView({behavior:'smooth',block:'start'});
 }
+
 async function k9911HandleAICommand(q){
  const out=document.getElementById('commandResult');
  if(out){out.classList.remove('hidden');out.innerHTML='<div class="k950loading">سینا در حال جستجو، خواندن شواهد و تحلیل اسناد سازمان است…</div>'}
