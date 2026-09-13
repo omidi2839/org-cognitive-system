@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_TOPIC_TREE_BUILD__='0.9.9.1.6';
+window.__SINA_TOPIC_TREE_BUILD__='0.9.9.1.7';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';const fa=v=>String(v??'').replace(/\d/g,d=>FA[d]);const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async p=>{const r=await fetch(p,{headers:{'content-type':'application/json','x-org-id':ORG}}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطا در دریافت درختواره موضوعی');return d};
 const nz=v=>String(v||'').trim()||'بدون موضوع';
@@ -42,10 +42,10 @@ async function openTree(kind=''){
  document.body.appendChild(w);document.body.classList.add('k9915-open');
  const close=()=>{w.remove();document.body.classList.remove('k9915-open')};w.querySelector('[data-close]').onclick=close;w.onclick=e=>{if(e.target===w)close()};
  try{
-  const d=await api('/api/v1/knowledge/document-bank?snippetLimit=1'),tree=buildTree(d.items||[],kind),total=tree.reduce((n,x)=>n+x.total,0),subCount=tree.reduce((n,x)=>n+x.subs.length,0);
+  const d=await api('/api/v1/knowledge/document-bank?snippetLimit=1'),tree=build(d.items||[],kind),total=tree.reduce((n,x)=>n+x.total,0),subCount=tree.reduce((n,x)=>n+x.subs.length,0);
   w.querySelector('[data-stats]').innerHTML=`<span><b>${fa(tree.length)}</b> موضوع کلان</span><span><b>${fa(subCount)}</b> زیرموضوع</span><span><b>${fa(total)}</b> سند</span>`;
   const box=w.querySelector('[data-tree]'),search=w.querySelector('[data-search]');let view='tree';
-  const rerender=()=>view==='tree'?renderTree(box,tree,search.value):renderCloud(box,tree,search.value);
+  const rerender=()=>view==='tree'?render(box,tree,search.value):renderCloud(box,tree,search.value);
   rerender();search.oninput=rerender;
   w.querySelectorAll('[data-view]').forEach(btn=>btn.onclick=()=>{view=btn.dataset.view;w.querySelectorAll('[data-view]').forEach(x=>x.classList.toggle('on',x===btn));rerender()});
  }catch(e){w.querySelector('[data-tree]').innerHTML=`<div class="k9915empty">${esc(e.message)}</div>`}
@@ -78,7 +78,6 @@ function decorate(){
    const kind=card.dataset.k9931Kind;if(!kind)return;
    let rail=card.querySelector('.k9916-card-actions');
    if(!rail){rail=document.createElement('div');rail.className='k9916-card-actions';card.appendChild(rail)}
-   const register=card.querySelector('[data-k9926-register]');if(register&&!rail.contains(register))rail.appendChild(register);
    let b=rail.querySelector('[data-k9915-topic-tree]');
    if(!b){b=document.createElement('button');b.type='button';b.className='k9915card-tree';b.dataset.k9915TopicTree=kind;b.textContent='موضوعات';b.onclick=e=>{e.preventDefault();e.stopPropagation();openTree(kind)};rail.appendChild(b)}
  });

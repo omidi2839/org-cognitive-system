@@ -55,3 +55,50 @@ body.k9915-open{overflow:hidden}.k9915card-tree{margin-inline-start:7px;border:0
  .k9916-doc-toolbar .k9916tool{flex:1 1 210px!important}
  .k9916cloud{min-height:330px;padding:20px 15px;gap:7px 10px}
 }
+
+
+/* 0.9.9.1.7 — restore card actions without moving the registration CTA */
+.k9931-static-document-card{
+ position:relative!important;min-width:0!important;min-height:116px!important;
+ padding:13px 13px 38px!important;overflow:hidden!important;box-sizing:border-box!important
+}
+.k9931-static-document-card>b,
+.k9931-static-document-card h3,
+.k9931-static-document-card h4{
+ font-size:10px!important;line-height:1.55!important;max-width:calc(100% - 38px)!important;
+ white-space:normal!important;overflow-wrap:break-word!important
+}
+.k9931-static-document-card small,.k9931-static-document-card p{
+ font-size:7.6px!important;line-height:1.65!important;white-space:normal!important
+}
+/* Registration remains an independent, always-visible action. */
+.k9931-static-document-card>.k9926-register{
+ display:inline-block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+ position:absolute!important;right:13px!important;bottom:9px!important;left:auto!important;z-index:12!important;
+ width:auto!important;height:auto!important;min-width:0!important;margin:0!important;padding:0!important;
+ border:0!important;background:transparent!important;color:#d97706!important;
+ font-size:8.4px!important;line-height:16px!important;font-weight:900!important;white-space:nowrap!important
+}
+/* Topic action has its own slot and never owns/moves the registration action. */
+.k9916-card-actions{
+ position:absolute!important;right:108px!important;bottom:9px!important;left:58px!important;
+ display:flex!important;align-items:center!important;gap:7px!important;z-index:11!important;pointer-events:none!important
+}
+.k9916-card-actions .k9915card-tree{
+ display:inline-block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+ position:static!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;
+ color:#2b6fa8!important;font-size:8.2px!important;line-height:16px!important;font-weight:900!important;
+ white-space:nowrap!important;text-decoration:none!important;cursor:pointer!important
+}
+.k9916-card-actions .k9915card-tree:before{content:'·';margin-left:7px;color:#a7b4c0}
+.k9931-static-document-card .k980count{
+ display:inline-flex!important;visibility:visible!important;opacity:1!important;left:10px!important;right:auto!important;bottom:8px!important;z-index:12!important
+}
+/* Toolbar is compact and does not participate as a document card. */
+.k9916-doc-toolbar{display:flex!important;grid-column:1/-1!important;width:100%!important;gap:8px!important;margin:0 0 10px!important}
+.k9916-doc-toolbar .k9916tool{display:flex!important;visibility:visible!important;opacity:1!important;flex:0 1 245px!important;min-height:46px!important}
+/* True word cloud: text only, no chips/boxes. */
+.k9916cloud{background:transparent!important;gap:8px 14px!important;padding:28px 30px 36px!important}
+.k9916word,.k9916word:hover,.k9916word:focus{
+ border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;border-radius:0!important
+}
