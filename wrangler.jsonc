@@ -1,7 +1,14 @@
 {
+  "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "org-cognitive-system",
   "compatibility_date": "2026-09-13",
+  "main": "worker.js",
   "assets": {
-    "directory": "./public"
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": [
+      "/api/*",
+      "/diag/*"
+    ]
   }
 }
