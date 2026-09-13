@@ -1,5 +1,5 @@
 (()=>{
-window.__SINA_BULK_INTAKE_BUILD__='0.9.9.1.4';
+window.__SINA_BULK_INTAKE_BUILD__='0.9.9.1.6';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const fa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -15,7 +15,7 @@ async function directUpload(file){
  })});
 }
 let rows=[];
-function mount(){
+function mount(defaultClass='auto'){
  document.getElementById('k9914bulk')?.remove();
  const w=document.createElement('div');w.id='k9914bulk';w.className='k9914overlay';
  w.innerHTML=`<section class="k9914panel"><header><div><small>سینا · پذیرش دسته‌جمعی اسناد</small><h2>ورود دسته‌جمعی اسناد</h2><p>فایل‌ها را یکجا وارد کنید؛ سینا متن، شناسنامه، طبقه‌بندی و احتمال تکرار را بررسی می‌کند.</p></div><button type="button" data-close>×</button></header>
@@ -28,6 +28,7 @@ function mount(){
  document.body.appendChild(w);document.body.classList.add('k9914-open');
  const close=()=>{w.remove();document.body.classList.remove('k9914-open')};
  w.querySelector('[data-close]').onclick=close;
+ const classSelect=w.querySelector('[data-class]');if(classSelect&&['auto','upstream','general'].includes(defaultClass))classSelect.value=defaultClass;
  const fi=w.querySelector('[data-files]'),summary=w.querySelector('[data-summary]');
  fi.onchange=()=>{rows=[...(fi.files||[])].map((file,i)=>({id:i,file,status:'ready',selected:true}));summary.textContent=`${fa(rows.length)} فایل آماده پردازش است.`;renderRows(w)};
  w.querySelector('[data-start]').onclick=()=>processAll(w);
@@ -103,12 +104,5 @@ async function discardUncommitted(w){
  if(window.SinaDialog&&!(await SinaDialog.confirm('فایل‌های بارگذاری‌شده‌ای که ثبت نهایی نشده‌اند از بانک پنهان شوند؟',{title:'پاک‌سازی پذیرش دسته‌جمعی'})))return;
  try{const d=await api('/api/v1/bulk-intake/discard',{method:'POST',body:JSON.stringify({documentIds:ids})});rows=rows.filter(r=>!ids.includes(r.documentId));renderRows(w);w.querySelector('[data-summary]').textContent=`${fa(d.removed||0)} مورد ثبت‌نشده پاک‌سازی شد.`}catch(e){w.querySelector('[data-summary]').textContent=e.message}
 }
-function decorate(){
- const ctx=document.getElementById('workspaceContext');if(!ctx||!/دانش و اسناد سازمان/.test(ctx.textContent||''))return;
- if(ctx.querySelector('[data-k9914-bulk]'))return;
- const host=ctx.querySelector('.capability-section,.workspace-section,.section-card')||ctx;
- const b=document.createElement('button');b.type='button';b.dataset.k9914Bulk='1';b.className='k9914entry';b.innerHTML='<span>⇧</span><div><b>ورود دسته‌جمعی اسناد</b><small>چند فایل را یکجا بارگذاری، شناسایی و ثبت کنید</small></div>';
- b.onclick=e=>{e.preventDefault();e.stopPropagation();mount()};host.prepend(b);
-}
-let t;new MutationObserver(()=>{clearTimeout(t);t=setTimeout(decorate,120)}).observe(document.documentElement,{childList:true,subtree:true});decorate();
+window.__SINA_OPEN_BULK_INTAKE__=(kind='auto')=>mount(kind||'auto');
 })();
