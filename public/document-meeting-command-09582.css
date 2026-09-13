@@ -394,3 +394,6 @@ button.k76primary:disabled{opacity:.72;cursor:wait}
 /* 0.9.9.2.2 — cognitive follow-up lives inside the main search card, under search, right aligned */
 .cognitive-followup-slot{max-width:1040px;margin:8px auto 0;display:flex;justify-content:flex-start;direction:rtl}
 .cognitive-followup-slot .k9914-followups-entry{margin:0;border-color:#bfd3ec;background:#f3f8ff;color:#245d91;padding:7px 13px;font-size:8.5px;box-shadow:none}
+
+/* 0.9.9.2.3 — keep legacy suggestions DOM anchor without rendering it */
+#personalSuggestions[aria-hidden="true"]{display:none!important}
