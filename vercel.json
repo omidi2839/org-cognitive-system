@@ -86,6 +86,26 @@
       "destination": "/api/document-query.js"
     },
     {
+      "source": "/api/v1/bulk-intake/preflight",
+      "destination": "/api/document-query.js"
+    },
+    {
+      "source": "/api/v1/bulk-intake/classify",
+      "destination": "/api/document-query.js"
+    },
+    {
+      "source": "/api/v1/bulk-intake/commit",
+      "destination": "/api/document-query.js"
+    },
+    {
+      "source": "/api/v1/bulk-intake/discard",
+      "destination": "/api/document-query.js"
+    },
+    {
+      "source": "/api/v1/cognitive-followups",
+      "destination": "/api/document-query.js"
+    },
+    {
       "source": "/api/v1/:path*",
       "destination": "/api/index.js"
     }
