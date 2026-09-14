@@ -383,7 +383,31 @@ function k9914Body(req){
   try{return JSON.parse(req.body)}catch{return{}}
 }
 function k9914Id(prefix='ID'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
-function k9914CleanDate(v){const x=String(v||'').trim();return /^\d{4}-\d{2}-\d{2}$/.test(x)?x:null}
+function k9914CleanDate(v){
+  const raw=digits(String(v||'')).trim().replace(/[.\\]/g,'/');
+  let m=raw.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if(!m)return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:null;
+  const y=m[1],mo=String(Number(m[2])).padStart(2,'0'),d=String(Number(m[3])).padStart(2,'0');
+  return `${y}-${mo}-${d}`;
+}
+function k9914FirstMatch(text,patterns){
+  const src=digits(String(text||'')).replace(/[\u200c\u200f]/g,' ');
+  for(const rx of patterns){const m=src.match(rx);if(m?.[1])return String(m[1]).trim().replace(/[،؛;,]+$/,'')}
+  return null;
+}
+function k9914HeaderHints(text){
+  const head=String(text||'').slice(0,9000);
+  return {
+    documentNumber:k9914FirstMatch(head,[
+      /(?:شماره(?:\s+(?:نامه|سند|مصوبه|ابلاغ|ابلاغیه|تصمیم))?|شماره\s*:)\s*[:：]?\s*([A-Za-z0-9۰-۹٠-٩\/-]{1,60})/u,
+      /(?:نامه|مصوبه|ابلاغیه|تصمیم)\s+(?:شماره\s*)?([A-Za-z0-9۰-۹٠-٩\/-]{1,60})/u
+    ]),
+    meetingNumber:k9914FirstMatch(head,[/(?:شماره\s+جلسه|جلسه\s+شماره)\s*[:：]?\s*([0-9۰-۹٠-٩\/-]{1,30})/u]),
+    meetingDate:k9914FirstMatch(head,[/(?:تاریخ\s+جلسه)\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u]),
+    promulgationDate:k9914FirstMatch(head,[/(?:تاریخ\s+(?:ابلاغ|ابلاغیه))\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u]),
+    issuedAt:k9914FirstMatch(head,[/(?:^|\n|\s)تاریخ\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u])
+  };
+}
 function k9914JsonFromText(text){
   let t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
   const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)t=t.slice(a,b+1);
@@ -409,7 +433,9 @@ async function k9914ClassifyDocument(db,org,documentId,defaultClass='auto'){
   if(!doc)throw Object.assign(new Error('سند برای طبقه‌بندی پیدا نشد.'),{code:'DOCUMENT_NOT_FOUND'});
   const text=textByDoc.get(documentId)||String(doc.content||'');
   if(!text.trim())return{documentId,suggestion:{title:doc.title,documentClass:defaultClass==='auto'?'unclassified':defaultClass,documentType:'سایر',confidence:.15,warnings:['متن قابل استخراج برای تحلیل خودکار پیدا نشد.'],possibleRelations:[]},duplicateCandidates:[]};
+  const hints=k9914HeaderHints(text);
   const prompt=`از متن سند سازمانی زیر فقط یک JSON معتبر برگردان. هیچ توضیح دیگری ننویس.
+نکته مهم: متن ممکن است با بخش‌های «[سربرگ ورد]» و «[پابرگ ورد]» شروع/تمام شود. در نامه‌های اداری، ابلاغیه‌ها، مصوبات، تصمیم‌ها و صورتجلسات، شماره سند، شماره جلسه، تاریخ جلسه، تاریخ ابلاغ و مرجع صادرکننده غالباً در سربرگ/پابرگ هستند؛ این بخش‌ها را هم‌وزن متن اصلی ندان، بلکه برای شناسنامه سند در اولویت بررسی قرار بده.
 Schema:
 {
  "title": string|null,
@@ -448,12 +474,12 @@ ${text.slice(0,26000)}`;
     title:String(parsed.title||doc.title||doc.sourceFileName||'بدون عنوان').trim(),
     documentClass:['upstream','general','unclassified'].includes(parsed.documentClass)?parsed.documentClass:(defaultClass==='auto'?'unclassified':defaultClass),
     documentType:String(parsed.documentType||'سایر').trim(),
-    documentNumber:parsed.documentNumber?String(parsed.documentNumber).trim():null,
+    documentNumber:parsed.documentNumber?String(parsed.documentNumber).trim():(hints.documentNumber||null),
     issuer:parsed.issuer?String(parsed.issuer).trim():null,
-    meetingNumber:parsed.meetingNumber?String(parsed.meetingNumber).trim():null,
-    meetingDate:k9914CleanDate(parsed.meetingDate),
-    issuedAt:k9914CleanDate(parsed.issuedAt),
-    promulgationDate:k9914CleanDate(parsed.promulgationDate),
+    meetingNumber:parsed.meetingNumber?String(parsed.meetingNumber).trim():(hints.meetingNumber||null),
+    meetingDate:k9914CleanDate(parsed.meetingDate||hints.meetingDate),
+    issuedAt:k9914CleanDate(parsed.issuedAt||hints.issuedAt),
+    promulgationDate:k9914CleanDate(parsed.promulgationDate||hints.promulgationDate),
     validityStatus:['active','draft','expired','unknown'].includes(parsed.validityStatus)?parsed.validityStatus:'unknown',
     subjectCategory:parsed.subjectCategory?String(parsed.subjectCategory).trim():null,
     subjectArea:parsed.subjectArea?String(parsed.subjectArea).trim():null,
