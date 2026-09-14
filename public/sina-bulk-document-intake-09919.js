@@ -184,6 +184,7 @@ async function commitAll(w){
    setStep(w,4);
    renderRows(w);
    w.querySelector('[data-summary]').textContent=`✓ ${fa(d.committed||0)} سند و ${fa(d.relationsCommitted||0)} رابطه تأییدشده در بانک اسناد ثبت نهایی شد.`;
+   window.dispatchEvent(new CustomEvent('sina:data-changed',{detail:{type:'bulk_documents_committed',count:Number(d.committed||0)}}));
    btn.textContent='ثبت نهایی انجام شد';
  }catch(e){btn.disabled=false;btn.textContent='ثبت موارد تأییدشده در بانک اسناد';w.querySelector('[data-summary]').textContent=e.message}
 }

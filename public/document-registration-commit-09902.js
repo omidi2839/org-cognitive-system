@@ -86,6 +86,7 @@ async function commitRelations(form,newId){
  }
  form.__k990RelationDrafts=[];
  document.dispatchEvent(new CustomEvent('k9902:relations-committed',{detail:{documentId:newId,count:relations.length}}));
+ window.dispatchEvent(new CustomEvent('sina:data-changed',{detail:{type:'document_registered',documentId:newId}}));
  return relations.length;
 }
 
