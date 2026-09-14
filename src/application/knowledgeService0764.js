@@ -57,7 +57,23 @@ export class KnowledgeCognitiveService extends CognitiveService {
     // We only read from the project's connected private store through @vercel/blob + OIDC.
     if(file?.blobPathname||file?.blobUrl){
       const objectKey=this._validatedDirectBlobPath(actor,file);
-      const buffer=await this.storage.get(objectKey);
+      // Private Blob may need a short propagation window after a browser direct PUT,
+      // especially for large DOCX files. Retry the SAME object key server-side;
+      // do not re-upload a new object on every retry.
+      let buffer=null,lastError=null;
+      for(let attempt=1;attempt<=4;attempt++){
+        try{
+          buffer=await this.storage.get(objectKey);
+          lastError=null;
+          break;
+        }catch(e){
+          lastError=e;
+          const retryable=String(e?.code||'')==='BLOB_OBJECT_NOT_FOUND' || /not found/i.test(String(e?.message||''));
+          if(!retryable||attempt===4)throw e;
+          await new Promise(r=>setTimeout(r,[0,500,1200,2500][attempt]||2500));
+        }
+      }
+      if(!buffer&&lastError)throw lastError;
       const declaredSize=Math.max(0,Number(file?.size||0));
       if(declaredSize)assert(buffer.length===declaredSize,'BLOB_SIZE_MISMATCH','اندازه فایل ذخیره‌شده با مرجع ثبت‌شده تطبیق ندارد.');
       const url=String(file?.blobUrl||'');
