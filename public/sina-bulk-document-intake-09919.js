@@ -1,18 +1,50 @@
 (()=>{
-window.__SINA_BULK_INTAKE_BUILD__='0.9.9.1.9';
+window.__SINA_BULK_INTAKE_BUILD__='0.9.9.2.4';
 const ORG='ORG:SYN-001',FA='۰۱۲۳۴۵۶۷۸۹';
 const fa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const api=async(p,o={})=>{const r=await fetch(p,{...o,headers:{'content-type':'application/json','x-org-id':ORG,...(o.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||d.code||'خطا');return d};
 const hashFile=async file=>{const ab=await file.arrayBuffer(),h=await crypto.subtle.digest('SHA-256',ab);return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('')};
-async function directUpload(file){
- const pre=await api('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role:'primary'})});
- const put=await fetch(pre.presignedUrl,{method:'PUT',body:file});if(!put.ok)throw Error(`ارسال فایل ناموفق بود (${put.status})`);
- const rid=`BULK-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+const BULK_SERVER_RAW_BUDGET=2600000;
+const bulkSleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function bulkBase64(file){
+ const bytes=new Uint8Array(await file.arrayBuffer());let binary='';
+ for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+ return btoa(binary);
+}
+async function uploadViaFunction(file){
+ const rid=`BULK-SRV-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
  return api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
-  title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,blobUrl:pre.blobUrl,blobPathname:pre.pathname,directUpload:true,clientRequestId:rid,
+  title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,
+  contentBase64:await bulkBase64(file),directUpload:false,transport:'bulk-function-v1',clientRequestId:rid,
   metadata:{documentClass:'unclassified',documentType:'سایر',validityStatus:'unknown',classification:'internal'}
  })});
+}
+async function directUpload(file){
+ // Small/medium bulk files are intentionally sent through the Function payload.
+ // This avoids the private-Blob read-after-write race that produced
+ // "Vercel Blob object was not found" immediately after a successful browser PUT.
+ if(Number(file?.size||0)>0&&Number(file.size)<=BULK_SERVER_RAW_BUDGET){
+   return uploadViaFunction(file);
+ }
+ let last;
+ for(let attempt=1;attempt<=3;attempt++){
+  try{
+   const pre=await api('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role:'primary'})});
+   const put=await fetch(pre.presignedUrl,{method:'PUT',body:file});if(!put.ok)throw Error(`ارسال فایل ناموفق بود (${put.status})`);
+   // Give the private Blob object a short propagation window before the server reads it.
+   await bulkSleep(900*attempt);
+   const rid=`BULK-DIRECT-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+   return await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
+    title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,blobUrl:pre.blobUrl,blobPathname:pre.pathname,directUpload:true,transport:'bulk-direct-blob-v3',clientRequestId:rid,
+    metadata:{documentClass:'unclassified',documentType:'سایر',validityStatus:'unknown',classification:'internal'}
+   })});
+  }catch(e){
+   last=e;
+   if(attempt<3)await bulkSleep(500*attempt);
+  }
+ }
+ throw last||Error('آپلود فایل ناموفق بود.');
 }
 let rows=[];
 function mount(){
