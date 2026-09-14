@@ -204,7 +204,11 @@ async function handleGovernance(req,res,repo,actor,u){
       deleted={id:d.id,title:d.title||''};
     });
     if(!deleted)return send(res,404,{message:'سند پیدا نشد'});
-    return send(res,200,{ok:true,deleted});
+    // Confirm against the persisted repository state before reporting success.
+    const check=await repo.all();
+    const stillActive=(check.documents||[]).some(x=>x.organizationId===actor.organizationId&&String(x.id)===String(deleted.id)&&x.status!=='deleted');
+    if(stillActive)return send(res,500,{message:'حذف سند در مخزن نهایی نشد؛ عملیات متوقف شد.',code:'DOCUMENT_DELETE_NOT_PERSISTED'});
+    return send(res,200,{ok:true,deleted,status:'deleted'});
   }
 
   if(req.method!=='PATCH') return send(res,405,{message:'Method not allowed'});
@@ -243,6 +247,62 @@ async function handleGovernance(req,res,repo,actor,u){
   return send(res,200,{document:updated,auditRecorded:true});
 }
 
+
+function k9929AiText(raw){
+ if(typeof raw?.output_text==='string')return raw.output_text;
+ for(const item of raw?.output||[])for(const c of item?.content||[])if(c?.type==='output_text'&&c?.text)return c.text;
+ return '';
+}
+async function k9929OpenAI({instructions,prompt,maxOutput=1200}){
+ const key=process.env.OPENAI_API_KEY;
+ if(!key)throw Object.assign(new Error('کلید هوش مصنوعی تنظیم نشده است.'),{code:'OPENAI_API_KEY_REQUIRED'});
+ if(String(process.env.SINA_AI_ENABLED||'true').toLowerCase()==='false')throw Object.assign(new Error('هوش مصنوعی سینا غیرفعال است.'),{code:'SINA_AI_DISABLED'});
+ const base=String(process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'');
+ const model=String(process.env.SINA_AI_MODEL||'gpt-5.6-terra');
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.max(8000,Math.min(120000,Number(process.env.SINA_AI_TIMEOUT_MS||45000))));
+ try{
+  const r=await fetch(base+'/responses',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json','authorization':'Bearer '+key},body:JSON.stringify({model,store:false,max_output_tokens:maxOutput,instructions,input:[{role:'user',content:[{type:'input_text',text:String(prompt||'').slice(0,30000)}]}]})});
+  if(!r.ok){const detail=(await r.text()).slice(0,1000);throw Object.assign(new Error(`خطای سرویس هوش مصنوعی (${r.status}) ${detail}`),{code:'OPENAI_PROVIDER_ERROR'})}
+  const raw=await r.json(),text=k9929AiText(raw).trim();
+  if(!text)throw Object.assign(new Error('پاسخ قابل استفاده از هوش مصنوعی دریافت نشد.'),{code:'OPENAI_EMPTY_RESPONSE'});
+  return {text,model};
+ }finally{clearTimeout(timer)}
+}
+function k9929Json(text){
+ let s=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();const a=s.indexOf('{'),b=s.lastIndexOf('}');if(a>=0&&b>a)s=s.slice(a,b+1);try{return JSON.parse(s)}catch{return null}
+}
+function k9929DocText(db,documentId){
+ const rows=(db.normalizedDocuments||[]).filter(x=>String(x.documentRef||x.documentId||'')===String(documentId));
+ rows.sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+ const n=rows[0]||{};return String(n.text||n.content||n.normalizedText||'');
+}
+async function k9929CollaborativeAiAssist(db,actor,c,input){
+ const doc=(db.documents||[]).find(x=>x.id===c.documentRef&&x.organizationId===actor.organizationId)||{};
+ const text=k9929DocText(db,c.documentRef);
+ const responses=(db.collaborativeAnalysisResponses||[]).filter(x=>x.caseRef===c.id);
+ const concept=String(input.concept||'').trim();
+ const evidence=String(input.evidence||'').trim();
+ const sameConcept=concept?responses.filter(x=>String(x.concept||'').trim().toLowerCase()===concept.toLowerCase()):responses;
+ let stageInstruction='';
+ if(c.stage==='independent_analysis')stageInstruction=`یک دستیار تحلیلی برای خبره انسانی هستی. از متن سند 1 تا 3 مفهوم مهم را پیشنهاد کن، برای مفهوم اصلی یک شاهد مستقیم از خود سند و یک تحلیل مستقل اولیه بنویس. جایگزین نظر خبره نشو و عدم قطعیت را صریح بگو.`;
+ else if(c.stage==='complementary_review')stageInstruction=`نقش تو دستیار نقد خبره ارشد است. دیدگاه‌های مرحله اول را با شاهد سند مقایسه کن، نقاط توافق، اختلاف، برداشت بیش‌ازحد، ابعاد جاافتاده و نیاز به اصلاح را مشخص کن. خروجی باید پیشنهادی برای نقد انسانی باشد، نه تصمیم نهایی.`;
+ else stageInstruction=`نقش تو دستیار جمع‌بندی پژوهشی است. دیدگاه‌های مرحله اول و نقدهای خبره ارشد را با متن سند تلفیق کن و یک جمع‌بندی قابل اتکا اما قابل ویرایش پیشنهاد بده.`;
+ const compact=sameConcept.slice(-12).map(r=>({stage:r.stage,expert:r.expertName,analysis:r.analysis,evidence:r.evidence}));
+ const prompt=`${stageInstruction}\nخروجی فقط JSON معتبر با این ساختار باشد:\n{"concept":string,"evidence":string,"analysis":string,"confidence":number,"cautions":string[]}\n\nعنوان سند: ${doc.title||''}\nنوع سند: ${doc.documentType||''}\nمفهوم انتخابی کاربر: ${concept}\nشاهد انتخابی کاربر: ${evidence}\nدیدگاه‌های مرتبط ثبت‌شده: ${JSON.stringify(compact)}\nمتن سند:\n${text.slice(0,22000)}`;
+ const out=await k9929OpenAI({instructions:'فقط بر مبنای متن سند و دیدگاه‌های ثبت‌شده تحلیل کن. هیچ واقعیت سازمانی را اختراع نکن. خروجی فقط JSON معتبر باشد.',prompt,maxOutput:1300});
+ const parsed=k9929Json(out.text)||{};
+ return {concept:String(parsed.concept||concept||'').trim(),evidence:String(parsed.evidence||evidence||'').trim(),analysis:String(parsed.analysis||'').trim(),confidence:Math.max(0,Math.min(1,Number(parsed.confidence||0))),cautions:Array.isArray(parsed.cautions)?parsed.cautions.map(String).slice(0,6):[],model:out.model,stage:c.stage};
+}
+async function k9929MacroKnowledgeAi(db,actor,candidate){
+ const refs=(candidate?.conceptRefs||[]).map(String);
+ const concepts=(db.macroKnowledgeConcepts||[]).filter(x=>x.organizationId===actor.organizationId&&refs.includes(String(x.id)));
+ if(concepts.length<2)throw Object.assign(new Error('برای تولید دانش هوشمند حداقل دو مفهوم لازم است.'),{code:'INSUFFICIENT_CONCEPTS'});
+ const prompt=`از ترکیب مفاهیم تثبیت‌شده زیر یک «دانش سازمانی» تولید کن. خروجی فقط JSON معتبر باشد:\n{"title":string,"synthesis":string,"implications":string[],"assumptions":string[],"confidence":number}\nقواعد: صرفاً خلاصه‌سازی نکن؛ رابطه و معنای ترکیبی بین مفاهیم را توضیح بده؛ ادعای فاقد پشتوانه نساز؛ فرض‌ها را جداگانه ذکر کن؛ متن نهایی برای تأیید انسانی است.\nموضوع خوشه: ${candidate?.topic||''}\nمفاهیم: ${JSON.stringify(concepts.map(c=>({title:c.title,definition:c.definition,semanticScope:c.semanticScope||''})))}`;
+ const out=await k9929OpenAI({instructions:'تو موتور تولید دانش ترکیبی سینا هستی. فقط از مفاهیم تثبیت‌شده داده‌شده استفاده کن و خروجی JSON بده.',prompt,maxOutput:1500});
+ const parsed=k9929Json(out.text)||{};
+ return {title:String(parsed.title||candidate?.title||'دانش ترکیبی').trim(),synthesis:String(parsed.synthesis||candidate?.synthesis||'').trim(),implications:Array.isArray(parsed.implications)?parsed.implications.map(String).slice(0,8):[],assumptions:Array.isArray(parsed.assumptions)?parsed.assumptions.map(String).slice(0,8):[],confidence:Math.max(0,Math.min(1,Number(parsed.confidence||candidate?.confidence||0))),model:out.model};
+}
+
 async function handleCollaborative(req,res,repo,actor,u){
   const documentId=String(u.searchParams.get('documentId')||'');
 
@@ -271,6 +331,14 @@ async function handleCollaborative(req,res,repo,actor,u){
   }
 
   const input=bodyOf(req);
+
+  if(req.method==='PATCH'&&input.action==='ai_assist'){
+    const db=await repo.all();
+    const c=(db.collaborativeAnalysisCases||[]).find(x=>x.id===input.caseId&&x.organizationId===actor.organizationId);
+    if(!c)return send(res,404,{message:'پرونده تحلیل پیدا نشد'});
+    const suggestion=await k9929CollaborativeAiAssist(db,actor,c,input);
+    return send(res,200,{ok:true,suggestion});
+  }
 
   if(req.method==='POST'){
     const db=await repo.all();
@@ -700,6 +768,10 @@ async function handleMacroKnowledge(req,res,repo,actor,u){
 
   if(req.method!=='POST') return send(res,405,{message:'Method not allowed'});
   const input=bodyOf(req),action=String(input.action||'');
+  if(action==='ai_synthesize'){
+    const suggestion=await k9929MacroKnowledgeAi(db,actor,input.candidate||{});
+    return send(res,200,{ok:true,suggestion});
+  }
   let result=null;
   await repo.mutate(state=>{
     state.macroKnowledgeConcepts??=[];

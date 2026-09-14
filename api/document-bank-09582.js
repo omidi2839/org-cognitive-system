@@ -28,7 +28,7 @@ export default async function handler(req,res){
   const base=await buildDocumentBankResponse(req,repo);
   const db=await repo.all();
   const org=String(req.headers['x-org-id']||'ORG:SYN-001');
-  const docMap=new Map((db.documents||[]).filter(x=>x.organizationId===org).map(x=>[x.id,x]));
+  const docMap=new Map((db.documents||[]).filter(x=>x.organizationId===org&&x.status!=='deleted').map(x=>[x.id,x]));
   const norms=(db.normalizedDocuments||[]).filter(x=>x.organizationId===org&&x.role!=='attachment'&&x.status!=='superseded');
   const artifacts=(db.artifacts||[]).filter(x=>x.organizationId===org);
   const primaryText=id=>{
@@ -59,7 +59,7 @@ export default async function handler(req,res){
     };
   };
 
-  let items=(base.items||[]).map(enrich);
+  let items=(base.items||[]).filter(x=>docMap.has(x.id)).map(enrich);
   if(meetingType)items=items.filter(x=>norm(x.meetingType)===norm(meetingType));
   if(meetingNumber)items=items.filter(x=>norm(x.meetingNumber).includes(norm(meetingNumber)));
   if(documentNumber)items=items.filter(x=>norm(x.documentNumber).includes(norm(documentNumber)));
@@ -75,7 +75,7 @@ export default async function handler(req,res){
     method:'GET'
   };
   const allBase=await buildDocumentBankResponse(facetReq,repo);
-  const allItems=(allBase.items||[]).map(enrich);
+  const allItems=(allBase.items||[]).filter(x=>docMap.has(x.id)).map(enrich);
 
   return send(res,200,{
     ...base,
