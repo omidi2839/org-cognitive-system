@@ -384,29 +384,84 @@ function k9914Body(req){
 }
 function k9914Id(prefix='ID'){return `${prefix}:${Date.now()}:${Math.random().toString(36).slice(2,9)}`}
 function k9914CleanDate(v){
-  const raw=digits(String(v||'')).trim().replace(/[.\\]/g,'/');
-  let m=raw.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
-  if(!m)return /^\d{4}-\d{2}-\d{2}$/.test(raw)?raw:null;
-  const y=m[1],mo=String(Number(m[2])).padStart(2,'0'),d=String(Number(m[3])).padStart(2,'0');
-  return `${y}-${mo}-${d}`;
+  const raw=digits(String(v||'')).trim()
+    .replace(/[.\u066B\u066C\\]/g,'/')
+    .replace(/\s*([/-])\s*/g,'$1')
+    .replace(/[^\d/-]/g,'');
+  const m=raw.match(/(\d{1,4})[/-](\d{1,2})[/-](\d{1,4})/);
+  if(!m)return null;
+  let a=Number(m[1]),b=Number(m[2]),c=Number(m[3]),y,mo,d;
+  // Common Persian administrative forms can be stored visually RTL as
+  // YYYY/MM/DD or DD/MM/YYYY. Detect the 4-digit year instead of assuming order.
+  if(a>=1300||a>=1900){y=a;mo=b;d=c}
+  else if(c>=1300||c>=1900){y=c;mo=b;d=a}
+  else return null;
+  if(mo<1||mo>12||d<1||d>31)return null;
+  return `${String(y).padStart(4,'0')}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
 }
 function k9914FirstMatch(text,patterns){
-  const src=digits(String(text||'')).replace(/[\u200c\u200f]/g,' ');
-  for(const rx of patterns){const m=src.match(rx);if(m?.[1])return String(m[1]).trim().replace(/[،؛;,]+$/,'')}
+  const src=digits(String(text||''))
+    .replace(/[\u200c\u200f\u202a-\u202e]/g,' ')
+    .replace(/[ \t]+/g,' ');
+  for(const rx of patterns){
+    const m=src.match(rx);
+    if(m?.[1])return String(m[1]).trim().replace(/[،؛;,]+$/,'');
+  }
   return null;
 }
+function k9914DateAfterLabel(text,labels){
+  const src=digits(String(text||'')).replace(/[\u200c\u200f\u202a-\u202e]/g,' ');
+  const label=labels.map(x=>x.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|');
+  const rx=new RegExp(`(?:${label})\\s*[:：-]?\\s*([0-9]{1,4}\\s*[\\\\/.-]\\s*[0-9]{1,2}\\s*[\\\\/.-]\\s*[0-9]{1,4})`,'u');
+  const m=src.match(rx);
+  return m?.[1]||null;
+}
 function k9914HeaderHints(text){
-  const head=String(text||'').slice(0,9000);
+  // Header is prepended by the DOCX parser. Keep enough room for complex tables
+  // and text boxes used by official correspondence templates.
+  const head=String(text||'').slice(0,14000);
+  const genericDate=k9914DateAfterLabel(head,['تاریخ صدور','تاریخ تصویب','تاریخ']);
   return {
     documentNumber:k9914FirstMatch(head,[
-      /(?:شماره(?:\s+(?:نامه|سند|مصوبه|ابلاغ|ابلاغیه|تصمیم))?|شماره\s*:)\s*[:：]?\s*([A-Za-z0-9۰-۹٠-٩\/-]{1,60})/u,
-      /(?:نامه|مصوبه|ابلاغیه|تصمیم)\s+(?:شماره\s*)?([A-Za-z0-9۰-۹٠-٩\/-]{1,60})/u
+      /(?:شماره\s*(?:نامه|سند|مصوبه|ابلاغ|ابلاغیه|تصمیم)?|شماره)\s*[:：-]?\s*([A-Za-z0-9۰-۹٠-٩][A-Za-z0-9۰-۹٠-٩\s\/.-]{0,59})/u,
+      /(?:نامه|مصوبه|ابلاغیه|تصمیم)\s+(?:شماره\s*)?([A-Za-z0-9۰-۹٠-٩\/.-]{1,60})/u
     ]),
-    meetingNumber:k9914FirstMatch(head,[/(?:شماره\s+جلسه|جلسه\s+شماره)\s*[:：]?\s*([0-9۰-۹٠-٩\/-]{1,30})/u]),
-    meetingDate:k9914FirstMatch(head,[/(?:تاریخ\s+جلسه)\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u]),
-    promulgationDate:k9914FirstMatch(head,[/(?:تاریخ\s+(?:ابلاغ|ابلاغیه))\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u]),
-    issuedAt:k9914FirstMatch(head,[/(?:^|\n|\s)تاریخ\s*[:：]?\s*([0-9۰-۹٠-٩]{4}[\/-][0-9۰-۹٠-٩]{1,2}[\/-][0-9۰-۹٠-٩]{1,2})/u])
+    meetingNumber:k9914FirstMatch(head,[
+      /(?:شماره\s+جلسه|جلسه\s+شماره|شماره\s*جلسه)\s*[:：-]?\s*([0-9۰-۹٠-٩\/.-]{1,30})/u
+    ]),
+    meetingDate:k9914DateAfterLabel(head,['تاریخ جلسه','تاریخ برگزاری جلسه','مورخ جلسه']),
+    promulgationDate:k9914DateAfterLabel(head,['تاریخ ابلاغ','تاریخ ابلاغیه','تاریخ ابلاغ مصوبه']),
+    issuedAt:genericDate
   };
+}
+function k9914ResolveRelationTarget(db,org,currentId,rel){
+  const docs=(db.documents||[]).filter(x=>x.organizationId===org&&x.id!==currentId&&x.status!=='deleted');
+  const direct=String(rel?.targetDocumentRef||'').trim();
+  if(direct){
+    const d=docs.find(x=>String(x.id)===direct);
+    if(d)return d;
+  }
+  const hint=String(rel?.targetHint||'').trim();
+  if(!hint)return null;
+  const nh=norm(hint),dh=digits(hint);
+  const num=(dh.match(/(?:شماره\s*)?([0-9]{1,12}(?:[\/-][0-9]{1,12})*)/u)||[])[1]||'';
+  if(num){
+    const exactNo=docs.find(d=>digits(String(d.documentNumber||''))===num);
+    if(exactNo)return exactNo;
+  }
+  const exactTitle=docs.find(d=>norm(d.title||'')===nh);
+  if(exactTitle)return exactTitle;
+  const containing=docs
+    .map(d=>({d,n:norm(d.title||'')}))
+    .filter(x=>x.n&&(x.n.includes(nh)||nh.includes(x.n)))
+    .sort((a,b)=>Math.abs(a.n.length-nh.length)-Math.abs(b.n.length-nh.length))[0]?.d;
+  if(containing)return containing;
+  let best=null;
+  for(const d of docs){
+    const score=k9913Similarity(hint,[d.title,d.documentNumber,d.issuer].filter(Boolean).join(' '));
+    if(!best||score>best.score)best={d,score};
+  }
+  return best&&best.score>=.18?best.d:null;
 }
 function k9914JsonFromText(text){
   let t=String(text||'').trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
@@ -428,13 +483,63 @@ async function k9914BulkPreflight(db,org,input){
   }
   return{duplicate:false,possibleDuplicate:false};
 }
+
+const K9914_PRIMARY_TOPICS=[
+ 'راهبرد و برنامه‌ریزی','منابع انسانی','مالی و بودجه','فناوری و زیرساخت','آموزش','پژوهش و نوآوری',
+ 'فروش و بازاریابی','مشتریان و ذی‌نفعان','عملیات و فرآیندها','حقوقی و مقررات','ساختار و حاکمیت سازمانی',
+ 'نظارت، ارزیابی و عملکرد','ریسک، ایمنی و امنیت','ارتباطات و رسانه','تدارکات، خرید و زنجیره تأمین',
+ 'دارایی‌ها، اموال و پشتیبانی','محصول و خدمت','کیفیت و بهبود','پروژه‌ها و برنامه‌های اجرایی',
+ 'امور فرهنگی و اجتماعی','امور تخصصی حوزه فعالیت سازمان','امور بین‌الملل'
+];
+function k9914TopicTokens(v){return new Set(norm(v).replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/).filter(x=>x.length>1))}
+function k9914TopicSimilarity(a,b){const A=k9914TopicTokens(a),B=k9914TopicTokens(b);if(!A.size||!B.size)return 0;let n=0;for(const x of A)if(B.has(x))n++;return n/Math.max(A.size,B.size)}
+function k9914TopicTree(db,org){
+ const tree=Object.fromEntries(K9914_PRIMARY_TOPICS.map(x=>[x,[]]));
+ for(const doc of(db.documents||[]).filter(x=>x.organizationId===org&&x.status!=='deleted')){
+   const cat=String(doc.subjectCategory||'').trim(),sub=String(doc.subjectArea||'').trim();
+   if(K9914_PRIMARY_TOPICS.includes(cat)&&sub&&!tree[cat].some(x=>norm(x)===norm(sub)))tree[cat].push(sub);
+ }
+ return tree;
+}
+function k9914CanonicalPrimary(v){
+ const x=String(v||'').trim();if(K9914_PRIMARY_TOPICS.includes(x))return x;
+ const nx=norm(x);
+ // Conservative aliases for legacy broad categories.
+ const aliases=[
+   ['آموزش',['آموزش','آموزشی','تحصیل','حوزوی','دانشجو','طلبه']],
+   ['منابع انسانی',['منابع انسانی','کارکنان','نیروی انسانی','رفاه کارکنان','خدمات رفاهی کارکنان']],
+   ['مالی و بودجه',['مالی','بودجه','اعتبار','هزینه']],
+   ['حقوقی و مقررات',['حقوقی','مقررات','آیین نامه','آیین‌نامه','مصوبه']],
+   ['پژوهش و نوآوری',['پژوهش','تحقیق','نوآوری']],
+   ['فناوری و زیرساخت',['فناوری','سامانه','زیرساخت','نرم افزار','نرم‌افزار']]
+ ];
+ for(const [cat,terms] of aliases)if(terms.some(k=>nx.includes(norm(k))))return cat;
+ return 'امور تخصصی حوزه فعالیت سازمان';
+}
+function k9914CanonicalSub(v,existing=[]){
+ const x=String(v||'').trim();if(!x)return null;
+ const exact=existing.find(y=>norm(y)===norm(x));if(exact)return exact;
+ const contained=existing.map(y=>({y,n:norm(y)})).filter(o=>o.n.includes(norm(x))||norm(x).includes(o.n)).sort((a,b)=>Math.abs(a.n.length-norm(x).length)-Math.abs(b.n.length-norm(x).length))[0]?.y;
+ if(contained)return contained;
+ let best=null;for(const y of existing){const s=k9914TopicSimilarity(x,y);if(!best||s>best.s)best={y,s}}
+ return best&&best.s>=.62?best.y:x;
+}
+
 async function k9914ClassifyDocument(db,org,documentId,defaultClass='auto'){
   const {byId,textByDoc}=k9911BuildIndex(db,org),doc=byId.get(documentId);
   if(!doc)throw Object.assign(new Error('سند برای طبقه‌بندی پیدا نشد.'),{code:'DOCUMENT_NOT_FOUND'});
   const text=textByDoc.get(documentId)||String(doc.content||'');
   if(!text.trim())return{documentId,suggestion:{title:doc.title,documentClass:defaultClass==='auto'?'unclassified':defaultClass,documentType:'سایر',confidence:.15,warnings:['متن قابل استخراج برای تحلیل خودکار پیدا نشد.'],possibleRelations:[]},duplicateCandidates:[]};
-  const hints=k9914HeaderHints(text);
+  const hints=k9914HeaderHints(text),topicTree=k9914TopicTree(db,org);
   const prompt=`از متن سند سازمانی زیر فقط یک JSON معتبر برگردان. هیچ توضیح دیگری ننویس.
+قواعد موضوع‌بندی:
+- subjectCategory باید دقیقاً یکی از موضوعات کلان مجاز زیر باشد و هرگز موضوع کلان جدید نساز:
+${JSON.stringify(K9914_PRIMARY_TOPICS)}
+- زیرموضوع‌های موجود هر شاخه:
+${JSON.stringify(topicTree)}
+- اگر مفهوم زیرموضوع با یکی از زیرموضوع‌های موجود همان شاخه یکسان یا بسیار نزدیک است، دقیقاً همان عبارت موجود را برگردان؛ از تکثیر عبارات نزدیک جلوگیری کن.
+- مثال: «آموزش»، «آموزش حوزوی» و «آموزش عالی حوزوی» نباید به سه موضوع کلان تبدیل شوند؛ موضوع کلان باید «آموزش» باشد و تفاوت واقعی فقط در زیرموضوع ثبت شود.
+
 نکته مهم: متن ممکن است با بخش‌های «[سربرگ ورد]» و «[پابرگ ورد]» شروع/تمام شود. در نامه‌های اداری، ابلاغیه‌ها، مصوبات، تصمیم‌ها و صورتجلسات، شماره سند، شماره جلسه، تاریخ جلسه، تاریخ ابلاغ و مرجع صادرکننده غالباً در سربرگ/پابرگ هستند؛ این بخش‌ها را هم‌وزن متن اصلی ندان، بلکه برای شناسنامه سند در اولویت بررسی قرار بده.
 Schema:
 {
@@ -481,12 +586,22 @@ ${text.slice(0,26000)}`;
     issuedAt:k9914CleanDate(parsed.issuedAt||hints.issuedAt),
     promulgationDate:k9914CleanDate(parsed.promulgationDate||hints.promulgationDate),
     validityStatus:['active','draft','expired','unknown'].includes(parsed.validityStatus)?parsed.validityStatus:'unknown',
-    subjectCategory:parsed.subjectCategory?String(parsed.subjectCategory).trim():null,
-    subjectArea:parsed.subjectArea?String(parsed.subjectArea).trim():null,
+    subjectCategory:k9914CanonicalPrimary(parsed.subjectCategory),
+    subjectArea:null,
     confidence:Math.max(0,Math.min(1,Number(parsed.confidence||0))),
     warnings:Array.isArray(parsed.warnings)?parsed.warnings.map(String).slice(0,8):[],
-    possibleRelations:Array.isArray(parsed.possibleRelations)?parsed.possibleRelations.slice(0,8):[]
+    possibleRelations:(Array.isArray(parsed.possibleRelations)?parsed.possibleRelations.slice(0,8):[]).map(r=>{
+      const base={
+        relationType:['amends','extends','repeals','clarifies','related_to'].includes(String(r?.relationType||''))?String(r.relationType):'related_to',
+        targetHint:String(r?.targetHint||'').trim(),
+        evidence:String(r?.evidence||'').trim(),
+        confirmed:false
+      };
+      const target=k9914ResolveRelationTarget(db,org,documentId,base);
+      return target?{...base,targetDocumentRef:target.id,targetDocumentTitle:target.title||'',targetDocumentNumber:target.documentNumber||null}:base;
+    })
   };
+  suggestion.subjectArea=k9914CanonicalSub(parsed.subjectArea,topicTree[suggestion.subjectCategory]||[]);
   if(defaultClass!=='auto')suggestion.documentClass=defaultClass;
 
   const docs=(db.documents||[]).filter(x=>x.organizationId===org&&x.id!==documentId&&x.status!=='deleted');
@@ -506,7 +621,7 @@ async function k9914CommitBulk(repo,org,input){
   const allowed=['title','documentClass','documentType','documentNumber','issuer','meetingNumber','meetingDate','issuedAt','promulgationDate','validityStatus','subjectCategory','subjectArea'];
   const result=[];
   await repo.mutate(db=>{
-    db.documents??=[];db.audit??=[];db.bulkIntakeReviews??=[];
+    db.documents??=[];db.audit??=[];db.bulkIntakeReviews??=[];db.documentRelations??=[];
     for(const item of items){
       const id=String(item.documentId||''),doc=db.documents.find(x=>x.organizationId===org&&x.id===id&&x.status!=='deleted');
       if(!doc){result.push({documentId:id,ok:false,reason:'not_found'});continue}
@@ -514,13 +629,47 @@ async function k9914CommitBulk(repo,org,input){
       if(!['upstream','general','unclassified'].includes(patch.documentClass))patch.documentClass=doc.documentClass||'unclassified';
       if(!['active','draft','expired','unknown'].includes(patch.validityStatus))patch.validityStatus='unknown';
       Object.assign(doc,patch,{status:'registered',bulkIntakeCommittedAt:new Date().toISOString(),bulkIntakeConfidence:Number(item.confidence||0)});
-      db.bulkIntakeReviews.push({id:k9914Id('BIR'),organizationId:org,documentRef:id,status:'committed',confidence:Number(item.confidence||0),warnings:Array.isArray(item.warnings)?item.warnings.slice(0,8):[],possibleRelations:Array.isArray(item.possibleRelations)?item.possibleRelations.slice(0,8):[],createdAt:new Date().toISOString()});
-      db.audit.push({id:k9914Id('AUD'),organizationId:org,action:'document.bulk_intake.commit',objectRef:id,occurredAt:new Date().toISOString(),details:{documentClass:doc.documentClass,confidence:Number(item.confidence||0)}});
-      result.push({documentId:id,ok:true});
+
+      const relationResults=[];
+      for(const rawRel of (Array.isArray(item.possibleRelations)?item.possibleRelations:[]).slice(0,8)){
+        if(!rawRel?.confirmed)continue;
+        const relationType=['amends','extends','repeals','clarifies','related_to'].includes(String(rawRel.relationType||''))?String(rawRel.relationType):'related_to';
+        const target=k9914ResolveRelationTarget(db,org,id,rawRel);
+        if(!target){
+          relationResults.push({ok:false,reason:'target_not_resolved',targetHint:String(rawRel.targetHint||'')});
+          continue;
+        }
+        const existing=db.documentRelations.find(r=>r.organizationId===org&&r.status!=='deleted'&&r.sourceDocumentRef===id&&r.targetDocumentRef===target.id&&r.relationType===relationType);
+        if(existing){
+          existing.note=String(rawRel.evidence||existing.note||'').trim()||null;
+          existing.updatedAt=new Date().toISOString();
+          relationResults.push({ok:true,relationId:existing.id,targetDocumentRef:target.id,existing:true});
+          continue;
+        }
+        const relation={
+          id:k9914Id('REL'),organizationId:org,
+          sourceDocumentRef:id,targetDocumentRef:target.id,relationType,
+          note:String(rawRel.evidence||'').trim()||null,
+          changeItems:[],status:'active',createdAt:new Date().toISOString(),
+          source:'bulk-intake-confirmed'
+        };
+        db.documentRelations.push(relation);
+        relationResults.push({ok:true,relationId:relation.id,targetDocumentRef:target.id,targetTitle:target.title||''});
+      }
+
+      db.bulkIntakeReviews.push({
+        id:k9914Id('BIR'),organizationId:org,documentRef:id,status:'committed',
+        confidence:Number(item.confidence||0),
+        warnings:Array.isArray(item.warnings)?item.warnings.slice(0,8):[],
+        possibleRelations:Array.isArray(item.possibleRelations)?item.possibleRelations.slice(0,8):[],
+        relationResults,createdAt:new Date().toISOString()
+      });
+      db.audit.push({id:k9914Id('AUD'),organizationId:org,action:'document.bulk_intake.commit',objectRef:id,occurredAt:new Date().toISOString(),details:{documentClass:doc.documentClass,confidence:Number(item.confidence||0),confirmedRelations:relationResults.filter(x=>x.ok).length}});
+      result.push({documentId:id,ok:true,relationResults});
     }
     return db;
   });
-  return{ok:true,committed:result.filter(x=>x.ok).length,items:result};
+  return{ok:true,committed:result.filter(x=>x.ok).length,relationsCommitted:result.flatMap(x=>x.relationResults||[]).filter(x=>x.ok).length,items:result};
 }
 async function k9914DiscardBulk(repo,org,input){
   const ids=new Set((Array.isArray(input.documentIds)?input.documentIds:[]).map(String));

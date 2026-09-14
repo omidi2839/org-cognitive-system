@@ -198,6 +198,118 @@ function fallbackSubtopic(detTitle,parent){
  // Strip common document-type boilerplate but keep the semantic title.
  return x.replace(/^(آیین[\s‌-]*نامه|دستورالعمل|بخشنامه|مصوبه|شیوه[\s‌-]*نامه|ضوابط)\s+/,'').trim()||null;
 }
+
+function topicTokens(v){
+ return new Set(norm(v).replace(/[^\p{L}\p{N}]+/gu,' ').split(/\s+/).filter(x=>x.length>1));
+}
+function topicSimilarity(a,b){
+ const A=topicTokens(a),B=topicTokens(b);if(!A.size||!B.size)return 0;
+ let hit=0;for(const x of A)if(B.has(x))hit++;
+ return hit/Math.max(A.size,B.size);
+}
+function existingSubtopics(db,org,primary){
+ const out=new Map();
+ for(const d of (db.documents||[]).filter(x=>x.organizationId===org&&x.status!=='deleted')){
+  const md=d.canonicalMetadata||d.metadata||d;
+  const cat=String(d.subjectCategory||md.subjectCategory||'').trim();
+  const sub=String(d.subjectArea||md.subjectArea||'').trim();
+  if(norm(cat)===norm(primary)&&sub&&!out.has(norm(sub)))out.set(norm(sub),sub);
+ }
+ return [...out.values()].sort((a,b)=>a.localeCompare(b,'fa'));
+}
+function mergeNearSubtopic(candidate,existing){
+ const c=cleanTopicCandidate(candidate||'');if(!c)return null;
+ const nc=norm(c),exact=existing.find(x=>norm(x)===nc);if(exact)return exact;
+ const containing=existing
+   .map(x=>({x,n:norm(x)}))
+   .filter(o=>o.n.includes(nc)||nc.includes(o.n))
+   .sort((a,b)=>Math.abs(a.n.length-nc.length)-Math.abs(b.n.length-nc.length))[0]?.x;
+ if(containing)return containing;
+ let best=null;
+ for(const x of existing){const s=topicSimilarity(c,x);if(!best||s>best.s)best={x,s}}
+ return best&&best.s>=.62?best.x:c;
+}
+function aiText(raw){
+ if(typeof raw?.output_text==='string')return raw.output_text;
+ for(const item of raw?.output||[])for(const c of item?.content||[])if(c?.type==='output_text'&&c?.text)return c.text;
+ return '';
+}
+async function aiCanonicalTopic({title,text,primaryCatalog,existingTree}){
+ const key=process.env.OPENAI_API_KEY;
+ if(!key||String(process.env.SINA_AI_ENABLED||'true').toLowerCase()==='false')return null;
+ const model=String(process.env.SINA_AI_MODEL||'gpt-5.6-terra');
+ const base=String(process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'');
+ const prompt=`شما موتور یکپارچه‌سازی درخت موضوعی اسناد سازمان هستید.
+هدف: از ایجاد موضوعات نزدیک، تکراری یا مترادف جلوگیری کنید.
+قواعد قطعی:
+1) subjectCategory باید فقط و فقط یکی از موضوعات کلان فهرست مجاز باشد.
+2) اگر زیرموضوع پیشنهادی از نظر معنا با یکی از زیرموضوع‌های موجود همان موضوع کلان یکسان یا بسیار نزدیک است، دقیقاً همان عبارت موجود را برگردان.
+3) فقط اگر مفهوم واقعاً جدید و متمایز است زیرموضوع جدید بساز.
+4) عبارات نزدیک مانند «آموزش»، «آموزش حوزوی» و «آموزش عالی حوزوی» نباید سه موضوع کلان مستقل شوند؛ موضوع کلان آنها «آموزش» است و تفاوت جزئی در لایه زیرموضوع مدیریت می‌شود.
+5) خروجی فقط JSON معتبر:
+{"subjectCategory":string,"subjectArea":string,"reason":string,"confidence":number}
+
+موضوعات کلان مجاز:
+${JSON.stringify(primaryCatalog)}
+
+درخت زیرموضوع موجود:
+${JSON.stringify(existingTree)}
+
+عنوان/نام فایل:
+${String(title||'').slice(0,1200)}
+
+متن سند:
+${String(text||'').slice(0,14000)}`;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
+ try{
+  const r=await fetch(base+'/responses',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json','authorization':'Bearer '+key},body:JSON.stringify({
+    model,store:false,max_output_tokens:700,
+    instructions:'فقط JSON معتبر برگردان. طبقه‌بندی موضوعی باید canonical و بدون تکثیر موضوعات نزدیک باشد.',
+    input:[{role:'user',content:[{type:'input_text',text:prompt}]}]
+  })});
+  if(!r.ok)return null;
+  const raw=await r.json(),txt=aiText(raw).trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'');
+  const a=txt.indexOf('{'),z=txt.lastIndexOf('}');if(a<0||z<=a)return null;
+  return JSON.parse(txt.slice(a,z+1));
+ }catch{return null}finally{clearTimeout(timer)}
+}
+
+
+function canonicalFallbackTopic({title,text,primaryCatalog,existingTree}){
+ const hay=norm(`${title||''} ${text||''}`);
+ const groups=[
+  ['آموزش',['آموزش','آموزشی','تحصیل','حوزوی','طلبه','دانش آموخته','دانش‌آموخته','رشته','کارشناسی']],
+  ['منابع انسانی',['منابع انسانی','نیروی انسانی','کارکنان','حقوق','دستمزد','رفاه','ماموریت','مأموریت']],
+  ['مالی و بودجه',['بودجه','مالی','اعتبار','هزینه','پرداخت','کمک هزینه']],
+  ['حقوقی و مقررات',['حقوقی','مقررات','آیین نامه','آیین‌نامه','مصوبه','ابلاغیه','دستورالعمل']],
+  ['پژوهش و نوآوری',['پژوهش','تحقیق','نوآوری','مقاله']],
+  ['فناوری و زیرساخت',['فناوری','سامانه','زیرساخت','نرم افزار','نرم‌افزار','اطلاعات']],
+  ['راهبرد و برنامه‌ریزی',['راهبرد','راهبری','برنامه ریزی','برنامه‌ریزی','سیاستگذاری','سیاست‌گذاری','برنامه']],
+  ['امور فرهنگی و اجتماعی',['فرهنگ','فرهنگی','تبلیغ','تبلیغی','اجتماعی']],
+  ['ساختار و حاکمیت سازمانی',['ساختار','تشکیلات','حاکمیت','شورا','کمیسیون']]
+ ];
+ let category=null,best=0;
+ for(const [cat,terms] of groups){
+   const score=terms.reduce((n,k)=>n+(hay.includes(norm(k))?1:0),0);
+   if(score>best){best=score;category=cat}
+ }
+ if(!category)category=primaryCatalog.find(Boolean)||'امور تخصصی حوزه فعالیت سازمان';
+ const existing=existingTree[category]||[];
+ // Prefer the closest existing subtopic based on lexical overlap when possible.
+ let bestSub=null,bestScore=0;
+ for(const sub of existing){
+   const toks=norm(sub).split(/\s+/).filter(x=>x.length>1);
+   const score=toks.reduce((n,k)=>n+(hay.includes(k)?1:0),0)/(toks.length||1);
+   if(score>bestScore){bestScore=score;bestSub=sub}
+ }
+ let subjectArea=bestScore>=.5?bestSub:null;
+ if(!subjectArea){
+   const clean=String(title||'').replace(/\.(docx?|pdf)$/i,'').trim();
+   subjectArea=clean?clean.slice(0,90):category;
+ }
+ return {subjectCategory:category,subjectArea,reason:'fallback-canonical',confidence:best?Math.min(.86,.48+best*.08):.35};
+}
+
 export default async function handler(req,res){
  if(!requireAuthenticated(req,res)) return;
  try{
@@ -222,12 +334,37 @@ export default async function handler(req,res){
     matchedKeywords:(x.hits||[]).slice(0,6),signals:x.signals||{}
   }));
 
-  const primary=String(b.primaryTopic||primaryRecommended?.[0]?.label||'').trim();
+  let primary=String(b.primaryTopic||primaryRecommended?.[0]?.label||'').trim();
+  if(!primaryCatalog.includes(primary))primary=primaryRecommended?.[0]?.label||'';
+  const existingTree=Object.fromEntries(primaryCatalog.map(p=>[p,existingSubtopics(db,org,p)]));
+  const aiRaw=await aiCanonicalTopic({
+    title:`${b.title||''} ${b.fileName||''}`,
+    text:parsed.text||'',
+    primaryCatalog,
+    existingTree
+  });
+  const ai=(aiRaw?.subjectCategory&&primaryCatalog.includes(String(aiRaw.subjectCategory).trim()))
+    ?aiRaw
+    :canonicalFallbackTopic({title:`${b.title||''} ${b.fileName||''}`,text:parsed.text||'',primaryCatalog,existingTree});
+  if(ai?.subjectCategory&&primaryCatalog.includes(String(ai.subjectCategory).trim())){
+    primary=String(ai.subjectCategory).trim();
+    const hit=primaryRecommended.find(x=>x.label===primary);
+    if(!hit)primaryRecommended.unshift({label:primary,score:9999,confidence:aiRaw?'high':'medium',matchedKeywords:[],signals:{ai:aiRaw?1:0,fallback:aiRaw?0:1}});
+    else hit.confidence=aiRaw?'high':'medium';
+  }
+
   const subRank=rankSubtopics(primary,`${title} ${headings} ${body}`);
   const fallback=fallbackSubtopic(dyn.detectedTitle,primary);
+  const existingForPrimary=existingTree[primary]||[];
+  const aiSub=ai?.subjectArea?mergeNearSubtopic(ai.subjectArea,existingForPrimary):null;
   const subtopics=[];
   const seenSub=new Set();
-  for(const x of [...subRank.map(x=>({label:x.label,score:x.score,source:'rule'})),...(fallback?[{label:fallback,score:1,source:'document_title'}]:[])]){
+  const candidates=[
+    ...(aiSub?[{label:aiSub,score:9999,source:'ai-canonical'}]:[]),
+    ...subRank.map(x=>({label:mergeNearSubtopic(x.label,existingForPrimary),score:x.score,source:'rule'})),
+    ...(fallback?[{label:mergeNearSubtopic(fallback,existingForPrimary),score:1,source:'document_title'}]:[])
+  ];
+  for(const x of candidates){
     const n=norm(x.label);if(!n||seenSub.has(n))continue;seenSub.add(n);subtopics.push(x);
   }
 
@@ -237,11 +374,18 @@ export default async function handler(req,res){
     primaryCatalog,
     primaryRecommended,
     subtopics:subtopics.slice(0,8),
+    aiCanonical:ai?{
+      subjectCategory:primary,
+      subjectArea:aiSub||null,
+      reason:String(ai.reason||''),
+      confidence:Math.max(0,Math.min(1,Number(ai.confidence||0)))
+    }:null,
     analysis:{
       characters:parsed.text.length,units:parsed.units?.length||0,parser:parsed.structure?.kind||'unknown',
-      priorityOrder:['primary_taxonomy','subtopic_rules','document_title'],
+      priorityOrder:['ai_canonical_existing_tree','primary_taxonomy','subtopic_rules','document_title'],
       detectedTitle:dyn.detectedTitle,firstLines:dyn.firstLines,
-      mode:metadataOnly?'metadata-fast':'content-analysis'
+      mode:metadataOnly?'metadata-ai':'content-ai',
+      aiUsed:Boolean(aiRaw),fallbackUsed:!aiRaw
     }
   });
  }catch(e){console.error(e);return send(res,400,{message:e.message||'خطا در تحلیل حوزه موضوعی'})}

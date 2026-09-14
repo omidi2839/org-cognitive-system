@@ -14,15 +14,19 @@ const bodyOf=req=>{
   try{return JSON.parse(req.body)}catch{return{}}
 };
 const actorOf=req=>{
-  const h=req.headers||{};
-  const role=String(h['x-role']||'admin').toLowerCase();
+  const h=req.headers||{},session=sessionOf(req);
+  // Trust the authenticated session role first. Header roles are only a compatibility
+  // fallback for older internal calls.
+  const role=String(session?.role||h['x-role']||'viewer').toLowerCase();
+  const adminLike=['system_admin','admin','administrator','manager','knowledge_admin'].includes(role);
   return {
     organizationId:String(h['x-org-id']||ORG),
     role,
-    personRef:String(h['x-person-id']||h['x-user-id']||'current-user'),
-    name:(()=>{try{return decodeURIComponent(String(h['x-person-name']||'کاربر فعلی'))}catch{return String(h['x-person-name']||'کاربر فعلی')}})(),
-    canEdit:String(h['x-document-edit-permission']||'').toLowerCase()==='true'||
-      ['admin','administrator','document_editor','knowledge_admin'].includes(role)
+    personRef:String(h['x-person-id']||h['x-user-id']||session?.u||'current-user'),
+    name:(()=>{try{return decodeURIComponent(String(h['x-person-name']||session?.u||'کاربر فعلی'))}catch{return String(h['x-person-name']||session?.u||'کاربر فعلی')}})(),
+    canEdit:adminLike||String(h['x-document-edit-permission']||'').toLowerCase()==='true'||
+      ['document_editor'].includes(role),
+    canDelete:adminLike
   };
 };
 const editable=['title','documentType','documentNumber','issuer','versionLabel','issuedAt','promulgationDate','meetingType','meetingNumber','meetingDate','validUntil','validityStatus','classification','organizationalLevel','scopeType','organizationalUnitRef','organizationalUnitName','subjectCategory','subjectArea'];
@@ -169,7 +173,7 @@ async function handleGovernance(req,res,repo,actor,u){
   const db=await repo.all();
 
   if(req.method==='GET'){
-    if(!id) return send(res,200,{permissions:{documentEdit:actor.canEdit,role:actor.role}});
+    if(!id) return send(res,200,{permissions:{documentEdit:actor.canEdit,documentDelete:actor.canDelete,role:actor.role}});
     const d=k9923ResolveDocument(db,id,actor.organizationId);
     if(!d) return send(res,404,{message:'سند پیدا نشد',code:'DOCUMENT_NOT_FOUND',requestedId:id});
     const artifacts=(db.artifacts||[]).filter(x=>x.documentRef===d.id&&x.organizationId===actor.organizationId);
@@ -178,8 +182,29 @@ async function handleGovernance(req,res,repo,actor,u){
     return send(res,200,{
       document:d,
       files:{primary:currentPrimary?{id:currentPrimary.id,fileName:currentPrimary.fileName,mimeType:currentPrimary.mimeType,size:currentPrimary.size||0}:null,attachments},
-      permissions:{documentEdit:actor.canEdit,role:actor.role}
+      permissions:{documentEdit:actor.canEdit,documentDelete:actor.canDelete,role:actor.role}
     });
+  }
+
+  if(req.method==='DELETE'){
+    if(!actor.canDelete) return send(res,403,{message:'حذف سند فقط برای مدیر/ادمین مجاز است.',code:'DOCUMENT_DELETE_FORBIDDEN'});
+    if(!id) return send(res,400,{message:'شناسه سند الزامی است'});
+    const now=new Date().toISOString();
+    let deleted=null;
+    await repo.mutate(s=>{
+      s.documents??=[];s.artifacts??=[];s.normalizedDocuments??=[];s.documentRelations??=[];s.audit??=[];
+      const snapshot={documents:s.documents||[],normalizedDocuments:s.normalizedDocuments||[],artifacts:s.artifacts||[]};
+      const d=k9923ResolveDocument(snapshot,id,actor.organizationId);
+      if(!d)return;
+      d.status='deleted';d.deletedAt=now;d.deletedBy=actor.personRef;
+      for(const a of s.artifacts)if(a.organizationId===actor.organizationId&&String(a.documentRef)===String(d.id)){a.status='deleted';a.deletedAt=now}
+      for(const n of s.normalizedDocuments)if(n.organizationId===actor.organizationId&&String(n.documentRef||n.documentId)===String(d.id)){n.status='superseded';n.deletedAt=now}
+      for(const r of s.documentRelations)if(r.organizationId===actor.organizationId&&(String(r.sourceDocumentRef)===String(d.id)||String(r.targetDocumentRef)===String(d.id))){r.status='deleted';r.deletedAt=now}
+      s.audit.push({id:`AUD:${Date.now()}:${Math.random().toString(36).slice(2,8)}`,organizationId:actor.organizationId,action:'document.delete',objectRef:d.id,occurredAt:now,details:{title:d.title||null,role:actor.role}});
+      deleted={id:d.id,title:d.title||''};
+    });
+    if(!deleted)return send(res,404,{message:'سند پیدا نشد'});
+    return send(res,200,{ok:true,deleted});
   }
 
   if(req.method!=='PATCH') return send(res,405,{message:'Method not allowed'});
