@@ -43,13 +43,19 @@ function decodeXmlEntities(s){
 }
 function docxText(fragment){
  const raw=String(fragment||'');
- let out='',pos=0;
- const rx=/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\s*\/?>|<w:br\s*\/?>/g;
+ let out='';
+ // In addition to normal w:t runs, some administrative templates place visible
+ // header metadata in deleted/inserted runs or field-result text. All visible
+ // textual runs are intentionally kept in document order.
+ const rx=/<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:instrText\b[^>]*>([\s\S]*?)<\/w:instrText>|<w:tab\s*\/?>|<w:br\s*\/?>/g;
  for(const m of raw.matchAll(rx)){
    if(m[0].startsWith('<w:tab'))out+='\t';
    else if(m[0].startsWith('<w:br'))out+='\n';
-   else out+=decodeXmlEntities(m[1]||'');
-   pos=(m.index||0)+m[0].length;
+   else{
+     const v=decodeXmlEntities(m[1]||m[2]||'');
+     // Ignore field instructions such as PAGE/NUMPAGES; keep literal metadata.
+     if(!/^\s*(PAGE|NUMPAGES|DATE|TIME|CREATEDATE|SAVEDATE)\b/i.test(v))out+=v;
+   }
  }
  return out.trim();
 }
