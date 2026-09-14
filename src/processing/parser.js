@@ -135,24 +135,65 @@ export async function parseArtifact({buffer,mimeType,fileName}){
  else if(lower.endsWith('.docx')){
    const z=unzipEntries(buffer),xml=z.get('word/document.xml');
    if(!xml)throw new Error('DOCX_DOCUMENT_XML_MISSING');
+
+   // Administrative letters, approvals and meeting minutes commonly keep their
+   // legal identity fields (number/date/meeting number/promulgation date) in
+   // Word headers or footers. Read those OOXML parts explicitly and place them
+   // before the body text so metadata extraction sees them with high priority.
+   const headerParts=[...z.entries()]
+     .filter(([n])=>/^word\/header\d+\.xml$/i.test(n))
+     .sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))
+     .map(([name,b])=>({name,text:normalizePersianText(docxText(String(b))||xmlText(b))}))
+     .filter(x=>x.text);
+   const footerParts=[...z.entries()]
+     .filter(([n])=>/^word\/footer\d+\.xml$/i.test(n))
+     .sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true}))
+     .map(([name,b])=>({name,text:normalizePersianText(docxText(String(b))||xmlText(b))}))
+     .filter(x=>x.text);
+
    const parsed=parseDocxStructure(String(xml)),parts=[];
+   for(const h of headerParts){
+     parts.push(`[سربرگ ورد]\n${h.text}`);
+     units.push({text:h.text,locationPointer:{kind:'docx_header',part:h.name}});
+   }
    for(const b of parsed.blocks){
      if(b.type==='paragraph'){
        parts.push(b.text);
        units.push({text:b.text,locationPointer:{kind:'docx_paragraph',paragraph:b.paragraph}});
-     }else{
+     }else if(b.type==='table'){
        for(const row of b.rows){
          parts.push(row.map(c=>c.text).join('\t'));
          for(const c of row)if(c.text)units.push({text:c.text,locationPointer:{kind:'docx_table_cell',table:b.table,row:c.row,column:c.column}});
        }
+     }else if(b.type==='mathFraction'){
+       const frac=[b.numerator,b.denominator].filter(Boolean).join(' / ');
+       if(frac)parts.push(frac);
      }
    }
+   for(const f of footerParts){
+     parts.push(`[پابرگ ورد]\n${f.text}`);
+     units.push({text:f.text,locationPointer:{kind:'docx_footer',part:f.name}});
+   }
    text=parts.join('\n')||xmlText(xml);
-   const readingOrderLines=[...String(xml).matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
-     .filter(m=>!docxIsDrawingParagraph(m[0]))
-     .map(m=>normalizePersianText(docxText(m[0])).replace(/\s+/g,' ').trim())
-     .filter(Boolean);
-   structure={kind:'docx',paragraphCount:parsed.paragraphCount,tableCount:parsed.tableCount,blocks:parsed.blocks,readingOrderLines}
+   const readingOrderLines=[
+     ...headerParts.flatMap(x=>x.text.split(/\n+/).map(y=>y.trim()).filter(Boolean)),
+     ...[...String(xml).matchAll(/<w:p\b[\s\S]*?<\/w:p>/g)]
+       .filter(m=>!docxIsDrawingParagraph(m[0]))
+       .map(m=>normalizePersianText(docxText(m[0])).replace(/\s+/g,' ').trim())
+       .filter(Boolean),
+     ...footerParts.flatMap(x=>x.text.split(/\n+/).map(y=>y.trim()).filter(Boolean))
+   ];
+   structure={
+     kind:'docx',
+     paragraphCount:parsed.paragraphCount,
+     tableCount:parsed.tableCount,
+     headerCount:headerParts.length,
+     footerCount:footerParts.length,
+     headers:headerParts,
+     footers:footerParts,
+     blocks:parsed.blocks,
+     readingOrderLines
+   }
  }
  else if(lower.endsWith('.pptx')){
    const z=unzipEntries(buffer);
