@@ -48,3 +48,50 @@ body.k9915-open{overflow:hidden}.k9915card-tree{margin-inline-start:7px;border:0
   padding:2px 5px!important;
   font-weight:950!important;
 }
+
+/* 0.9.9.2.7 — grouped, bounded word cloud */
+.k9916cloud{
+  min-height:360px!important;
+  display:grid!important;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr))!important;
+  gap:24px 28px!important;
+  align-items:stretch!important;
+  padding:28px 30px 36px!important;
+}
+.k9916cluster{
+  min-width:0;
+  min-height:150px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  padding:8px 6px;
+}
+.k9916cluster>.k9916word.main{
+  flex:0 0 auto;
+  max-width:100%;
+  text-align:center;
+  white-space:normal!important;
+  overflow-wrap:anywhere;
+  line-height:1.2!important;
+}
+.k9916orbit{
+  width:100%;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:center;
+  gap:8px 14px;
+}
+.k9916orbit .k9916word.sub{
+  max-width:210px;
+  white-space:normal!important;
+  text-align:center;
+  line-height:1.25!important;
+  font-weight:750!important;
+}
+@media(max-width:850px){
+ .k9916cloud{grid-template-columns:1fr!important;gap:14px!important;padding:20px 16px 28px!important}
+ .k9916cluster{min-height:120px}
+}

@@ -1,5 +1,5 @@
 (()=>{
-window.__DOCUMENT_BANK_BUILD__='0.9.9.1.9';
+window.__DOCUMENT_BANK_BUILD__='0.9.9.2.7';
 const FA='۰۱۲۳۴۵۶۷۸۹';
 const toFa=v=>String(v??'').replace(/\d/g,d=>FA[d]);
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -10,7 +10,7 @@ const statusLabel=v=>({active:'معتبر',draft:'پیش‌نویس',expired:'م
 const classLabel=v=>({public:'عمومی',internal:'داخلی',confidential:'محرمانه',secret:'خیلی محرمانه'})[v]||v||'—';
 const docClass=v=>v==='upstream'?'بالادستی':v==='general'?'عمومی':'سایر';
 let lastSearchQuery='';
-let k982CanEditDocuments=false;
+let k982CanEditDocuments=false,k982CanDeleteDocuments=false;
 
 function highlightPattern(q){
  const chars=[...String(q??'').trim()];if(!chars.length)return null;
@@ -88,6 +88,7 @@ function resultRow(d,q){
    <div class="k982rowactions ${k982CanEditDocuments?'can-edit':'view-only'}">
     <button type="button" class="k91previewbtn k982actionbtn" data-doc-preview="${esc(d.id)}">مشاهده سند</button>
     ${k982CanEditDocuments?`<button type="button" class="k982editrowbtn k982actionbtn" data-doc-edit="${esc(d.id)}">ویرایش سند</button>`:''}
+    ${k982CanDeleteDocuments?`<button type="button" class="k982deletebtn k982actionbtn" data-doc-delete="${esc(d.id)}" data-doc-title="${esc(d.title||'بدون عنوان')}">حذف سند</button>`:''}
    </div>
   </div>
  </article>`;
@@ -151,7 +152,18 @@ async function k982LoadEditPermission(){
  try{
   const g=await api('/api/v1/knowledge/document-governance');
   k982CanEditDocuments=!!g.permissions?.documentEdit;
- }catch{k982CanEditDocuments=false}
+  k982CanDeleteDocuments=!!g.permissions?.documentDelete;
+ }catch{k982CanEditDocuments=false;k982CanDeleteDocuments=false}
+}
+async function k982DeleteDocument(id,title=''){
+ const msg=`سند «${title||'این سند'}» حذف شود؟ این عملیات فقط برای مدیر/ادمین مجاز است و سند از بانک و روابط فعال کنار گذاشته می‌شود.`;
+ let ok=false;
+ if(window.SinaDialog?.confirm)ok=await SinaDialog.confirm(msg,{title:'حذف سند'});
+ else ok=window.confirm(msg);
+ if(!ok)return;
+ await api('/api/v1/knowledge/document-governance?documentId='+encodeURIComponent(id),{method:'DELETE'});
+ closeDocumentModal();
+ await runBankSearch();
 }
 
 const K983_PRIMARY_TOPICS=[
@@ -517,6 +529,7 @@ async function openBank(){
      if(items){items.hidden=!items.hidden;more.textContent=items.hidden?'نمایش تطابق‌های بیشتر':'بستن تطابق‌های بیشتر'}
      return;
    }
+   const del=e.target.closest('[data-doc-delete]');if(del){k982DeleteDocument(del.dataset.docDelete,del.dataset.docTitle).catch(err=>window.SinaDialog?.alert?SinaDialog.alert(err.message,{title:'حذف سند'}):alert(err.message));return}
    const edit=e.target.closest('[data-doc-edit]');if(edit){k982OpenEdit(edit.dataset.docEdit);return}
    const p=e.target.closest('[data-doc-preview]');if(p)openDocumentModal(p.dataset.docPreview,lastSearchQuery,'root')
  };

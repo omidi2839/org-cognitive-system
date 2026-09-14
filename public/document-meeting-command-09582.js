@@ -384,10 +384,10 @@ function k953EnhanceMetadata(form){
 
    const label=subject.closest('label');
    const box=document.createElement('div');box.className='k953topics k971topic-tree';
-   box.innerHTML=`<div class="k953topichead"><div><b>طبقه‌بندی موضوعی سند</b><small>لایه اول موضوع کلان سازمانی است؛ لایه دوم زیرموضوع دقیق همین سند.</small></div><button type="button" data-k953-analyze>تحلیل فایل و پیشنهاد زیرموضوع</button></div>
+   box.innerHTML=`<div class="k953topichead"><div><b>طبقه‌بندی موضوعی سند</b><small>لایه اول موضوع کلان سازمانی است؛ لایه دوم زیرموضوع دقیق همین سند.</small></div><button type="button" data-k953-analyze>تحلیل هوشمند و یکپارچه‌سازی موضوع</button></div>
    <div class="k971topicgrid">
     <label><b>موضوع کلان *</b><select data-k971-primary required><option value="">انتخاب موضوع کلان…</option>${PRIMARY.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select><small>انتخاب از درختواره استاندارد سازمانی الزامی است.</small></label>
-    <label><b>زیرموضوع سند *</b><input data-k971-subtopic list="k971subtopics" placeholder="مثلاً حقوق و دستمزد و مزایا" required><datalist id="k971subtopics"></datalist><small>سامانه پیشنهاد می‌دهد و کاربر می‌تواند متن نهایی را ویرایش و تأیید کند.</small></label>
+    <label><b>زیرموضوع سند *</b><input data-k971-subtopic list="k971subtopics" placeholder="مثلاً حقوق و دستمزد و مزایا" required><datalist id="k971subtopics"></datalist><small>هوش مصنوعی پیشنهاد را با درخت موضوعی موجود یکپارچه می‌کند؛ کاربر می‌تواند نتیجه نهایی را ویرایش و تأیید کند.</small></label>
    </div>
    <div data-k953-topic-status class="k953topicstatus"></div>`;
    label.insertAdjacentElement('afterend',box);label.style.display='none';
@@ -404,7 +404,7 @@ function k953EnhanceMetadata(form){
    async function analyze(){
      const file=form.querySelector('input[type="file"][name="file"]')?.files?.[0];
      if(!file){status.textContent='ابتدا فایل سند را انتخاب کنید.';return}
-     status.textContent='در حال تحلیل موضوع کلان و زیرموضوع سند…';
+     status.textContent='در حال تحلیل هوشمند و تطبیق با موضوعات و زیرموضوعات موجود…';
      try{
        const light=file.size>700000;
        const payload={
@@ -426,7 +426,7 @@ function k953EnhanceMetadata(form){
    }
    box.querySelector('[data-k953-analyze]').onclick=analyze;
    const file=form.querySelector('input[type="file"][name="file"]');
-   if(file)file.addEventListener('change',()=>{subject.value='';sub.value='';dl.innerHTML='';status.textContent='فایل آماده است. برای پیشنهاد موضوع، دکمه «تحلیل فایل و پیشنهاد زیرموضوع» را بزنید.'});
+   if(file)file.addEventListener('change',()=>{subject.value='';sub.value='';dl.innerHTML='';status.textContent='فایل آماده است. برای پیشنهاد موضوع، دکمه «تحلیل هوشمند و یکپارچه‌سازی موضوع» را بزنید.'});
  }
 
 }
