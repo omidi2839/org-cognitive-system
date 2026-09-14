@@ -617,7 +617,7 @@ function macroKnowledgeSynthesis(topic,concepts){
 async function handleMacroKnowledge(req,res,repo,actor,u){
   const db=await repo.all();
   const finals=(db.collaborativeFinalConcepts||[]).filter(x=>x.organizationId===actor.organizationId&&x.status==='reliable_synthesis');
-  const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId);
+  const docs=(db.documents||[]).filter(x=>x.organizationId===actor.organizationId&&x.status!=='deleted');
   const canonical=(db.macroKnowledgeConcepts||[]).filter(x=>x.organizationId===actor.organizationId);
   const links=(db.macroKnowledgeSourceLinks||[]).filter(x=>x.organizationId===actor.organizationId);
   const allIssues=(db.macroKnowledgeIssues||[]).filter(x=>x.organizationId===actor.organizationId);
@@ -872,7 +872,10 @@ async function handleKnowledgeDocuments(req,res,repo,actor,u){
   const documentClass=u.searchParams.get('class')||null;
   const db=await repo.all();
 
-  const all=(Array.isArray(db.documents)?db.documents:[]).filter(x=>x.organizationId===actor.organizationId);
+  // Counter invariant: soft-deleted documents are not part of any active inventory,
+  // card counter, filter summary, or downstream working set.
+  const all=(Array.isArray(db.documents)?db.documents:[])
+    .filter(x=>x.organizationId===actor.organizationId&&x.status!=='deleted');
   const docs=documentClass?all.filter(x=>x.documentClass===documentClass):all;
   const ids=new Set(docs.map(x=>x.id));
 
