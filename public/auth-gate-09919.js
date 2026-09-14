@@ -1,5 +1,5 @@
 (()=>{
-const VERSION='0.9.9.2.4';
+const VERSION='0.9.9.2.5';
 window.__SINA_UI_RELEASE__=VERSION;
 document.documentElement.classList.add('auth-pending');
 const scripts=[

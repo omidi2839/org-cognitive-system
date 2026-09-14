@@ -13,3 +13,7 @@ body.k9914-open{overflow:hidden}.k9914overlay{position:fixed;inset:0;z-index:140
 .k9916-doc-toolbar .k9914entry{width:auto!important;margin:0!important}
 
 /* 0.9.9.1.9 unique asset; shared toolbar styles live in sina-topic-tree-09919.css */
+
+/* 0.9.9.2.5 — explicit bulk intake stage progression */
+.k9914steps span.done{background:#e8f7ef!important;color:#197149!important}
+.k9914steps span.done::after{content:' ✓';font-weight:900}

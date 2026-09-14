@@ -16,36 +16,35 @@ async function uploadViaFunction(file){
  const rid=`BULK-SRV-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
  return api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
   title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,
-  contentBase64:await bulkBase64(file),directUpload:false,transport:'bulk-function-v1',clientRequestId:rid,
+  contentBase64:await bulkBase64(file),directUpload:false,transport:'bulk-function-v2',clientRequestId:rid,
   metadata:{documentClass:'unclassified',documentType:'سایر',validityStatus:'unknown',classification:'internal'}
  })});
 }
 async function directUpload(file){
- // Small/medium bulk files are intentionally sent through the Function payload.
- // This avoids the private-Blob read-after-write race that produced
- // "Vercel Blob object was not found" immediately after a successful browser PUT.
- if(Number(file?.size||0)>0&&Number(file.size)<=BULK_SERVER_RAW_BUDGET){
-   return uploadViaFunction(file);
- }
- let last;
- for(let attempt=1;attempt<=3;attempt++){
-  try{
-   const pre=await api('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role:'primary'})});
-   const put=await fetch(pre.presignedUrl,{method:'PUT',body:file});if(!put.ok)throw Error(`ارسال فایل ناموفق بود (${put.status})`);
-   // Give the private Blob object a short propagation window before the server reads it.
-   await bulkSleep(900*attempt);
-   const rid=`BULK-DIRECT-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
-   return await api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
-    title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,blobUrl:pre.blobUrl,blobPathname:pre.pathname,directUpload:true,transport:'bulk-direct-blob-v3',clientRequestId:rid,
-    metadata:{documentClass:'unclassified',documentType:'سایر',validityStatus:'unknown',classification:'internal'}
-   })});
-  }catch(e){
-   last=e;
-   if(attempt<3)await bulkSleep(500*attempt);
-  }
- }
- throw last||Error('آپلود فایل ناموفق بود.');
+ if(Number(file?.size||0)>0&&Number(file.size)<=BULK_SERVER_RAW_BUDGET)return uploadViaFunction(file);
+
+ // Large file: upload ONCE to Blob, then let the server retry reading the same object.
+ const pre=await api('/api/v1/knowledge/blob-upload-url',{method:'POST',body:JSON.stringify({fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,role:'primary'})});
+ const put=await fetch(pre.presignedUrl,{method:'PUT',body:file});
+ if(!put.ok)throw Error(`ارسال فایل ناموفق بود (${put.status})`);
+ await bulkSleep(1400);
+ const rid=`BULK-DIRECT-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+ return api('/api/v1/documents/upload',{method:'POST',body:JSON.stringify({
+  title:file.name.replace(/\.(pdf|docx)$/i,''),fileName:file.name,mimeType:file.type||'application/octet-stream',size:file.size,
+  blobUrl:pre.blobUrl,blobPathname:pre.pathname,directUpload:true,transport:'bulk-direct-blob-v4',clientRequestId:rid,
+  metadata:{documentClass:'unclassified',documentType:'سایر',validityStatus:'unknown',classification:'internal'}
+ })});
 }
+function setStep(w,n){
+ const steps=[...w.querySelectorAll('.k9914steps span')];
+ steps.forEach((s,i)=>{
+   s.classList.toggle('on',i===n-1);
+   s.classList.toggle('done',i<n-1);
+   s.setAttribute('aria-current',i===n-1?'step':'false');
+ });
+ w.dataset.bulkStep=String(n);
+}
+
 let rows=[];
 function mount(){
  document.getElementById('k9914bulk')?.remove();
@@ -61,7 +60,7 @@ function mount(){
  const close=()=>{w.remove();document.body.classList.remove('k9914-open')};
  w.querySelector('[data-close]').onclick=close;
  const fi=w.querySelector('[data-files]'),summary=w.querySelector('[data-summary]');
- fi.onchange=()=>{rows=[...(fi.files||[])].map((file,i)=>({id:i,file,status:'ready',selected:true}));summary.textContent=`${fa(rows.length)} فایل آماده پردازش است.`;renderRows(w)};
+ fi.onchange=()=>{rows=[...(fi.files||[])].map((file,i)=>({id:i,file,status:'ready',selected:true}));setStep(w,1);summary.textContent=`${fa(rows.length)} فایل آماده پردازش است.`;renderRows(w)};
  w.querySelector('[data-start]').onclick=()=>processAll(w);
  w.querySelector('[data-commit]').onclick=()=>commitAll(w);
  w.querySelector('[data-discard]').onclick=()=>discardUncommitted(w);
@@ -95,6 +94,7 @@ function renderRows(w){
 }
 async function processAll(w){
  if(!rows.length)return;
+ setStep(w,2);
  const cls=w.querySelector('[data-class]').value,start=w.querySelector('[data-start]');start.disabled=true;
  for(const r of rows){
    if(r.status!=='ready')continue;
@@ -113,6 +113,7 @@ async function processAll(w){
    renderRows(w);
  }
  start.disabled=false;
+ setStep(w,3);
  w.querySelector('[data-summary]').textContent=`پردازش پایان یافت: ${fa(rows.filter(x=>x.status==='prepared').length)} آماده ثبت، ${fa(rows.filter(x=>x.status==='review').length)} نیازمند بازبینی، ${fa(rows.filter(x=>x.status==='duplicate').length)} تکراری.`;
 }
 async function commitAll(w){
@@ -124,6 +125,7 @@ async function commitAll(w){
  if(!items.length)return;
  const btn=w.querySelector('[data-commit]');btn.disabled=true;btn.textContent='در حال ثبت نهایی…';
  try{
+   setStep(w,4);
    const d=await api('/api/v1/bulk-intake/commit',{method:'POST',body:JSON.stringify({items})});
    const ok=new Set((d.items||[]).filter(x=>x.ok).map(x=>x.documentId));rows.forEach(r=>{if(ok.has(r.documentId))r.status='committed'});renderRows(w);
    w.querySelector('[data-summary]').textContent=`✓ ${fa(d.committed||0)} سند در بانک اسناد ثبت نهایی شد.`;
