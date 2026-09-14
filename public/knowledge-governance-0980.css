@@ -241,3 +241,12 @@
 .k982rowactions.can-edit{gap:6px}
 .k982deletebtn{border-color:#efcaca!important;background:#fff6f6!important;color:#a53b3b!important}
 .k982deletebtn:hover{background:#ffecec!important;border-color:#dfa1a1!important}
+
+/* 0.9.9.2.8 — explicit destructive action visibility */
+.k982deletebtn,.k982modaldelete{
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  border:1px solid #efb6b6!important;background:#fff4f4!important;color:#a62f2f!important;
+  border-radius:8px!important;font:inherit!important;font-weight:900!important;cursor:pointer!important;
+}
+.k982deletebtn{padding:6px 10px!important;font-size:8px!important}
+.k982modaldelete{padding:7px 10px!important;font-size:8px!important;margin-inline-start:6px!important}

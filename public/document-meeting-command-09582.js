@@ -406,7 +406,7 @@ function k953EnhanceMetadata(form){
      if(!file){status.textContent='ابتدا فایل سند را انتخاب کنید.';return}
      status.textContent='در حال تحلیل هوشمند و تطبیق با موضوعات و زیرموضوعات موجود…';
      try{
-       const light=file.size>700000;
+       const light=file.size>2400000;
        const payload={
          title:form.querySelector('input[name="title"]')?.value?.trim()||'',
          primaryTopic:primary.value||'',
@@ -416,12 +416,15 @@ function k953EnhanceMetadata(form){
          payload.contentBase64=await k9885Base64(file);
        }
        const d=await api('/api/v1/knowledge/topic-suggestions',{method:'POST',body:JSON.stringify(payload)});
-       if(!primary.value&&d.primaryRecommended?.[0]?.label)primary.value=d.primaryRecommended[0].label;
+       const canonical=d.aiCanonical||null;
+       if(canonical?.subjectCategory)primary.value=canonical.subjectCategory;
+       else if(!primary.value&&d.primaryRecommended?.[0]?.label)primary.value=d.primaryRecommended[0].label;
        const subs=d.subtopics||[];
        dl.innerHTML=subs.map(x=>`<option value="${esc(x.label)}"></option>`).join('');
-       if(!sub.value&&subs[0]?.label)sub.value=subs[0].label;
+       if(canonical?.subjectArea)sub.value=canonical.subjectArea;
+       else if(!sub.value&&subs[0]?.label)sub.value=subs[0].label;
        sync();
-       status.innerHTML=`${d.analysis?.detectedTitle?`<div class="k958detected"><b>عنوان تشخیص‌داده‌شده:</b> ${esc(d.analysis.detectedTitle)}</div>`:''}<b>موضوع کلان:</b> ${esc(primary.value||'انتخاب نشده')} ${subs.length?`· <b>زیرموضوع‌های پیشنهادی:</b> ${subs.slice(0,5).map(x=>esc(x.label)).join('، ')}`:'· زیرموضوع پیشنهادی قابل اتکا پیدا نشد؛ کاربر آن را نهایی کند.'}`;
+       status.innerHTML=`${d.analysis?.detectedTitle?`<div class="k958detected"><b>عنوان تشخیص‌داده‌شده:</b> ${esc(d.analysis.detectedTitle)}</div>`:''}<b>موضوع کلان:</b> ${esc(primary.value||'انتخاب نشده')} · <b>زیرموضوع:</b> ${esc(sub.value||'—')} · <b>روش:</b> ${d.analysis?.aiUsed?'هوش مصنوعی + تطبیق با درخت موجود':'تطبیق هوشمند جایگزین با درخت موجود'}`;
      }catch(e){status.textContent='پیشنهاد موضوعی در دسترس نیست؛ این موضوع مانع ثبت سند نمی‌شود.'}
    }
    box.querySelector('[data-k953-analyze]').onclick=analyze;
@@ -449,7 +452,7 @@ function k955ComposeForm(form){
  intro.innerHTML='<div><b>فایل سند و حوزه موضوعی</b><small>فایل را در همین بخش انتخاب کنید؛ سامانه متن را می‌خواند و حوزه موضوعی استاندارد پیشنهاد می‌دهد.</small></div>';
  if(topicHead)topic.insertBefore(intro,topicHead);else topic.prepend(intro);
  intro.appendChild(file);
- const analyze=topic.querySelector('[data-k953-analyze]');if(analyze)analyze.textContent='تحلیل فایل و پیشنهاد موضوع';
+ const analyze=topic.querySelector('[data-k953-analyze]');if(analyze)analyze.textContent='تحلیل هوشمند و یکپارچه‌سازی موضوع';
  (meeting||card).insertAdjacentElement('afterend',topic);
 }
 const k955Esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
