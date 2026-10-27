@@ -1,0 +1,21 @@
+{
+  "baseCommitSha": "95f0f4c61216957885244573f059aec2a2da6614",
+  "budgetBefore": 13,
+  "budgetAfterDelete": 12,
+  "filesToUpdate": [
+    "api/index.js",
+    "vercel.json"
+  ],
+  "filesToAdd": [
+    "tests/meetings-api-budget.test.js"
+  ],
+  "deleteFromGitHub": [
+    "api/meetings-v1.js"
+  ],
+  "preserved": [
+    "public/**",
+    "src/application/meetingsV1.js",
+    "api/knowledge-documents.js",
+    "api/document-bank-core.js"
+  ]
+}

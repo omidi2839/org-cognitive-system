@@ -1,42 +1,21 @@
-# Cloudflare backend compatibility patch — SINA 0.9.9.1.9
+# اصلاح قطعی خطای استقرار Vercel — سینا / جلسات ۱٫۲
 
-این Patch برای اجرای همان APIهای فعلی Vercel روی Cloudflare Workers طراحی شده است.
+## علت اثبات‌شده
+در شاخه `main` سیزده فایل `.js` در پوشه `api/` ثبت شده است. پیش از افزوده‌شدن `api/meetings-v1.js` تعداد آن‌ها ۱۲ بود و استقرار موفق می‌شد. فایل سیزدهم از بسته جلسات قبلی ایجاد شده است.
 
-فایل‌ها:
-- `worker.js`: آداپتور Request/Response کلادفلر به handlerهای فعلی `api/*.js`
-- `wrangler.jsonc`: اجرای Worker قبل از Static Assets برای `/api/*` و `/diag/*`
+## انجام روی همان شاخه main (بدون شاخه یا پروژه جدید)
+۱. در پوشه **`api`**، فایل موجود `index.js` را با `api/index.js` موجود در این ZIP **جایگزین** کنید. (بارگذاری محتویات فایل ZIP در ریشه GitHub باعث اصلاح پوشه نمی‌شود.)
+۲. در **ریشه مخزن**، فایل `vercel.json` جدید را **جایگزین** کنید.
+۳. از پوشه **`api`** فایل قدیمی `meetings-v1.js` را **حذف و Commit** کنید؛ این مرحله الزامی است. باقی ماندن آن حتی بدون Rewrite، تابع سیزدهم را در Build ایجاد می‌کند.
+۴. فایل `tests/meetings-api-budget.test.js` را به پوشه tests اضافه کنید تا در تست‌های بعدی این خطا تکرار نشود.
 
-## متغیرهای محیطی که باید در Cloudflare ثبت شوند
+**مهم:** فایل `src/application/meetingsV1.js` و فایل‌های `public/meetings-v1.js` و `public/meetings-v1.css`، به‌علاوه کلیه فایل‌های اسناد و ساختار سازمانی، دست نخورند.
 
-مقادیر را از Vercel قبلی کپی کنید؛ مقدار Secretها را داخل GitHub ننویسید.
+## نتیجه مورد انتظار
+- تعداد فایل‌های JS داخل api باید **۱۲** باشد.
+- مسیر `/api/v1/meetings` از طریق Catch-all موجود به `api/index.js` اجرا می‌شود.
+- مسیرهای قدیمی اسناد، بانک اسناد، احراز هویت و AI بدون جابه‌جایی باقی می‌مانند.
+- در Vercel Deployment بعدی باید وضعیت READY شود.
+- با باز کردن «جلسات ← جلسات پیش‌رو» و ثبت جلسه، پیام ثبت API بررسی شود.
 
-ضروری برای وضعیت فعلی:
-- `SUPABASE_DATABASE_URL` (یا در صورت استفاده قدیمی `DATABASE_URL`)
-- `ADMIN_USERNAME`
-- `ADMIN_PASSWORD`
-- `APP_AUTH_SECRET`
-- `OPENAI_API_KEY`
-- `BLOB_READ_WRITE_TOKEN`
-
-متغیرهای اختیاری/وابسته به قابلیت:
-- `BLOB_STORE_ID`
-- `OPENAI_BASE_URL`
-- `SINA_AI_MODEL`
-- `SINA_AI_MAX_OUTPUT_TOKENS`
-- `SINA_AI_TIMEOUT_MS`
-- `REQUIRE_DURABLE_SERVICES`
-- `MIGRATION_ADMIN_SECRET`
-- `MIGRATION_TARGET_DATABASE_URL`
-
-## روش اعمال
-این دو فایل باید در ریشه Repository `omidi2839/org-cognitive-system` قرار گیرند.
-اگر `wrangler.jsonc` از قبل وجود دارد، آن را با نسخه Patch جایگزین کنید.
-
-پس از Commit روی `main`، Cloudflare باید به صورت خودکار Build/Deploy جدید انجام دهد.
-
-## تست اولیه
-1. `/api/v1/auth/session` باید دیگر 404 نباشد؛ قبل از ورود باید 401 برگرداند.
-2. فرم ورود باید POST به همان route بزند و Cookie سشن دریافت کند.
-3. پس از ورود، بانک اسناد و APIهای دانش تست شوند.
-
-نکته: Vercel Blob هنوز در این Patch حفظ شده است تا مهاجرت رفتاری حداقلی باشد. در مرحله بعد می‌توان Storage را مستقل از Vercel کرد.
+در این جلسه دسترسی GitHub قابلیت نوشتن ندارد (403)، بنابراین تغییرات در خود مخزن Commit نشده‌اند.
