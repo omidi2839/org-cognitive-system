@@ -1,7 +1,7 @@
 /* SINA Meetings Calendar V1.0: isolated from the document-bank UI */
 (()=>{'use strict';
 const endpoint='/api/v1/meetings';
-const state={items:[],view:'month',cursor:new Date(),selected:null,filter:'all',editing:null};
+const state={items:[],view:'month',cursor:new Date(),selected:null,filter:'all',editing:null,directory:null};
 const F='۰۱۲۳۴۵۶۷۸۹';
 const fa=x=>String(x??'').replace(/[0-9]/g,n=>F[Number(n)]);
 const latin=x=>String(x??'').replace(/[۰-۹]/g,n=>String(F.indexOf(n))).replace(/[٠-٩]/g,n=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(n)));
@@ -23,9 +23,18 @@ const statuses={tentative:'در انتظار تعیین زمان',scheduled:'ز�
 const types={in_person:'حضوری',online:'مجازی',hybrid:'ترکیبی'};
 let panel=null,modal=null;
 const $=(s,root=panel)=>root?.querySelector(s);
-const api=async(method='GET',body=null,id='')=>{
- const r=await fetch(endpoint+(id?'?id='+encodeURIComponent(id):''),{method,credentials:'same-origin',headers:{'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
- const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.message||'خطای ارتباط با سامانه');return d;
+const api=async(method='GET',body=null,id='',resource='')=>{
+ const suffix=resource?'?resource='+encodeURIComponent(resource):(id?'?id='+encodeURIComponent(id):'');
+ let r;
+ try{r=await fetch(endpoint+suffix,{method,credentials:'same-origin',headers:body?{'content-type':'application/json'}:{},body:body?JSON.stringify(body):undefined,cache:'no-store'});}
+ catch(e){throw Error('دسترسی به سرور ممکن نیست. اتصال اینترنت و وضعیت استقرار Vercel را بررسی کنید.');}
+ const raw=await r.text(),d=(()=>{try{return JSON.parse(raw)}catch{return null}})();
+ if(!r.ok){
+  const reason=d?.message||((r.status===404||r.status===405)?'مسیر API جلسات در نسخه منتشرشده فعال نیست. پوشه api و آخرین استقرار Vercel را بررسی کنید.':'پاسخ نامعتبر از سرور دریافت شد.');
+  throw Error(`${reason} (HTTP ${r.status})`);
+ }
+ if(!d||typeof d!=='object')throw Error('پاسخ API جلسات JSON نیست؛ احتمالاً مسیر API به جای کد سرور، صفحه HTML برگردانده است. استقرار Vercel و rewrite را بررسی کنید.');
+ return d;
 };
 const itemLabel=x=>x.startDate?longLabel(new Date(x.startDate+'T12:00:00'))+' · '+(x.startTime||'')+' تا '+(x.endTime||''):'زمان جلسه هنوز قطعی نشده است';
 function matches(x){return state.filter==='all'||(state.filter==='unscheduled'?!x.startDate:state.filter===x.kind)}
@@ -93,7 +102,7 @@ function participantRow(p={}){
  <label>شخصیت حقوقی / سازمان<input data-p="entityName" value="${esc(p.entityName||'')}" placeholder="در صورت نمایندگی شخصیت حقوقی"></label>
  <label>سمت سازمانی<input data-p="position" value="${esc(p.position||'')}"></label>
  <label>نقش در جلسه<select data-p="role">${optionMap(roles,p.role||'member')}</select></label>
- <button type="button" class="smv1-remove-person" title="حذف شرکت‌کننده">×</button><input type="hidden" data-p="id" value="${esc(p.id||'')}"></div>`;
+ <button type="button" class="smv1-remove-person" title="حذف شرکت‌کننده">×</button><input type="hidden" data-p="id" value="${esc(p.id||'')}"><input type="hidden" data-p="directoryPersonRef" value="${esc(p.directoryPersonRef||'')}"><input type="hidden" data-p="organizationalUnitRef" value="${esc(p.organizationalUnitRef||'')}"></div>`;
 }
 function closeModal(){modal?.remove();modal=null;document.body.classList.remove('smv1-no-scroll')}
 function edit(item){closeModal();state.editing=item||null;modal=document.createElement('div');modal.className='smv1-modal';
@@ -112,7 +121,8 @@ function edit(item){closeModal();state.editing=item||null;modal=document.createE
  <label>مکان جلسه<input name="location" value="${esc(item?.location||'')}" maxlength="240"></label>
  <label class="wide">پیوند جلسه مجازی<input name="meetingLink" type="url" value="${esc(item?.meetingLink||'')}" placeholder="https://..."></label>
  <label class="wide">شرح و هدف جلسه<textarea name="description" rows="2" maxlength="4000">${esc(item?.description||'')}</textarea></label>
- </div><div class="smv1-person-header"><h3>اعضا و نقش‌ها</h3><button type="button" data-add-person>＋ افزودن عضو</button></div>
+ </div><div class="smv1-person-header"><h3>اعضا و نقش‌ها</h3><div class="smv1-person-actions"><button type="button" data-open-directory>انتخاب از ساختار سازمانی</button><button type="button" data-add-person>＋ افزودن عضو خارج از فهرست</button></div></div>
+ <section class="smv1-directory" data-directory-panel hidden><p data-directory-status>در حال دریافت ساختار سازمانی…</p><div data-directory-controls hidden><label>واحد سازمانی <select data-directory-unit><option value="">همه واحدها</option></select></label><label>فرد / سمت <select data-directory-person><option value="">انتخاب شخص…</option></select></label><button type="button" data-directory-add>افزودن به اعضا</button></div></section>
  <div data-person-list>${(item?.participants?.length?item.participants:[{}]).map(participantRow).join('')}</div>
  <label class="smv1-notes">یادداشت داخلی<textarea name="notes" rows="2" maxlength="2000">${esc(item?.notes||'')}</textarea></label>
  <p class="smv1-form-hint">تاریخ در تقویم اصلی شمسی نمایش داده می‌شود. در جلسات مترقبه می‌توانید تاریخ را خالی بگذارید. ساعت‌ها به وقت تهران ثبت می‌شوند.</p>
@@ -123,9 +133,38 @@ function edit(item){closeModal();state.editing=item||null;modal=document.createE
  modal.querySelectorAll('[data-modal-close]').forEach(b=>b.onclick=closeModal);
  modal.addEventListener('click',e=>{if(e.target===modal)closeModal()});
  modal.querySelector('[data-add-person]').onclick=()=>{modal.querySelector('[data-person-list]').insertAdjacentHTML('beforeend',participantRow())};
+ modal.querySelector('[data-open-directory]').onclick=()=>openDirectorySelector();
  modal.addEventListener('click',e=>{if(e.target.matches('.smv1-remove-person')){const rows=modal.querySelectorAll('.smv1-person');if(rows.length>1)e.target.closest('.smv1-person').remove()}});
  form.elements.kind.onchange=()=>{if(form.elements.kind.value==='anticipated'){form.elements.startDate.value='';form.elements.status.value='tentative'}else if(form.elements.kind.value==='planned'&&!form.elements.startDate.value){form.elements.startDate.value=iso(new Date());form.elements.status.value='scheduled'}};
  form.onsubmit=save;
+}
+async function openDirectorySelector(){
+ const box=modal?.querySelector('[data-directory-panel]');if(!box)return;
+ box.hidden=!box.hidden;if(box.hidden)return;
+ const status=box.querySelector('[data-directory-status]'),controls=box.querySelector('[data-directory-controls]');
+ status.textContent='در حال دریافت فهرست اشخاص و واحدها…';controls.hidden=true;
+ try{
+  if(!state.directory)state.directory=await api('GET',null,'','directory');
+  const d=state.directory;
+  if(!d.available){status.textContent='ساختار سازمانی هنوز به اطلاعات واقعی اشخاص و واحدها در پایگاه داده متصل نیست. برای این جلسه می‌توانید نام و سمت اعضا را به‌صورت دستی وارد کنید.';return;}
+  const unit=box.querySelector('[data-directory-unit]'),person=box.querySelector('[data-directory-person]');
+  unit.innerHTML='<option value="">همه واحدها</option>'+d.units.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('');
+  const refreshPeople=()=>{
+   const arr=d.people.filter(p=>!unit.value||p.organizationalUnitRef===unit.value);
+   person.innerHTML='<option value="">انتخاب شخص…</option>'+arr.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.position?' — '+esc(p.position):''}</option>`).join('');
+   status.textContent=arr.length?`${fa(arr.length)} شخص در فهرست یافت شد.`:'برای این واحد، فردی در فهرست موجود نیست.';
+  };
+  unit.onchange=refreshPeople;refreshPeople();controls.hidden=false;
+  box.querySelector('[data-directory-add]').onclick=()=>{
+   const p=d.people.find(x=>x.id===person.value);if(!p)return status.textContent='یک شخص را انتخاب کنید.';
+   const list=modal.querySelector('[data-person-list]');const rows=[...list.querySelectorAll('.smv1-person')];
+   if(rows.some(x=>x.querySelector('[data-p="directoryPersonRef"]')?.value===p.id))return status.textContent='این فرد قبلاً به جلسه افزوده شده است.';
+   const empty=rows.find(x=>!x.querySelector('[data-p="name"]')?.value.trim());
+   const html=participantRow({...p,directoryPersonRef:p.id});
+   if(empty)empty.outerHTML=html;else list.insertAdjacentHTML('beforeend',html);
+   status.textContent=`${p.name} به اعضای جلسه اضافه شد. نقش او را در ردیف مربوط تعیین کنید.`;
+  };
+ }catch(e){status.textContent=e.message||'دریافت ساختار سازمانی ممکن نشد.';}
 }
 async function save(e){e.preventDefault();if(!modal)return;const form=e.currentTarget,fd=new FormData(form),error=modal.querySelector('.smv1-form-error');error.textContent='';
  const people=[...modal.querySelectorAll('.smv1-person')].map(row=>Object.fromEntries([...row.querySelectorAll('[data-p]')].map(x=>[x.dataset.p,x.value])));

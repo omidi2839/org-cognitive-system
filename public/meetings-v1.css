@@ -38,3 +38,14 @@ body.smv1-no-scroll{overflow:hidden}
 .smv1-notes{margin-top:13px}.smv1-form-hint{font-size:10px;color:#8294ad;background:#f6faff;padding:10px;border-radius:10px;line-height:1.8}.smv1-form-error{font-size:11px;color:#bb3535;min-height:18px}.smv1-dialog-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px;border-top:1px solid #edf1f7;padding-top:16px}.smv1-dialog-actions>button:first-child{border:1px solid #e3e7f0;border-radius:10px;padding:9px 14px;background:#fff;cursor:pointer;color:#63758d;font-size:11px}.smv1-dialog-actions button:disabled{opacity:.6;cursor:wait}
 @media(max-width:940px){.smv1-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.smv1-person{grid-template-columns:repeat(2,minmax(0,1fr))}.smv1-remove-person{grid-column:2;justify-self:end}}
 @media(max-width:600px){.smv1-fields{grid-template-columns:1fr}.smv1-person{grid-template-columns:1fr}.smv1-remove-person{grid-column:1}.smv1-modal{padding:4px}.smv1-dialog{max-height:99vh}.smv1-form{padding:14px}.smv1-day{padding:5px 3px;min-height:62px}.smv1-statbar span{flex:1;padding:8px}.smv1-month-title strong{min-width:auto}}
+
+/* Meetings V1.1 — actual organizational-directory selector */
+.smv1-person-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.smv1-directory{background:#f7faff;border:1px solid #d8e6fb;border-radius:14px;padding:14px;margin:10px 0;direction:rtl}
+.smv1-directory[hidden],.smv1-directory [hidden]{display:none!important}
+.smv1-directory p{font-size:12px;line-height:1.9;margin:0 0 12px;color:#48617a}
+.smv1-directory [data-directory-controls]{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
+.smv1-directory label{display:grid;gap:6px;font-size:12px;color:#53677c}
+.smv1-directory select{min-width:0;width:100%;padding:10px;border:1px solid #d8e5f3;border-radius:10px;background:white}
+.smv1-directory button,.smv1-person-actions button{cursor:pointer;border:1px solid #cfddf0;border-radius:10px;background:#fff;color:#2565ba;padding:10px}
+@media(max-width:720px){.smv1-directory [data-directory-controls]{grid-template-columns:1fr}}
