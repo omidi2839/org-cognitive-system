@@ -22,6 +22,7 @@ export default async function handler(req,res){
     const service=new MeetingsV1Service(createRepository());
     const url=new URL(req.url,'https://local');
     if(req.method==='GET'){
+      if(url.searchParams.get('resource')==='directory')return send(res,200,await service.directory(actor));
       const from=url.searchParams.get('from')||null,to=url.searchParams.get('to')||null;
       return send(res,200,await service.list(actor,{from,to,includeUnscheduled:true}));
     }
@@ -29,7 +30,7 @@ export default async function handler(req,res){
     const id=url.searchParams.get('id');
     return send(res,200,{item:await service.update(actor,id,readBody(req))});
   }catch(e){
-    console.error('MEETINGS_V1_API',e.code||e.name||'ERROR',e.message);
+    console.error('MEETINGS_V1_API',{code:e.code||e.name||'ERROR',message:e.message,stack:e.stack});
     return send(res,e instanceof MeetingValidationError?e.status:500,{code:e.code||'MEETING_SAVE_ERROR',message:e instanceof MeetingValidationError?e.message:'عملیات جلسات انجام نشد. لطفاً دوباره تلاش کنید.'});
   }
 }
