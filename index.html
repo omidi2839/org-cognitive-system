@@ -1,17 +1,25 @@
 <!doctype html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="recovery-build" content="0.9.9.2.14"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>پلتفرم هوش شناختی سازمان</title>
 <link rel="stylesheet" href="./styles.css">
 <link rel="stylesheet" href="./workspace-shell-075.css">
 <link rel="stylesheet" href="./knowledge-workspace-076.css">
+<link rel="stylesheet" href="./document-bank-09582.css?v=0.9.9.0.26">
+<link rel="stylesheet" href="./document-bank-entry-09587.css?v=0.9.9.0.2">
+<link rel="stylesheet" href="./document-amendments-093.css?v=0.9.4.0">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./knowledge-governance-099214.css?v=0.9.9.2.14">\n<link rel="stylesheet" href="./platform-unified-09889.css?v=0.9.9.1.0">
+<link rel="stylesheet" href="./sina-dialog-09927.css?v=0.9.9.0.27">
+<link rel="stylesheet" href="./sina-bulk-document-intake-09919.css?v=0.9.9.2.14">
+<link rel="stylesheet" href="./sina-topic-tree-099210.css?v=0.9.9.2.14">
+<link rel="stylesheet" href="./meetings-v1.css?v=MEETINGS_V1_20261027">
 </head>
 <body>
 <div class="app-layout role-aware-layout">
 <aside class="sidebar cognitive-sidebar">
-  <div class="brand-mark"><span class="logo">✦</span><div><b>هوش شناختی</b><small>سازمان</small></div></div>
+  <div class="brand-mark cognitive-brand"><span class="logo cognitive-logo"><img src="./sina-emblem-09915.png" alt="نشان پلتفرم هوش شناختی سازمان"></span><div><b>سینا</b><small>پلتفرم هوش شناختی سازمان</small></div></div>
   <nav id="roleNav" class="role-nav">
     <button class="nav-item active" data-workspace="personal"><span>⌂</span><b>میزکار شناختی من</b></button>
     <button class="nav-item" data-workspace="knowledge"><span>□</span><b>دانش و اسناد سازمان</b></button>
@@ -37,24 +45,34 @@
 <main class="main">
   <section id="workspaceContext" class="workspace-context hidden"></section>
   <section class="hero-card" id="personalHero">
-    <div class="eyebrow">پلتفرم هوش شناختی سازمان</div><h1>امروز روی چه چیزی کار کنیم؟</h1>
+    <div class="eyebrow">سینا · پلتفرم هوش شناختی سازمان</div><h1>امروز روی چه چیزی کار کنیم؟</h1>
     <div class="command-row">
       <button id="voiceCommand" class="voice-btn" title="فرمان صوتی" aria-label="فرمان صوتی"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V22h2v-3.08A7 7 0 0 0 19 12h-2Z"/></svg></button>
       <button id="runCommand" class="send-btn"><span>ارسال</span><span class="paper">➤</span></button>
-      <textarea id="commandInput" rows="1" placeholder="اینجا بنویسید..."></textarea>
+      <textarea id="commandInput" rows="1" placeholder="مثلاً: سینا، لیست جلسات من را بیاور…"></textarea>
     </div><div id="voiceStatus" class="voice-status"></div>
+    <div id="cognitiveFollowupSlot" class="cognitive-followup-slot"></div>
   </section>
-  <section class="suggestion-area" id="personalSuggestions"><div class="suggestion-title"><span>✦</span> پیشنهادهای هوشمند <span>✦</span></div><div class="suggestion-chips">
-    <button class="suggestion-chip" data-command="روی چه چیزی تمرکز کنم؟">◎ اولویت‌های توجه</button><button data-command="مسائل راهبردی مهم را نشان بده">◇ مسائل راهبردی</button><button data-command="وضعیت مطلوبیت سازمان را نشان بده">↗ وضعیت مطلوبیت سازمان</button><button data-command="تصمیمات نیازمند اقدام را نشان بده">◎ تصمیمات نیازمند اقدام</button><button data-command="امروز چه جلساتی دارم؟">▣ جلسات مدیریتی</button>
-  </div></section>
+  <!-- Compatibility anchor: retained for legacy workspace/navigation scripts.
+       Smart suggestion controls are intentionally removed. -->
+  <section class="suggestion-area hidden" id="personalSuggestions" aria-hidden="true"></section>
   <section id="commandResult" class="workspace-result hidden"></section>
   <section class="privacy-note"><span>♢</span> اطلاعات شما ایمن و محرمانه است</section>
-
   <section id="home" class="view"><div class="sheet"><div class="sheet-head"><span><b>تحلیل اسناد</b><small>فایل را وارد کنید تا تحلیل شناختی آغاز شود</small></span><button class="close-sheet" data-close>×</button></div><div class="upload-grid"><input id="docTitle" placeholder="عنوان اختیاری"><input id="realFile" type="file"><button id="runFlow" class="primary">ورود و تحلیل</button><span id="flowStatus"></span></div><div id="candidates"></div></div></section>
   <section id="knowledge" class="view"><div class="sheet"><div class="sheet-head"><span><b>دانش سازمانی</b><small>موجودی دانش و اسناد قابل دسترس</small></span><button class="close-sheet" data-close>×</button></div><div id="inventory"></div></div></section>
   <section id="trace" class="view"><div class="sheet"><div class="sheet-head"><span><b>ردیابی شناختی</b><small>منبع ← پیشنهاد هوش مصنوعی ← بررسی انسانی ← دانش معتبر</small></span><button class="close-sheet" data-close>×</button></div><div id="traceSteps"></div></div></section>
   <div id="stats" class="hidden-data"></div><div id="knowledgeList" class="hidden-data"></div>
 </main></div></div>
 <aside class="history-rail"><button id="historyToggle" class="history-toggle">⌁ گفت‌وگوهای اخیر</button><div id="historyPanel" class="history-panel"></div></aside><input id="quickFile" type="file" hidden>
-<script src="./app.js"></script><script src="./workspace-shell-075.js"></script><script src="./knowledge-workspace-076.js"></script>
+
+
+<link rel="stylesheet" href="./document-relations-ui-0944.css?v=0.9.4.4">
+<link rel="stylesheet" href="./document-meeting-command-09582.css?v=0.9.9.1.4">
+<link rel="stylesheet" href="./legal-relation-contract-0990.css?v=0.9.9.0.2">
+<link rel="stylesheet" href="./document-command-suggestions-0990.css?v=0.9.9.1.0">
+<link rel="stylesheet" href="./ui-persian-polish-09906.css?v=0.9.9.0.31">
+
+
+
+\n<script src="./auth-gate-09919.js?v=0.9.9.2.14"></script>
 </body></html>

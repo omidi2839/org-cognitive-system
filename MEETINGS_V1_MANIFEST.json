@@ -1,0 +1,19 @@
+{
+  "baseline": "main 0.9.9.2.14",
+  "existing_upstream_sha": {
+    "public/index.html": "394ac801cf41a52f5ece75f3f92ab5479538f907",
+    "public/auth-gate-09919.js": "47d5db0123e4286af32080cdc56254fa68e2b19f",
+    "vercel.json": "de57673d3ba7b4108e8c3a5fab60b034f332ecab"
+  },
+  "files": {
+    "public/index.html": "8baa6a28908334ccf3fe817a5bc740b328528b3d3f9ff81d32b16ef2e35c8037",
+    "public/auth-gate-09919.js": "21a4bef4771f755ac7dca088b65719a11a2ae73b55956832fe284670ef2c499f",
+    "vercel.json": "3f2aa0c4360c04a966ad7c48cae4dbbc39dd9621277c9fea99dba43533d254d2",
+    "api/meetings-v1.js": "8abe1874722015f2d46fa24c71f9ea25c5436ad2b770d71c654d466ac24b2ba8",
+    "src/application/meetingsV1.js": "64d40d48b72b05894991ce7c55724dfbafb9512ade8134b474c8a88b379b7a70",
+    "public/meetings-v1.js": "a9324a533009bb0ea2dc67df7c47daa8d488a0e3f80a21025a5e0dde0571aaaa",
+    "public/meetings-v1.css": "212e3f64377652d6cf723dee013c8becc8b087a555d5fda042c81add6fa0eb51",
+    "tests/meetings-v1.test.js": "68a59ba36d73c5e58d5fac5bbec165faaa849bf041c7dccc87027e090ef3dfa2"
+  },
+  "file_count": 8
+}
