@@ -35,11 +35,12 @@ export function normalizeMeeting(input){
     if(!plain(p))fail('PARTICIPANT_INVALID',`اطلاعات شرکت‌کننده ${i+1} معتبر نیست.`);
     const name=text(p.name,140),entityName=text(p.entityName,180),position=text(p.position,180),role=text(p.role,24)||'member';
     const entityType=text(p.entityType,20)||'person';
+    const directoryPersonRef=text(p.directoryPersonRef,140),organizationalUnitRef=text(p.organizationalUnitRef,140);
     if(!name||name.length>140)fail('PARTICIPANT_NAME_REQUIRED',`نام شرکت‌کننده ${i+1} لازم است.`);
     if(!['person','legal_representative'].includes(entityType))fail('PARTICIPANT_ENTITY_INVALID','نوع شخصیت شرکت‌کننده معتبر نیست.');
     if(entityType==='legal_representative'&&!entityName)fail('ENTITY_REQUIRED',`نام شخصیت حقوقی برای شرکت‌کننده ${i+1} لازم است.`);
     if(!roles.has(role))fail('ROLE_INVALID','نقش شرکت‌کننده معتبر نیست.');
-    return {id:text(p.id,90)||`PART:${randomUUID()}`,name,entityType,entityName,position,role};
+    return {id:text(p.id,90)||`PART:${randomUUID()}`,name,entityType,entityName,position,role,directoryPersonRef:directoryPersonRef||null,organizationalUnitRef:organizationalUnitRef||null};
   });
   if(participants.filter(p=>p.role==='chair').length>1)fail('MULTIPLE_CHAIRS','در این نسخه فقط یک مدیر جلسه می‌توان تعیین کرد.');
   if(participants.filter(p=>p.role==='secretary').length>1)fail('MULTIPLE_SECRETARIES','در این نسخه فقط یک دبیر جلسه می‌توان تعیین کرد.');
@@ -51,8 +52,32 @@ export function normalizeMeeting(input){
     startAt:date?`${date}T${startTime}:00`:null,scheduledAt:date?`${date}T${startTime}:00`:null,
     timezone:'Asia/Tehran',meetingType,status,participants,organizer,location,meetingLink,notes};
 }
+// No generated people or imaginary org units. The directory is a projection of
+// already stored organization records, constrained to the current organization.
+const officialRecords=(db,actor)=>{
+  const rawUnits=Array.isArray(db.organizationalUnits)?db.organizationalUnits:(Array.isArray(db.organizationStructure?.units)?db.organizationStructure.units:[]);
+  const rawPeople=Array.isArray(db.organizationalPeople)?db.organizationalPeople:(Array.isArray(db.organizationStructure?.people)?db.organizationStructure.people:[]);
+  const belongs=x=>x&&typeof x==='object'&&(x.organizationId===actor.organizationId);
+  const units=rawUnits.filter(belongs).filter(u=>u.status!=='deleted'&&u.active!==false)
+    .map(u=>({id:String(u.id||''),name:String(u.name||u.title||'').trim(),parentRef:u.parentRef||null}))
+    .filter(u=>u.id&&u.name);
+  const people=rawPeople.filter(belongs).filter(p=>p.status!=='deleted'&&p.active!==false)
+    .map(p=>({id:String(p.id||''),name:String(p.name||p.fullName||'').trim(),position:String(p.position||p.jobTitle||'').trim(),organizationalUnitRef:String(p.organizationalUnitRef||p.unitRef||''),entityType:p.entityType==='legal_representative'?'legal_representative':'person',entityName:String(p.entityName||'').trim()}))
+    .filter(p=>p.id&&p.name);
+  return {units,people,source:'registered_organization_records',available:Boolean(units.length||people.length)};
+};
+function verifyDirectoryParticipants(db,actor,participants){
+  const directory=officialRecords(db,actor),known=new Map(directory.people.map(p=>[p.id,p]));
+  return participants.map(p=>{
+    if(!p.directoryPersonRef)return p;
+    const person=known.get(p.directoryPersonRef);
+    if(!person)fail('DIRECTORY_PERSON_NOT_FOUND','عضو انتخاب‌شده در ساختار سازمانی فعلی وجود ندارد یا دسترسی به آن مجاز نیست.',409);
+    return {...p,name:person.name,position:person.position,entityType:person.entityType,entityName:person.entityName,organizationalUnitRef:person.organizationalUnitRef};
+  });
+}
 export class MeetingsV1Service {
   constructor(repository){this.repo=repository;}
+  async directory(actor){return officialRecords(await this.repo.all(),actor);}
   async list(actor,{from,to,includeUnscheduled=true}={}){
     const db=await this.repo.all();
     const records=(db.meetings||[]).filter(x=>x.organizationId===actor.organizationId&&x.schemaVersion===1);
@@ -63,6 +88,7 @@ export class MeetingsV1Service {
   }
   async create(actor,input){
     const value=normalizeMeeting(input),at=new Date().toISOString();
+    value.participants=verifyDirectoryParticipants(await this.repo.all(),actor,value.participants);
     const record={id:`MTG:${randomUUID()}`,organizationId:actor.organizationId,createdBy:actor.personId,schemaVersion:1,
       ...value,revision:1,createdAt:at,updatedAt:at};
     await this.repo.mutate(db=>{db.meetings=db.meetings||[];db.auditLog=db.auditLog||[];
@@ -74,6 +100,7 @@ export class MeetingsV1Service {
     if(!id||!/^MTG:[0-9a-f-]{36}$/i.test(id))fail('MEETING_ID_INVALID','شناسه جلسه معتبر نیست.');
     if(!plain(input)||!Number.isSafeInteger(input.revision)||input.revision<1)fail('REVISION_REQUIRED','نسخه رکورد برای جلوگیری از تداخل ویرایش لازم است.');
     const value=normalizeMeeting(input),at=new Date().toISOString();
+    value.participants=verifyDirectoryParticipants(await this.repo.all(),actor,value.participants);
     return this.repo.mutate(db=>{
       const record=(db.meetings||[]).find(x=>x.id===id&&x.organizationId===actor.organizationId);
       if(!record)fail('MEETING_NOT_FOUND','جلسه مورد نظر یافت نشد.',404);
