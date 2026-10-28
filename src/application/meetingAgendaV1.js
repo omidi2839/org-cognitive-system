@@ -15,6 +15,8 @@ const active=x=>x&&x.status!=='deleted'&&x.status!=='superseded';
 const allowedExt=['pdf','doc','docx','xls','xlsx','ppt','pptx','png','jpg','jpeg','txt'];
 const extFromName=name=>String(name||'').match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase()||'';
 const maxFileSize=20*1024*1024;
+// Keep JSON/base64 uploads well below Vercel's ~4.5 MB request limit.
+const maxDirectUploadSize=2*1024*1024;
 const safeOrg=ORG.replace(/[^a-z0-9_-]/gi,'-');
 const safeOutput=a=>({...a,attachments:(a.attachments||[]).filter(x=>x.status!=='deleted').map(({pathname,...x})=>x)});
 const errMessage=e=>e instanceof AgendaError?e.message:'عملیات دستور جلسه انجام نشد؛ جزئیات در گزارش خطای سرور ثبت شده است.';
@@ -166,9 +168,79 @@ export class MeetingAgendaService {
   try{
    const {issueSignedToken,presignUrl}=await this.blob();const validUntil=Date.now()+10*60*1000;
    const token=await issueSignedToken({pathname,operations:['put'],validUntil});
-   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private'});
-   return {stageId,presignedUrl,validUntil};
+   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private',addRandomSuffix:false});
+   return {stageId,presignedUrl,validUntil,pathname};
   }catch(e){console.error('AGENDA_STAGE_SIGN',e?.message);fail('BLOB_UNAVAILABLE','دسترسی به فضای ذخیره‌سازی پیوست ممکن نشد.',503)}
+ }
+ // Prefer the SDK's authenticated server put() path for small private files.
+ // A presigned browser PUT may return 2xx while the object cannot be read back
+ // at the expected pathname. The SDK returns the committed object pathname.
+ async directDraftUpload(input,user){
+  const base64=input?.contentBase64;
+  const declaredSize=Number(input?.size);
+  if(!Number.isSafeInteger(declaredSize)||declaredSize<1||declaredSize>maxDirectUploadSize)
+   fail('DIRECT_FILE_SIZE','ارسال مستقیم فقط برای فایل‌های حداکثر ۲ مگابایت مجاز است.',413);
+  if(typeof base64!=='string'||base64.length>Math.ceil(maxDirectUploadSize/3)*4+8||
+     !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(base64))
+   fail('DIRECT_FILE_INVALID','محتوای فایل بارگذاری‌شده معتبر نیست.',400);
+  const buffer=Buffer.from(base64,'base64');
+  if(buffer.length!==declaredSize)
+   fail('DIRECT_FILE_MISMATCH','حجم واقعی فایل با اطلاعات اعلام‌شده تطابق ندارد.',400);
+  const meetingId=clean(input?.meetingId,90),draftId=clean(input?.draftId,70);
+  const fileName=clean(input?.fileName,180).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,'');
+  const mimeType=clean(input?.mimeType,120)||'application/octet-stream';
+  const ext=extFromName(fileName);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(draftId)||
+     !validId(meetingId,'MTG')||!fileName||!allowedExt.includes(ext))
+   fail('DIRECT_FILE_METADATA','اطلاعات فایل یا جلسه معتبر نیست.',400);
+  const stageId=`STG:${randomUUID()}`;
+  const pathname=`meetings/${safeOrg}/${meetingId.slice(4)}/drafts/${draftId}/${stageId.slice(4)}.${ext}`;
+  const at=new Date().toISOString(),expiresAt=new Date(Date.now()+24*60*60*1000).toISOString();
+  await this.repo.mutate(db=>{
+   const meeting=getMeeting(db,meetingId);
+   if(meeting.status==='cancelled')fail('MEETING_CANCELLED','جلسه لغو شده است.',409);
+   db.meetingAgendaDraftUploads??=[];
+   db.meetingAgendaDraftUploads=db.meetingAgendaDraftUploads.filter(x=>Date.parse(x.expiresAt)>Date.now()&&['intent','uploaded'].includes(x.status));
+   const current=db.meetingAgendaDraftUploads.filter(x=>x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user&&['intent','uploaded'].includes(x.status));
+   if(current.length>=30)fail('ATTACHMENT_LIMIT','حداکثر ۳۰ پیوست برای هر دستور مجاز است.',409);
+   db.meetingAgendaDraftUploads.push({id:stageId,organizationId:ORG,meetingId,draftId,owner:user,fileName,mimeType,size:declaredSize,pathname,status:'intent',createdAt:at,expiresAt});
+  });
+  let created=false;
+  try{
+   const blob=await this.blob();
+   const result=await blob.put(pathname,buffer,{access:'private',addRandomSuffix:false,contentType:mimeType});
+   created=true;
+   if(result?.pathname!==pathname){
+    console.error('AGENDA_DIRECT_UPLOAD_PATH_MISMATCH',{expected:pathname,actual:result?.pathname||null});
+    fail('DIRECT_FILE_PATH_MISMATCH','مسیر ذخیره‌شده فایل با مسیر درخواست متفاوت است.',502);
+   }
+   // Server-originated SDK upload returns committed metadata. Ensure the same
+   // SDK can read it back; do not attach unreadable files to an agenda.
+   const read=await blob.get(pathname,{access:'private',useCache:false});
+   if(read?.statusCode!==200||Number(read?.blob?.size)!==declaredSize){
+    try{await read?.stream?.cancel?.()}catch{}
+    console.error('AGENDA_DIRECT_UPLOAD_READBACK_FAILED',{status:read?.statusCode||null,size:read?.blob?.size??null});
+    fail('DIRECT_FILE_UNREADABLE','فایل ذخیره شد، اما بازیابی آن از فضای خصوصی تأیید نشد.',503);
+   }
+   try{await read.stream?.cancel?.()}catch{}
+   return await this.repo.mutate(db=>{
+    const stage=(db.meetingAgendaDraftUploads||[]).find(x=>x.id===stageId&&x.organizationId===ORG&&x.owner===user&&x.status==='intent');
+    if(!stage||stage.meetingId!==meetingId||stage.draftId!==draftId)
+     fail('STAGED_UPLOAD_INVALID','شناسه پیش‌بارگذاری معتبر نیست.',409);
+    stage.status='uploaded';stage.uploadedAt=new Date().toISOString();
+    return {file:{id:stage.id,fileName:stage.fileName,size:stage.size,mimeType:stage.mimeType,status:'uploaded'},stageId:stage.id};
+   });
+  }catch(e){
+   // This file was not attached; release the failed reservation so the same
+   // draft can retry without accumulating 30 abandoned intent records.
+   try{await this.repo.mutate(db=>{
+    db.meetingAgendaDraftUploads=(db.meetingAgendaDraftUploads||[]).filter(x=>!(x.id===stageId&&x.organizationId===ORG&&x.owner===user&&x.status==='intent'));
+   });}catch(cleanupError){console.error('AGENDA_DIRECT_STAGE_CLEANUP',cleanupError?.code||cleanupError?.name||'ERROR');}
+   if(created){try{const {del}=await this.blob();await del?.(pathname)}catch(cleanupError){console.error('AGENDA_DIRECT_BLOB_CLEANUP',cleanupError?.code||cleanupError?.name||'ERROR');}}
+   console.error('AGENDA_DIRECT_UPLOAD_FAILED',{code:e?.code||e?.name||'ERROR',created,message:String(e?.message||'').slice(0,160)});
+   if(e instanceof AgendaError)throw e;
+   fail('DIRECT_BLOB_UPLOAD_FAILED','انتقال مستقیم فایل به فضای ذخیره‌سازی انجام نشد.',503);
+  }
  }
  async finishDraftUpload(input,user){
   const stageId=clean(input?.stageId,90),draftId=clean(input?.draftId,70),meetingId=clean(input?.meetingId,90);
@@ -207,7 +279,7 @@ export class MeetingAgendaService {
   try{
    const {issueSignedToken,presignUrl}=await import('@vercel/blob');
    const token=await issueSignedToken({pathname,operations:['put'],validUntil});
-   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private'});
+   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private',addRandomSuffix:false});
    return {presignedUrl,pathname,fileName:filename,mimeType,size,validUntil};
   }catch(e){console.error('MEETING_AGENDA_BLOB_SIGN',e?.message);fail('BLOB_UNAVAILABLE','فضای ذخیره‌سازی پیوست موقتاً در دسترس نیست.',503);}
  }
@@ -247,6 +319,7 @@ export async function handleMeetingAgendaApi(req,res){
   if(resource==='save'&&method==='POST')return send(res,200,{item:await svc.save(input,user)});
   if(resource==='remove'&&method==='POST')return send(res,200,await svc.remove(input.id,user));
   if(resource==='upload-url'&&method==='POST')return send(res,200,input?.draftId?await svc.prepareDraftUpload(input,user):await svc.uploadUrl(input));
+  if(resource==='direct-upload'&&method==='POST')return send(res,200,await svc.directDraftUpload(input,user));
   if(resource==='finish-upload'&&method==='POST')return send(res,200,await svc.finishDraftUpload(input,user));
   if(resource==='clear-uploads'&&method==='POST')return send(res,200,await svc.clearDraftUploads(input,user));
   if(resource==='attach'&&method==='POST')return send(res,200,await svc.attach(input,user));
