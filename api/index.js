@@ -5,6 +5,7 @@ import { createArtifactStorage, storageMode } from '../src/infrastructure/storag
 import { buildDocumentBankResponse } from './document-bank-core.js';
 import { requireAuthenticated } from '../src/infrastructure/authSession.js';
 import { MeetingsV1Service, MeetingValidationError } from '../src/application/meetingsV1.js';
+import { handleMeetingAgendaApi } from '../src/application/meetingAgendaV1.js';
 
 const send=(res,status,data)=>{
   res.statusCode=status;
@@ -133,6 +134,7 @@ export default async function handler(req,res){
   const requestUrl=new URL(req.url,'https://local');
   const path=requestUrl.pathname;
   if(path==='/api/v1/meetings')return handleMeetingsInUnifiedApi(req,res);
+  if(path==='/api/v1/meeting-agendas')return handleMeetingAgendaApi(req,res);
 
   if(path==='/api/v1/health'&&req.method==='GET'){
     return send(res,200,{status:'ok',version:'0.9.0.9',phase:'static-dependency-graph'});
