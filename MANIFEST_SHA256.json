@@ -1,0 +1,7 @@
+{
+  "public/meeting-agendas-v13.js": "268266ba6ec831efdf4d14e558cff619eeb2503b2b4ad45a13d3a2c6b4954cd4",
+  "public/meeting-agendas-v13.css": "8b1f170196b66c34cb43b26b4a4eef4f6db93c8242905eb19fe23fc736e9bc8d",
+  "src/application/meetingAgendaV1.js": "a7869e435b91e9d4c8b3933c231b0acde5d8094fd2df0163a038e3751df37a45",
+  "tests/meeting-agenda-upload-v16.test.js": "0ac88c7bc24c769b4472979c7b41008563ce62657958fd7422685e890c356747",
+  "README_FA.md": "27707d54a847131006a8431035af16f0c10b962fc93fe6d19a7f9dd154f3bf17"
+}
