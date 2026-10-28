@@ -101,10 +101,57 @@ const workspaces = {
 const activeCapabilities = new Set([
   'اسناد بالادستی','اسناد عمومی','تحلیل اسناد','دانش کلان','منابع و شواهد',
   'اولویت توجه','دستورکار مدیریت','آمادگی تصمیم',
-  'جلسات پیش‌رو','آمادگی جلسه',
+  'جلسات پیش‌رو','دستور جلسه','آمادگی جلسه',
   'پایش اجرا','تحلیل عدم تحقق','حافظه سازمانی',
   'وضعیت مطلوبیت سازمان'
 ]);
+
+// Meeting cards use real data. Counters/shortcuts are exposed only for the
+// implemented meeting calendar and agenda modules, never for placeholder cards.
+const meetingFa=x=>String(x).replace(/\d/g,c=>'۰۱۲۳۴۵۶۷۸۹'[Number(c)]);
+let meetingCardRequest=0;
+async function updateMeetingCardCounters(){
+ const request=++meetingCardRequest;
+ const meetingsCard=ctx.querySelector('[data-capability="جلسات پیش‌رو"]');
+ const agendaCard=ctx.querySelector('[data-capability="دستور جلسه"]');
+ if(!meetingsCard||!agendaCard||!document.querySelector('[data-workspace="meetings"].active'))return;
+ function createToolbar(button,actions){
+  if(button.parentElement?.classList.contains('sina17-capability-wrap'))return button.parentElement;
+  const wrap=document.createElement('div');wrap.className='sina17-capability-wrap';button.before(wrap);wrap.appendChild(button);
+  const stats=document.createElement('p');stats.className='sina17-card-stats';stats.textContent='در حال دریافت آمار…';wrap.appendChild(stats);
+  const commands=document.createElement('div');commands.className='sina17-card-commands';
+  for(const [label,action] of actions){const link=document.createElement('button');link.type='button';link.textContent=label;link.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();action()});commands.appendChild(link)}
+  wrap.appendChild(commands);return wrap;
+ }
+ const meetingsWrap=createToolbar(meetingsCard,[
+  ['تقویم جلسات',()=>window.SinaMeetingsV1?.open?.()],
+  ['جلسه جدید',()=>{window.SinaMeetingsV1?.open?.();document.querySelector('.smv1 [data-new]')?.click()}]
+ ]);
+ const agendaWrap=createToolbar(agendaCard,[['مدیریت دستورها',()=>window.SinaMeetingAgendaV13?.open?.()]]);
+ const put=(wrap,value)=>{const span=wrap.querySelector('.sina17-card-stats');if(span)span.textContent=value};
+ try{
+  const [mr,ar]=await Promise.all([
+   fetch('/api/v1/meetings',{credentials:'same-origin',cache:'no-store'}),
+   fetch('/api/v1/meeting-agendas?resource=meetings&status=active',{credentials:'same-origin',cache:'no-store'})
+  ]);
+  if(!mr.ok||!ar.ok)throw Error('API_STATS_UNAVAILABLE');
+  const [m,a]=await Promise.all([mr.json(),ar.json()]);
+  if(request!==meetingCardRequest||!meetingsWrap.isConnected||!agendaWrap.isConnected)return;
+  const meetings=Array.isArray(m.items)?m.items:[];
+  const agendas=Array.isArray(a.items)?a.items:[];
+  const active=meetings.filter(x=>x.status!=='cancelled');
+  const agendaCount=agendas.reduce((n,x)=>n+Number(x.agendaCount||0),0);
+  put(meetingsWrap,`${meetingFa(active.length)} جلسه فعال · ${meetingFa(active.filter(x=>!x.startDate).length)} در انتظار زمان`);
+  put(agendaWrap,`${meetingFa(agendaCount)} دستور · ${meetingFa(agendas.filter(x=>Number(x.agendaCount)>0).length)} جلسه دارای دستور`);
+ }catch(e){if(request===meetingCardRequest){put(meetingsWrap,'آمار در دسترس نیست');put(agendaWrap,'آمار در دسترس نیست')}}
+}
+// Refresh the cards after returning from any meeting detail; navigation uses
+// existing handlers and nothing is intercepted or replaced.
+document.addEventListener('click',e=>{
+ if(e.target?.closest?.('[data-leave],[data-back],[data-back-list]'))setTimeout(()=>{
+  if(document.querySelector('[data-workspace="meetings"].active')&&ctx.querySelector('.stage-stack'))updateMeetingCardCounters();
+ },120);
+},true);
 
 const ctx=document.getElementById('workspaceContext');
 const hero=document.getElementById('personalHero');
@@ -166,6 +213,7 @@ function render(key){
     <div class="continuity-note">✦ زمینه کاری مسیر را تغییر می‌دهد، نه سطح اختیار را. قابلیت‌های پیامدی همچنان تابع دسترسی و احراز اختیار هستند.</div>`;
 
   ctx.querySelectorAll('[data-capability]').forEach(b=>b.onclick=()=>openCapability(key,b.dataset.capability,b.classList.contains('live')));
+  if(key==='meetings')updateMeetingCardCounters();
 }
 
 function openCapability(ws,name,live){

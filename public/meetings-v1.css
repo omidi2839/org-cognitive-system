@@ -39,13 +39,9 @@ body.smv1-no-scroll{overflow:hidden}
 @media(max-width:940px){.smv1-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.smv1-person{grid-template-columns:repeat(2,minmax(0,1fr))}.smv1-remove-person{grid-column:2;justify-self:end}}
 @media(max-width:600px){.smv1-fields{grid-template-columns:1fr}.smv1-person{grid-template-columns:1fr}.smv1-remove-person{grid-column:1}.smv1-modal{padding:4px}.smv1-dialog{max-height:99vh}.smv1-form{padding:14px}.smv1-day{padding:5px 3px;min-height:62px}.smv1-statbar span{flex:1;padding:8px}.smv1-month-title strong{min-width:auto}}
 
-/* Meetings V1.1 — actual organizational-directory selector */
-.smv1-person-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.smv1-directory{background:#f7faff;border:1px solid #d8e6fb;border-radius:14px;padding:14px;margin:10px 0;direction:rtl}
-.smv1-directory[hidden],.smv1-directory [hidden]{display:none!important}
-.smv1-directory p{font-size:12px;line-height:1.9;margin:0 0 12px;color:#48617a}
-.smv1-directory [data-directory-controls]{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}
-.smv1-directory label{display:grid;gap:6px;font-size:12px;color:#53677c}
-.smv1-directory select{min-width:0;width:100%;padding:10px;border:1px solid #d8e5f3;border-radius:10px;background:white}
-.smv1-directory button,.smv1-person-actions button{cursor:pointer;border:1px solid #cfddf0;border-radius:10px;background:#fff;color:#2565ba;padding:10px}
-@media(max-width:720px){.smv1-directory [data-directory-controls]{grid-template-columns:1fr}}
+/* SINA V1.7: concise calendar heading, prioritizing the calendar itself */
+#workspaceContext .smv1-top{padding:0 0 10px!important;margin:0 0 10px!important;align-items:center!important}
+#workspaceContext .smv1-top h2{font-size:15px!important;line-height:1.5!important;margin:0!important}
+#workspaceContext .smv1-top p{display:none!important}
+#workspaceContext .smv1-top>div{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#workspaceContext .smv1-statbar{margin-bottom:9px!important}

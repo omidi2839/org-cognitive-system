@@ -28,3 +28,26 @@
 .cognitive-stage .capability-card small{color:#9ba6b8}
 .cognitive-stage .capability-card.live small{color:#4e7fbd}
 .cognitive-stage .capability-card.live .capability-icon{background:#eaf3ff;color:#2375e6}
+
+/* SINA V1.7 – compact, consistent knowledge/meetings workspaces */
+#workspaceContext.workspace-context{padding:16px 18px!important;border-radius:20px!important}
+#workspaceContext .workspace-context-head{align-items:center!important;gap:10px!important;margin-bottom:13px!important;padding-bottom:12px!important}
+#workspaceContext .workspace-context-head h1{font-size:18px!important;line-height:1.5!important;margin:0!important;font-weight:750!important}
+#workspaceContext .workspace-context-head p{display:none!important}
+#workspaceContext .workspace-context-head .workspace-kicker{font-size:10px!important}
+#workspaceContext .workspace-context-head .persona-badge{font-size:10px!important;padding:5px 9px!important}
+#workspaceContext .stage-stack{gap:10px!important}
+#workspaceContext .cognitive-stage{padding:10px!important;border-radius:14px!important}
+#workspaceContext .stage-head{margin:-10px -10px 10px!important;padding:10px!important}
+#workspaceContext .stage-items{gap:8px!important}
+#workspaceContext .capability-card{min-height:58px;padding:9px!important;border-radius:11px!important;max-width:100%;width:100%}
+#workspaceContext .capability-card b{font-size:11px!important}
+#workspaceContext .continuity-note{margin-top:10px!important;padding:8px 12px!important;font-size:10px!important}
+#workspaceContext.smv1-open>.workspace-context-head,#workspaceContext.sma13-open>.workspace-context-head{display:none!important}
+#workspaceContext .sina17-capability-wrap{min-width:0;border:1px solid #e3ecf8;background:#fff;border-radius:11px;overflow:hidden;display:flex;flex-direction:column}
+#workspaceContext .sina17-capability-wrap>.capability-card{border:0!important;border-radius:0!important}
+#workspaceContext .sina17-card-stats{font-size:10px!important;line-height:1.5!important;color:#526a8d!important;white-space:normal;padding:0 11px 7px!important;margin:0!important}
+#workspaceContext .sina17-card-commands{border-top:1px solid #ecf1f8;padding:6px 8px;display:flex;gap:6px;flex-wrap:wrap}
+#workspaceContext .sina17-card-commands button{border:1px solid #dce8fb;border-radius:7px;background:#f4f8ff;color:#286ebd;padding:5px 8px;font:inherit;font-size:10px;cursor:pointer}
+#workspaceContext .sina17-card-commands button:hover{background:#e9f2ff}
+@media(max-width:650px){#workspaceContext.workspace-context{padding:12px!important}#workspaceContext .workspace-context-head{display:flex!important;align-items:center!important}#workspaceContext.smv1-open>.workspace-context-head,#workspaceContext.sma13-open>.workspace-context-head{display:none!important}#workspaceContext .stage-items{grid-template-columns:repeat(2,minmax(0,1fr))!important}}

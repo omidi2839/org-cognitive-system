@@ -84,3 +84,18 @@
 .sma13-file-pending-delete{opacity:.6;border-color:#f2d6d6}.sma13-file-pending-delete a{text-decoration:line-through;color:#a18d8d}
 .sma13-choose-file{font-weight:600;border:1px dashed #93bdf0}.sma13-choose-file:focus-within{outline:2px solid #73aaf2}
 @media(max-width:650px){.sma13-staged-file{align-items:flex-start;flex-direction:column}.sma13-file-actions{align-self:flex-end}}
+
+/* SINA V1.7: keep search/form controls above the fold */
+#workspaceContext .sma13-header{display:flex!important;align-items:center!important;margin:0 0 10px!important;padding:0 0 10px!important;gap:8px!important}
+#workspaceContext .sma13-header>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0}
+#workspaceContext .sma13-header h2{font-size:15px!important;margin:0!important;line-height:1.5!important}
+#workspaceContext .sma13-header p{display:none!important}
+#workspaceContext .sma13-header [data-back],#workspaceContext .sma13-header [data-back-list]{margin:0!important;font-size:10px!important}
+#workspaceContext .sma13-filter{padding:10px!important;border-radius:12px!important;gap:8px!important}
+#workspaceContext .sma13-filter input,#workspaceContext .sma13-filter select,#workspaceContext .sma13-filter button{padding:8px!important;min-height:37px!important}
+#workspaceContext .sma13-list-top{padding:12px 4px 7px!important}
+#workspaceContext .sma13-meeting{padding:12px!important}
+#workspaceContext .sma13-summary{display:none!important}
+#workspaceContext .sma13-agenda-item{padding:11px!important}
+.sma13-topic-files .sma13-file-good{color:#16795f;font-weight:600}
+.sma13-topic-files .sma13-file-error{color:#c04747;font-weight:600}
