@@ -48,7 +48,8 @@ function normalizePayload(payload,db){
 }
 function decorated(db,record){const docs=docIndex(db);return {...safeOutput(record),documents:(record.documentRefs||[]).map(ref=>docs.get(ref)).filter(Boolean).map(d=>({id:d.id,title:d.title||'بدون عنوان',documentType:d.documentType||'',documentNumber:d.documentNumber||'',issuer:d.issuer||'',validityStatus:d.validityStatus||''}))};}
 export class MeetingAgendaService {
- constructor(repo){this.repo=repo}
+ constructor(repo,{blobGateway=null}={}){this.repo=repo;this.blobGateway=blobGateway}
+ async blob(){return this.blobGateway||await import('@vercel/blob')}
  async meetings({query='',from='',to='',status='active'}={}){
   const db=await this.repo.all(),q=norm(query);const items=(db.meetings||[]).filter(x=>x.organizationId===ORG&&x.schemaVersion===1);
   const agendas=(db.meetingAgendaItems||[]).filter(a=>a.organizationId===ORG&&a.status!=='deleted');
@@ -74,19 +75,92 @@ export class MeetingAgendaService {
  }
  async save(input,user){
   const meetingId=clean(input?.meetingId,90),id=clean(input?.id,90),revision=Number(input?.revision||0);
+  const draftId=clean(input?.uploadDraftId,70),stagedUploadIds=input?.stagedUploadIds||[],removeAttachmentIds=input?.removeAttachmentIds||[];
+  if(!Array.isArray(stagedUploadIds)||stagedUploadIds.length>30||new Set(stagedUploadIds).size!==stagedUploadIds.length||stagedUploadIds.some(v=>!validId(v,'STG')))fail('STAGED_UPLOADS_INVALID','فهرست فایل‌های بارگذاری‌شده معتبر نیست.');
+  if(stagedUploadIds.length&&!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(draftId))fail('UPLOAD_DRAFT_INVALID','شناسه پیش‌نویس بارگذاری معتبر نیست.');
+  if(!Array.isArray(removeAttachmentIds)||removeAttachmentIds.length>30||new Set(removeAttachmentIds).size!==removeAttachmentIds.length||removeAttachmentIds.some(v=>!validId(v,'ATT')))fail('REMOVE_ATTACHMENTS_INVALID','فهرست پیوست‌های حذفی معتبر نیست.');
+  if(!id&&removeAttachmentIds.length)fail('REMOVE_ATTACHMENTS_INVALID','برای دستور جدید پیوست قبلی وجود ندارد.');
   const at=new Date().toISOString();
   return this.repo.mutate(db=>{
    const m=getMeeting(db,meetingId);
    if(m.status==='cancelled')fail('MEETING_CANCELLED','برای جلسه لغوشده نمی‌توان دستور جدید ثبت کرد.',409);
    const value=normalizePayload(input,db);db.meetingAgendaItems??=[];db.auditLog??=[];
    let record;
-   if(id){record=getAgenda(db,id);if(record.meetingId!==m.id)fail('AGENDA_MEETING_MISMATCH','دستور متعلق به این جلسه نیست.',409);if(!Number.isSafeInteger(revision)||revision!==record.revision)fail('AGENDA_CONFLICT','این دستور توسط فرد دیگری تغییر کرده است. صفحه را تازه‌سازی کنید.',409);Object.assign(record,value,{revision:record.revision+1,updatedAt:at,updatedBy:user});}
+   if(id){record=getAgenda(db,id);if(record.meetingId!==m.id)fail('AGENDA_MEETING_MISMATCH','دستور متعلق به این جلسه نیست.',409);if(!Number.isSafeInteger(revision)||revision!==record.revision)fail('AGENDA_CONFLICT','این دستور توسط فرد دیگری تغییر کرده است. صفحه را تازه‌سازی کنید.',409);}
+   const draftList=db.meetingAgendaDraftUploads||[],stages=stagedUploadIds.map(ref=>{
+    const stage=draftList.find(x=>x.id===ref);
+    if(!stage||stage.organizationId!==ORG||stage.meetingId!==m.id||stage.draftId!==draftId||stage.owner!==user||stage.status!=='uploaded'||Date.parse(stage.expiresAt)<Date.now())fail('STAGED_UPLOAD_INVALID','یکی از فایل‌های پیش‌بارگذاری‌شده نامعتبر یا منقضی شده است. لطفاً آن را دوباره آپلود کنید.',409);
+    return stage;
+   });
+   const previous=record?.attachments||[];
+   for(const ref of removeAttachmentIds)if(!previous.some(f=>f.id===ref&&f.status!=='deleted'))fail('ATTACHMENT_NOT_FOUND','یکی از پیوست‌های انتخاب‌شده برای حذف یافت نشد.',409);
+   const remaining=previous.filter(f=>f.status!=='deleted'&&!removeAttachmentIds.includes(f.id)).length;
+   if(remaining+stages.length>30)fail('ATTACHMENT_LIMIT','حداکثر ۳۰ پیوست برای هر دستور مجاز است.',409);
+   if(id){Object.assign(record,value,{revision:record.revision+1,updatedAt:at,updatedBy:user});}
    else {record={id:`AGD:${randomUUID()}`,meetingId:m.id,organizationId:ORG,schemaVersion:1,...value,attachments:[],revision:1,createdAt:at,updatedAt:at,createdBy:user};db.meetingAgendaItems.push(record);}
+   record.attachments??=[];
+   for(const ref of removeAttachmentIds){const f=record.attachments.find(x=>x.id===ref);f.status='deleted';f.deletedAt=at;}
+   for(const stage of stages){record.attachments.push({id:`ATT:${randomUUID()}`,fileName:stage.fileName,mimeType:stage.mimeType,size:stage.size,pathname:stage.pathname,status:'committed',createdAt:at});stage.status='attached';stage.agendaId=record.id;stage.attachedAt=at;}
    db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,actorRef:user,targetRef:record.id,action:id?'meeting.agenda.updated':'meeting.agenda.created',at});
+   for(const stage of stages)db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,actorRef:user,targetRef:record.id,action:'meeting.agenda.attachment.added',at,fileName:stage.fileName});
+   for(const ref of removeAttachmentIds)db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,actorRef:user,targetRef:record.id,action:'meeting.agenda.attachment.deleted',at,attachmentRef:ref});
+   if(stages.length)db.meetingAgendaDraftUploads=db.meetingAgendaDraftUploads.filter(x=>!stagedUploadIds.includes(x.id));
    return decorated(db,record);
   });
  }
  async remove(id,user){return this.repo.mutate(db=>{const a=getAgenda(db,id);if(getMeeting(db,a.meetingId).status==='cancelled')fail('MEETING_CANCELLED','جلسه لغوشده است.',409);a.status='deleted';a.revision++;a.deletedAt=new Date().toISOString();db.auditLog??=[];db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,actorRef:user,targetRef:a.id,action:'meeting.agenda.deleted',at:a.deletedAt});return {ok:true};});}
+ // Files are uploaded and confirmed *before* saving a new agenda. The draft
+ // belongs to the authenticated user and meeting; saving atomically claims it.
+ async prepareDraftUpload(input,user){
+  const meetingId=clean(input?.meetingId,90),draftId=clean(input?.draftId,70),fileName=clean(input?.fileName,180).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,''),size=Number(input?.size),mimeType=clean(input?.mimeType,120)||'application/octet-stream';
+  const ext=extFromName(fileName);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(draftId))fail('UPLOAD_DRAFT_INVALID','شناسه پیش‌نویس بارگذاری نامعتبر است.');
+  if(!fileName||!allowedExt.includes(ext)||!Number.isSafeInteger(size)||size<1||size>maxFileSize)fail('UPLOAD_INVALID','فایل باید دارای قالب مجاز و حداکثر ۲۰ مگابایت باشد.');
+  const stageId=`STG:${randomUUID()}`,pathname=`meetings/${safeOrg}/${meetingId.slice(4)}/drafts/${draftId}/${stageId.slice(4)}.${ext}`;
+  const at=new Date().toISOString(),expiresAt=new Date(Date.now()+24*60*60*1000).toISOString();
+  await this.repo.mutate(db=>{
+   const m=getMeeting(db,meetingId);if(m.status==='cancelled')fail('MEETING_CANCELLED','جلسه لغوشده است.',409);
+   db.meetingAgendaDraftUploads??=[];
+   db.meetingAgendaDraftUploads=db.meetingAgendaDraftUploads.filter(x=>Date.parse(x.expiresAt)>Date.now()&&['intent','uploaded'].includes(x.status));
+   const activeUploads=db.meetingAgendaDraftUploads.filter(x=>x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user&&['intent','uploaded'].includes(x.status)&&Date.parse(x.expiresAt)>Date.now());
+   if(activeUploads.length>=30)fail('ATTACHMENT_LIMIT','حداکثر ۳۰ پیوست برای هر دستور مجاز است.');
+   db.meetingAgendaDraftUploads.push({id:stageId,organizationId:ORG,meetingId,draftId,owner:user,fileName,mimeType,size,pathname,status:'intent',createdAt:at,expiresAt});
+  });
+  try{
+   const {issueSignedToken,presignUrl}=await this.blob();const validUntil=Date.now()+10*60*1000;
+   const token=await issueSignedToken({pathname,operations:['put'],validUntil});
+   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
+   return {stageId,presignedUrl,validUntil};
+  }catch(e){console.error('AGENDA_STAGE_SIGN',e?.message);fail('BLOB_UNAVAILABLE','دسترسی به فضای ذخیره‌سازی پیوست ممکن نشد.',503)}
+ }
+ async finishDraftUpload(input,user){
+  const stageId=clean(input?.stageId,90),draftId=clean(input?.draftId,70),meetingId=clean(input?.meetingId,90);
+  if(!validId(stageId,'STG'))fail('STAGE_ID_INVALID','شناسه فایل نامعتبر است.');
+  const current=await this.repo.all(),stage=(current.meetingAgendaDraftUploads||[]).find(x=>x.id===stageId&&x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user);
+  if(!stage||!['intent','uploaded'].includes(stage.status)||Date.parse(stage.expiresAt)<Date.now())fail('STAGED_UPLOAD_INVALID','مجوز فایل منقضی شده یا فایل متعلق به این پیش‌نویس نیست.',409);
+  getMeeting(current,meetingId);
+  try{const {head}=await this.blob();const file=await head(stage.pathname);if(!file||Number(file.size)!==stage.size)fail('BLOB_MISMATCH','ارسال فایل کامل نشده است یا اندازه آن مطابقت ندارد.',409)}
+  catch(e){if(e instanceof AgendaError)throw e;console.error('AGENDA_STAGE_HEAD',e?.message);fail('BLOB_NOT_CONFIRMED','تأیید فایل بارگذاری‌شده ممکن نشد.',503)}
+  return this.repo.mutate(db=>{
+   const found=(db.meetingAgendaDraftUploads||[]).find(x=>x.id===stageId&&x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user);
+   if(!found||!['intent','uploaded'].includes(found.status)||Date.parse(found.expiresAt)<Date.now())fail('STAGED_UPLOAD_INVALID','فایل دیگر مجاز به ثبت نیست.',409);
+   found.status='uploaded';found.uploadedAt=new Date().toISOString();
+   return {file:{id:found.id,fileName:found.fileName,size:found.size,mimeType:found.mimeType,status:'uploaded'}};
+  });
+ }
+ async clearDraftUploads(input,user){
+  const draftId=clean(input?.draftId,70),meetingId=clean(input?.meetingId,90),stageId=clean(input?.stageId,90);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(draftId))fail('UPLOAD_DRAFT_INVALID','شناسه پیش‌نویس معتبر نیست.');
+  if(stageId&&!validId(stageId,'STG'))fail('STAGE_ID_INVALID','شناسه فایل معتبر نیست.');
+  const paths=await this.repo.mutate(db=>{
+   getMeeting(db,meetingId);
+   const stages=(db.meetingAgendaDraftUploads||[]).filter(x=>x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user&&(!stageId||x.id===stageId)&&['intent','uploaded'].includes(x.status));
+   const removed=new Set(stages.map(x=>x.id));db.meetingAgendaDraftUploads=db.meetingAgendaDraftUploads.filter(x=>!removed.has(x.id));
+   return stages.map(x=>x.pathname);
+  });
+  if(paths.length){try{const {del}=await this.blob();await del(paths)}catch(e){console.error('AGENDA_STAGE_BLOB_CLEANUP',e?.message);/* records are already revoked; cleanup can retry separately */}}
+  return {ok:true,removed:paths.length};
+ }
  async uploadUrl(input){
   const meetingId=clean(input.meetingId,90),agendaId=clean(input.agendaId,90),filename=clean(input.fileName,180).split(/[\\/]/).pop().replace(/[\u0000-\u001f]/g,''),size=Number(input.size||0),mimeType=clean(input.mimeType,120)||'application/octet-stream',ext=extFromName(filename);
   if(!filename||!allowedExt.includes(ext)||!Number.isSafeInteger(size)||size<1||size>maxFileSize)fail('UPLOAD_INVALID','فایل انتخابی باید یکی از قالب‌های مجاز و حداکثر ۲۰ مگابایت باشد.');
@@ -137,7 +211,9 @@ export async function handleMeetingAgendaApi(req,res){
   if(resource==='documents'&&method==='GET')return send(res,200,await svc.documents(path.searchParams.get('q')||''));
   if(resource==='save'&&method==='POST')return send(res,200,{item:await svc.save(input,user)});
   if(resource==='remove'&&method==='POST')return send(res,200,await svc.remove(input.id,user));
-  if(resource==='upload-url'&&method==='POST')return send(res,200,await svc.uploadUrl(input));
+  if(resource==='upload-url'&&method==='POST')return send(res,200,input?.draftId?await svc.prepareDraftUpload(input,user):await svc.uploadUrl(input));
+  if(resource==='finish-upload'&&method==='POST')return send(res,200,await svc.finishDraftUpload(input,user));
+  if(resource==='clear-uploads'&&method==='POST')return send(res,200,await svc.clearDraftUploads(input,user));
   if(resource==='attach'&&method==='POST')return send(res,200,await svc.attach(input,user));
   if(resource==='remove-attachment'&&method==='POST')return send(res,200,await svc.removeAttachment(input.agendaId,input.attachmentId,user));
   if(resource==='download'&&method==='GET')return svc.download(req,res,path.searchParams.get('agendaId'),path.searchParams.get('attachmentId'));
