@@ -263,3 +263,6 @@ async function open(){const ctx=document.getElementById('workspaceContext');if(!
 document.addEventListener('click',e=>{const btn=e.target?.closest?.('[data-capability]');if(btn?.dataset.capability==='دستور جلسه' && document.querySelector('[data-workspace="meetings"].active')){e.preventDefault();e.stopImmediatePropagation();open();return}if(e.target?.closest?.('[data-workspace]'))close()},true);
 window.SinaMeetingAgendaV13={open,close};
 })();
+
+/* Load the preparation module after the existing agenda module (no auth-gate changes). */
+(()=>{if(document.getElementById('smp10-script'))return;const css=document.createElement('link');css.rel='stylesheet';css.href='./meeting-preparation-v110.css?v=1.10.0';document.head.appendChild(css);const s=document.createElement('script');s.id='smp10-script';s.src='./meeting-preparation-v110.js?v=1.10.0';document.body.appendChild(s);})();
