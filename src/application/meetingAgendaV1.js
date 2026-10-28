@@ -18,6 +18,43 @@ const maxFileSize=20*1024*1024;
 const safeOrg=ORG.replace(/[^a-z0-9_-]/gi,'-');
 const safeOutput=a=>({...a,attachments:(a.attachments||[]).filter(x=>x.status!=='deleted').map(({pathname,...x})=>x)});
 const errMessage=e=>e instanceof AgendaError?e.message:'عملیات دستور جلسه انجام نشد؛ جزئیات در گزارش خطای سرور ثبت شده است.';
+// Confirm private Blob objects with the same authenticated get() path used by the
+// existing document bank. The older head() path can fail on private/OIDC stores
+// even after a signed PUT succeeds, so a head() failure is NOT an upload failure.
+export async function verifyAgendaBlobUpload(blob,pathname,expectedSize,{fetcher=fetch}={}){
+ const errors=[];let definitelyMissing=false;
+ try{
+  const metadata=await blob.head(pathname);
+  if(metadata===null)definitelyMissing=true;
+  if(metadata && Number(metadata.size)===Number(expectedSize))return true;
+  errors.push('head:size-mismatch');
+ }catch(e){errors.push('head:'+String(e?.code||e?.name||'failed'));}
+ try{
+  const result=await blob.get(pathname,{access:'private',useCache:false});
+  const actual=Number(result?.blob?.size);
+  if(result?.statusCode===200 && actual===Number(expectedSize)){
+   try{await result.stream?.cancel?.()}catch{};
+   return true;
+  }
+  try{await result?.stream?.cancel?.()}catch{};
+  errors.push('get:'+String(result?.statusCode||'missing')+':'+String(actual));
+ }catch(e){errors.push('get:'+String(e?.code||e?.name||'failed'));}
+ // Signed HEAD is independently authenticated by the same short-lived token
+ // mechanism that succeeded in creating the signed PUT URL.
+ try{
+  const validUntil=Date.now()+60*1000;
+  const token=await blob.issueSignedToken({pathname,operations:['head'],validUntil});
+  const {presignedUrl}=await blob.presignUrl(token,{pathname,operation:'head',validUntil,access:'private'});
+  const response=await fetcher(presignedUrl,{method:'HEAD',cache:'no-store'});
+  const actual=Number(response.headers.get('content-length'));
+  if(response.ok && Number.isSafeInteger(actual) && actual===Number(expectedSize))return true;
+  errors.push('signed-head:'+String(response.status)+':'+String(actual));
+ }catch(e){errors.push('signed-head:'+String(e?.code||e?.name||'failed'));}
+ console.error('AGENDA_UPLOAD_VERIFICATION_FAILED',{pathScope:'meetings',attempts:errors});
+ if(definitelyMissing)fail('BLOB_MISMATCH','فایل بارگذاری‌شده یافت نشد یا هنوز کامل نشده است.',409);
+ fail('BLOB_NOT_CONFIRMED','فایل به فضای ذخیره‌سازی ارسال شد اما تأیید آن ممکن نشد؛ وضعیت اتصال فضای فایل خصوصی را بررسی کنید.',503);
+}
+
 const send=(res,status,value)=>{res.statusCode=status;res.setHeader('content-type','application/json; charset=utf-8');res.setHeader('cache-control','no-store');res.end(JSON.stringify(value))};
 const getMeeting=(db,id)=>{if(!validId(id,'MTG'))fail('MEETING_ID_INVALID','شناسه جلسه معتبر نیست.');const m=(db.meetings||[]).find(x=>x.id===id&&x.organizationId===ORG&&x.schemaVersion===1);if(!m)fail('MEETING_NOT_FOUND','جلسه یافت نشد یا مجاز به دسترسی نیست.',404);return m};
 const getAgenda=(db,id)=>{if(!validId(id,'AGD'))fail('AGENDA_ID_INVALID','شناسه دستور جلسه معتبر نیست.');const a=(db.meetingAgendaItems||[]).find(x=>x.id===id&&x.organizationId===ORG&&x.status!=='deleted');if(!a)fail('AGENDA_NOT_FOUND','دستور جلسه یافت نشد.',404);getMeeting(db,a.meetingId);return a};
@@ -139,8 +176,7 @@ export class MeetingAgendaService {
   const current=await this.repo.all(),stage=(current.meetingAgendaDraftUploads||[]).find(x=>x.id===stageId&&x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user);
   if(!stage||!['intent','uploaded'].includes(stage.status)||Date.parse(stage.expiresAt)<Date.now())fail('STAGED_UPLOAD_INVALID','مجوز فایل منقضی شده یا فایل متعلق به این پیش‌نویس نیست.',409);
   getMeeting(current,meetingId);
-  try{const {head}=await this.blob();const file=await head(stage.pathname);if(!file||Number(file.size)!==stage.size)fail('BLOB_MISMATCH','ارسال فایل کامل نشده است یا اندازه آن مطابقت ندارد.',409)}
-  catch(e){if(e instanceof AgendaError)throw e;console.error('AGENDA_STAGE_HEAD',e?.message);fail('BLOB_NOT_CONFIRMED','تأیید فایل بارگذاری‌شده ممکن نشد.',503)}
+  await verifyAgendaBlobUpload(await this.blob(),stage.pathname,stage.size);
   return this.repo.mutate(db=>{
    const found=(db.meetingAgendaDraftUploads||[]).find(x=>x.id===stageId&&x.organizationId===ORG&&x.meetingId===meetingId&&x.draftId===draftId&&x.owner===user);
    if(!found||!['intent','uploaded'].includes(found.status)||Date.parse(found.expiresAt)<Date.now())fail('STAGED_UPLOAD_INVALID','فایل دیگر مجاز به ثبت نیست.',409);
@@ -182,8 +218,7 @@ export class MeetingAgendaService {
   const current=await this.repo.all(),a=getAgenda(current,agendaId);
   if(a.meetingId!==meetingId)fail('AGENDA_MEETING_MISMATCH','دستور متعلق به جلسه نیست.',409);
   // Verify actual presence and length before committing untrusted client metadata.
-  try{const {head}=await import('@vercel/blob');const meta=await head(pathname);if(!meta||Number(meta.size)!==size)fail('BLOB_MISMATCH','فایل بارگذاری‌شده یافت نشد یا اندازه آن مطابقت ندارد.',409);}
-  catch(e){if(e instanceof AgendaError)throw e;console.error('MEETING_AGENDA_BLOB_HEAD',e?.message);fail('BLOB_NOT_CONFIRMED','تأیید فایل بارگذاری‌شده ممکن نشد. دوباره تلاش کنید.',503)}
+  await verifyAgendaBlobUpload(await this.blob(),pathname,size);
   return this.repo.mutate(db=>{const record=getAgenda(db,agendaId);if(record.meetingId!==meetingId)fail('AGENDA_MEETING_MISMATCH','جلسه نامعتبر است.',409);if(getMeeting(db,meetingId).status==='cancelled')fail('MEETING_CANCELLED','جلسه لغو شده است.',409);record.attachments??=[];const existing=record.attachments.find(f=>f.pathname===pathname);if(existing)return {item:decorated(db,record)};if(record.attachments.filter(f=>f.status!=='deleted').length>=30)fail('ATTACHMENT_LIMIT','حداکثر ۳۰ پیوست قابل ثبت است.');const at=new Date().toISOString();record.attachments.push({id:`ATT:${randomUUID()}`,fileName:filename,mimeType:clean(input.mimeType,100),size,pathname,status:'committed',createdAt:at});record.revision++;record.updatedAt=at;db.auditLog??=[];db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,targetRef:record.id,actorRef:user,action:'meeting.agenda.attachment.added',at});return {item:decorated(db,record)};});
  }
  async removeAttachment(agendaId,attachmentId,user){return this.repo.mutate(db=>{const a=getAgenda(db,agendaId);const f=(a.attachments||[]).find(x=>x.id===attachmentId&&x.status!=='deleted');if(!f)fail('ATTACHMENT_NOT_FOUND','پیوست یافت نشد.',404);f.status='deleted';f.deletedAt=new Date().toISOString();a.revision++;a.updatedAt=f.deletedAt;db.auditLog??=[];db.auditLog.push({id:`AUD:${randomUUID()}`,organizationId:ORG,targetRef:a.id,actorRef:user,action:'meeting.agenda.attachment.deleted',at:f.deletedAt});return {item:decorated(db,a)};});}
