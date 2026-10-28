@@ -119,8 +119,12 @@ async function updateMeetingCardCounters(){
   if(button.parentElement?.classList.contains('sina17-capability-wrap'))return button.parentElement;
   const wrap=document.createElement('div');wrap.className='sina17-capability-wrap';button.before(wrap);wrap.appendChild(button);
   const stats=document.createElement('p');stats.className='sina17-card-stats';stats.textContent='در حال دریافت آمار…';wrap.appendChild(stats);
-  const commands=document.createElement('div');commands.className='sina17-card-commands';
-  for(const [label,action] of actions){const link=document.createElement('button');link.type='button';link.textContent=label;link.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();action()});commands.appendChild(link)}
+  const commands=document.createElement('div');commands.className='sina17-card-commands';commands.setAttribute('aria-label','اقدامات این بخش');
+  actions.forEach(([label,action],i)=>{
+   if(i){const separator=document.createElement('span');separator.className='sina17-action-separator';separator.textContent='|';separator.setAttribute('aria-hidden','true');commands.appendChild(separator)}
+   const link=document.createElement('button');link.type='button';link.className='sina17-card-action';link.textContent=label;
+   link.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();action()});commands.appendChild(link);
+  });
   wrap.appendChild(commands);return wrap;
  }
  const meetingsWrap=createToolbar(meetingsCard,[

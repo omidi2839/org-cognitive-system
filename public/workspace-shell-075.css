@@ -47,7 +47,26 @@
 #workspaceContext .sina17-capability-wrap{min-width:0;border:1px solid #e3ecf8;background:#fff;border-radius:11px;overflow:hidden;display:flex;flex-direction:column}
 #workspaceContext .sina17-capability-wrap>.capability-card{border:0!important;border-radius:0!important}
 #workspaceContext .sina17-card-stats{font-size:10px!important;line-height:1.5!important;color:#526a8d!important;white-space:normal;padding:0 11px 7px!important;margin:0!important}
-#workspaceContext .sina17-card-commands{border-top:1px solid #ecf1f8;padding:6px 8px;display:flex;gap:6px;flex-wrap:wrap}
-#workspaceContext .sina17-card-commands button{border:1px solid #dce8fb;border-radius:7px;background:#f4f8ff;color:#286ebd;padding:5px 8px;font:inherit;font-size:10px;cursor:pointer}
-#workspaceContext .sina17-card-commands button:hover{background:#e9f2ff}
+/* SINA V1.8: document-bank text-action pattern; no framed buttons. */
+#workspaceContext .sina17-capability-wrap .sina17-card-commands{
+ border:0!important;background:transparent!important;padding:1px 11px 9px!important;
+ display:flex!important;flex-direction:row!important;align-items:center!important;
+ justify-content:flex-start!important;gap:6px!important;flex-wrap:wrap!important;
+ direction:rtl!important;min-height:19px!important;
+}
+#workspaceContext .sina17-card-commands .sina17-card-action{
+ appearance:none!important;border:0!important;box-shadow:none!important;outline-offset:2px!important;
+ background:transparent!important;border-radius:0!important;padding:0!important;margin:0!important;
+ font-family:inherit!important;font-size:9px!important;line-height:1.8!important;
+ color:#d97706!important;font-weight:700!important;cursor:pointer!important;
+ width:auto!important;min-width:0!important;height:auto!important;
+}
+#workspaceContext .sina17-card-commands .sina17-card-action:hover,
+#workspaceContext .sina17-card-commands .sina17-card-action:focus-visible{
+ background:transparent!important;color:#a95800!important;text-decoration:underline!important;
+}
+#workspaceContext .sina17-card-commands .sina17-action-separator{
+ font-size:9px!important;color:#bdc7d5!important;line-height:1.8!important;
+ user-select:none!important;display:inline!important;
+}
 @media(max-width:650px){#workspaceContext.workspace-context{padding:12px!important}#workspaceContext .workspace-context-head{display:flex!important;align-items:center!important}#workspaceContext.smv1-open>.workspace-context-head,#workspaceContext.sma13-open>.workspace-context-head{display:none!important}#workspaceContext .stage-items{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
