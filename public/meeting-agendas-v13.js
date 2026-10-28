@@ -106,6 +106,18 @@ function renderDraftFiles(){
  box.querySelectorAll('[data-retry-staged]').forEach(b=>b.onclick=()=>{const f=fileDraft?.files.find(x=>x.id===b.dataset.retryStaged);if(f)uploadDraftFile(f)});
  box.querySelectorAll('[data-remove-staged]').forEach(b=>b.onclick=()=>removeDraftFile(b.dataset.removeStaged));
 }
+// Files of this size fit safely in one authenticated Vercel Function request
+// after base64 encoding; larger files keep the existing presigned browser path.
+const DIRECT_UPLOAD_LIMIT=2*1024*1024;
+function readAsBase64(file){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>{const value=String(reader.result||'');const idx=value.indexOf(',');
+   if(idx<0)reject(Error('فایل قابل خواندن نیست.'));else resolve(value.slice(idx+1));};
+  reader.onerror=()=>reject(Error('خواندن فایل در مرورگر انجام نشد.'));
+  reader.readAsDataURL(file);
+ });
+}
 async function uploadDraftFile(entry){
  const working=fileDraft,formDialog=dialog;if(!working||working.saving)return;
  entry.status='uploading';entry.error='';working.uploading++;renderDraftFiles();
@@ -113,11 +125,23 @@ async function uploadDraftFile(entry){
   // A failed attempt may have created an intent. Revoke it before retrying.
   if(entry.stageId)await api('clear-uploads','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId});
   entry.stageId=null;
-  const data=await api('upload-url','POST',{meetingId:state.meeting.id,draftId:working.draftId,fileName:entry.file.name,mimeType:entry.file.type||'application/octet-stream',size:entry.file.size});
-  entry.stageId=data.stageId;
-  const upload=await fetch(data.presignedUrl,{method:'PUT',body:entry.file});
-  if(!upload.ok)throw Error(`ارسال فایل انجام نشد (HTTP ${upload.status})`);
-  await api('finish-upload','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId});
+  if(entry.file.size<=DIRECT_UPLOAD_LIMIT){
+   const contentBase64=await readAsBase64(entry.file);
+   const result=await api('direct-upload','POST',{meetingId:state.meeting.id,draftId:working.draftId,
+    fileName:entry.file.name,mimeType:entry.file.type||'application/octet-stream',size:entry.file.size,contentBase64});
+   entry.stageId=result.stageId;
+  }else{
+   const data=await api('upload-url','POST',{meetingId:state.meeting.id,draftId:working.draftId,fileName:entry.file.name,mimeType:entry.file.type||'application/octet-stream',size:entry.file.size});
+   entry.stageId=data.stageId;
+   const upload=await fetch(data.presignedUrl,{method:'PUT',body:entry.file});
+   if(!upload.ok)throw Error(`ارسال فایل انجام نشد (HTTP ${upload.status})`);
+   // A 2xx alone is not proof the object was created. Check the control API's
+   // returned pathname (if present), then let our API verify the object.
+   let receipt={};try{receipt=await upload.json()}catch{}
+   if(receipt?.pathname&&data.pathname&&receipt.pathname!==data.pathname)
+    throw Error('فضای فایل مسیر متفاوتی برای پیوست برگرداند. بارگذاری ثبت نشد.');
+   await api('finish-upload','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId});
+  }
   entry.status='uploaded';
  }catch(e){entry.status='failed';entry.error=e.message}
  finally{working.uploading--;if(dialog===formDialog&&fileDraft===working){renderDraftFiles();if(entry.status==='failed')dialogError(`بارگذاری «${entry.file.name}» موفق نبود. می‌توانید دوباره تلاش کنید یا فایل را حذف کنید.`)}}
