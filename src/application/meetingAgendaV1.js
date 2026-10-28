@@ -166,7 +166,7 @@ export class MeetingAgendaService {
   try{
    const {issueSignedToken,presignUrl}=await this.blob();const validUntil=Date.now()+10*60*1000;
    const token=await issueSignedToken({pathname,operations:['put'],validUntil});
-   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
+   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private'});
    return {stageId,presignedUrl,validUntil};
   }catch(e){console.error('AGENDA_STAGE_SIGN',e?.message);fail('BLOB_UNAVAILABLE','دسترسی به فضای ذخیره‌سازی پیوست ممکن نشد.',503)}
  }
@@ -207,7 +207,7 @@ export class MeetingAgendaService {
   try{
    const {issueSignedToken,presignUrl}=await import('@vercel/blob');
    const token=await issueSignedToken({pathname,operations:['put'],validUntil});
-   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil});
+   const {presignedUrl}=await presignUrl(token,{pathname,operation:'put',validUntil,access:'private'});
    return {presignedUrl,pathname,fileName:filename,mimeType,size,validUntil};
   }catch(e){console.error('MEETING_AGENDA_BLOB_SIGN',e?.message);fail('BLOB_UNAVAILABLE','فضای ذخیره‌سازی پیوست موقتاً در دسترس نیست.',503);}
  }
