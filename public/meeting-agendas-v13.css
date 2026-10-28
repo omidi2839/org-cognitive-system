@@ -70,3 +70,17 @@
 .sma13-doc-option:disabled{cursor:default;color:#60758e;background:#f5f9fc;opacity:.8}
 .sma13-doc-option:disabled span{color:#29845b}
 @media(max-width:650px){.sma13-doc-search [data-close-doc-results]{width:100%}}
+
+/* V1.6: pre-save uploads with visible per-file progress / remove / retry. */
+.sma13-staged-files{display:flex;flex-direction:column;gap:6px;margin:8px 0;min-width:0}
+.sma13-staged-file{display:flex;align-items:center;min-width:0;border:1px solid #dce8f7;background:white;border-radius:9px;padding:9px 12px;gap:10px}
+.sma13-file-text{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;overflow-wrap:anywhere}
+.sma13-file-text strong{font-size:11px;font-weight:600;word-break:break-word;color:#345073}
+.sma13-file-text small,.sma13-file-row small{font-size:10px;color:#71869e;line-height:1.7}
+.sma13-file-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.sma13-file-actions button{border:1px solid #dce6f3;background:#f8fbff;color:#4674a4;border-radius:8px;font-size:10px;padding:7px 9px}
+.sma13-file-actions button:disabled{opacity:.4;cursor:not-allowed}
+.sma13-file-good{color:#1b8559!important}.sma13-file-error{color:#bc4d4d!important}
+.sma13-file-pending-delete{opacity:.6;border-color:#f2d6d6}.sma13-file-pending-delete a{text-decoration:line-through;color:#a18d8d}
+.sma13-choose-file{font-weight:600;border:1px dashed #93bdf0}.sma13-choose-file:focus-within{outline:2px solid #73aaf2}
+@media(max-width:650px){.sma13-staged-file{align-items:flex-start;flex-direction:column}.sma13-file-actions{align-self:flex-end}}

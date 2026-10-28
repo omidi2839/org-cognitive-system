@@ -1,4 +1,4 @@
-/* Sina V1.5 — real document selection with closable results and immediate feedback. */
+/* Sina V1.6 — immediate, multi-file pre-save upload with safe draft attachment claiming. */
 (()=>{'use strict';
 const END='/api/v1/meeting-agendas', P='sma13-', digits='۰۱۲۳۴۵۶۷۸۹';
 const fa=x=>String(x??'').replace(/\d/g,n=>digits[Number(n)]);
@@ -7,7 +7,7 @@ const date=s=>s?new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',mon
 const statusLabel={scheduled:'زمان‌بندی‌شده',tentative:'در انتظار تعیین زمان',completed:'برگزارشده',cancelled:'لغوشده',draft:'پیش‌نویس',review:'در انتظار بررسی',approved:'تأییدشده'};
 const shorten=(s,n=160)=>String(s||'').length>n?String(s).slice(0,n)+'…':String(s||'');
 const state={meetings:[],items:[],meeting:null,query:'',from:'',to:'',status:'active',selectedDocs:[],links:[],edit:null};
-let container=null,dialog=null,debounce,docRequestVersion=0,docCandidates=[];
+let container=null,dialog=null,debounce,docRequestVersion=0,docCandidates=[],fileDraft=null;
 const query=(resource,params={})=>{const s=new URLSearchParams({resource});Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')s.set(k,v)});return END+'?'+s};
 async function api(resource,method='GET',data=null,params={}){
  let r;try{r=await fetch(query(resource,params),{method,credentials:'same-origin',cache:'no-store',headers:data?{'content-type':'application/json'}:{},body:data?JSON.stringify(data):undefined})}catch{throw Error('ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.')}
@@ -81,20 +81,72 @@ function addDocumentFromResults(id){
  updateSelected();hideDocResults();
  documentSearchMessage('سند «'+shorten(doc.title,80)+'» انتخاب شد؛ با دکمه «ذخیره دستور جلسه» ارتباط آن ثبت می‌شود.');
 }
-function updateAttachments(item){const e=dialog?.querySelector('[data-existing-attachments]');if(!e)return;
- e.innerHTML=item?.attachments?.length?item.attachments.map(f=>`<div class="sma13-file-row"><a href="${query('download',{agendaId:item.id,attachmentId:f.id})}">${esc(f.fileName)} (${fa((f.size/1024).toFixed(0))} کیلوبایت)</a><button type="button" data-remove-attachment="${esc(f.id)}">حذف</button></div>`).join(''):'<span class="sma13-muted">پیوستی ثبت نشده است.</span>';
- e.querySelectorAll('[data-remove-attachment]').forEach(b=>b.onclick=async()=>{if(!confirm('این پیوست از دستور جلسه برداشته شود؟'))return;try{const d=await api('remove-attachment','POST',{agendaId:item.id,attachmentId:b.dataset.removeAttachment});Object.assign(item,d.item);updateAttachments(item);await refreshAfterSave(false)}catch(e){dialogError(e.message)}});
+function updateAttachments(item){
+ const box=dialog?.querySelector('[data-existing-attachments]');if(!box)return;
+ const files=item?.attachments||[];
+ box.innerHTML=files.length?files.map(f=>{
+  const marked=fileDraft?.removed?.has(f.id);
+  return `<div class="sma13-file-row ${marked?'sma13-file-pending-delete':''}"><span><a href="${query('download',{agendaId:item.id,attachmentId:f.id})}" target="_blank" rel="noopener">${esc(f.fileName)}</a><small> ${fa(Math.max(1,Math.ceil(f.size/1024)))} کیلوبایت${marked?' · حذف هنگام ذخیره':''}</small></span><button type="button" data-toggle-existing="${esc(f.id)}">${marked?'بازگرداندن':'حذف'}</button></div>`;
+ }).join(''):'<span class="sma13-muted">هنوز پیوست قبلی وجود ندارد.</span>';
+ box.querySelectorAll('[data-toggle-existing]').forEach(b=>b.onclick=()=>{
+  if(!fileDraft||fileDraft.saving)return;
+  const id=b.dataset.toggleExisting;
+  if(fileDraft.removed.has(id))fileDraft.removed.delete(id);else fileDraft.removed.add(id);
+  updateAttachments(item);renderDraftFiles();
+ });
+}
+function renderDraftFiles(){
+ const box=dialog?.querySelector('[data-staged-files]'),summary=dialog?.querySelector('[data-file-summary]');if(!box||!fileDraft)return;
+ const label={waiting:'در صف بارگذاری',uploading:'در حال بارگذاری…',uploaded:'بارگذاری شد ✓',failed:'بارگذاری ناموفق'};
+ box.innerHTML=fileDraft.files.map(f=>`<div class="sma13-file-row sma13-staged-file" data-staged-row="${esc(f.id)}"><span class="sma13-file-text"><strong title="${esc(f.file.name)}">${esc(f.file.name)}</strong><small>${fa(Math.max(1,Math.ceil(f.file.size/1024)))} کیلوبایت · <span class="${f.status==='uploaded'?'sma13-file-good':f.status==='failed'?'sma13-file-error':''}">${label[f.status]}</span>${f.error?` · ${esc(shorten(f.error,130))}`:''}</small></span><span class="sma13-file-actions">${f.status==='failed'?`<button type="button" data-retry-staged="${esc(f.id)}">تلاش دوباره</button>`:''}<button type="button" data-remove-staged="${esc(f.id)}" ${['waiting','uploading'].includes(f.status)?'disabled':''}>حذف</button></span></div>`).join('');
+ const active=fileDraft.files.filter(f=>f.status==='uploaded').length;
+ const failed=fileDraft.files.filter(f=>f.status==='failed').length;
+ summary.textContent=fileDraft.files.length?`${fa(active)} فایل بارگذاری‌شده · ${fa(fileDraft.uploading)} در حال ارسال${failed?` · ${fa(failed)} فایل نیازمند بررسی`:''}`:'می‌توانید چند بار فایل انتخاب کنید و هر بار فایل‌های جدید به فهرست افزوده می‌شوند.';
+ const submit=dialog.querySelector('[data-submit]');if(submit)submit.disabled=Boolean(fileDraft.uploading||fileDraft.saving);
+ box.querySelectorAll('[data-retry-staged]').forEach(b=>b.onclick=()=>{const f=fileDraft?.files.find(x=>x.id===b.dataset.retryStaged);if(f)uploadDraftFile(f)});
+ box.querySelectorAll('[data-remove-staged]').forEach(b=>b.onclick=()=>removeDraftFile(b.dataset.removeStaged));
+}
+async function uploadDraftFile(entry){
+ const working=fileDraft,formDialog=dialog;if(!working||working.saving)return;
+ entry.status='uploading';entry.error='';working.uploading++;renderDraftFiles();
+ try{
+  // A failed attempt may have created an intent. Revoke it before retrying.
+  if(entry.stageId)await api('clear-uploads','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId});
+  entry.stageId=null;
+  const data=await api('upload-url','POST',{meetingId:state.meeting.id,draftId:working.draftId,fileName:entry.file.name,mimeType:entry.file.type||'application/octet-stream',size:entry.file.size});
+  entry.stageId=data.stageId;
+  const upload=await fetch(data.presignedUrl,{method:'PUT',body:entry.file});
+  if(!upload.ok)throw Error(`ارسال فایل انجام نشد (HTTP ${upload.status})`);
+  await api('finish-upload','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId});
+  entry.status='uploaded';
+ }catch(e){entry.status='failed';entry.error=e.message}
+ finally{working.uploading--;if(dialog===formDialog&&fileDraft===working){renderDraftFiles();if(entry.status==='failed')dialogError(`بارگذاری «${entry.file.name}» موفق نبود. می‌توانید دوباره تلاش کنید یا فایل را حذف کنید.`)}}
+}
+async function removeDraftFile(id){
+ const working=fileDraft,entry=working?.files.find(x=>x.id===id);if(!working||!entry||working.saving||['uploading','waiting'].includes(entry.status))return;
+ const row=dialog?.querySelector(`[data-staged-row="${id}"]`);if(row)row.style.opacity='.5';
+ if(entry.stageId){try{await api('clear-uploads','POST',{meetingId:state.meeting.id,draftId:working.draftId,stageId:entry.stageId})}catch(e){dialogError('حذف فایل از سرور انجام نشد: '+e.message);if(row)row.style.opacity='1';return}}
+ working.files=working.files.filter(f=>f.id!==id);dialogError('');renderDraftFiles();
+}
+async function chooseDraftFiles(e){
+ const picked=Array.from(e.target.files||[]);e.target.value='';if(!fileDraft||!picked.length)return;
+ const prior=fileDraft.files.length+(state.edit?.attachments||[]).length-fileDraft.removed.size;
+ if(prior+picked.length>30){dialogError('هر دستور جلسه حداکثر ۳۰ پیوست دارد.');return}
+ for(const f of picked){
+  if(!f.size||f.size>20*1024*1024||!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|png|jpe?g|txt)$/i.test(f.name)){dialogError(`نوع یا حجم فایل «${f.name}» مجاز نیست (حداکثر ۲۰ مگابایت).`);continue}
+  const entry={id:crypto.randomUUID(),file:f,status:'waiting',stageId:null,error:''};fileDraft.files.push(entry);renderDraftFiles();uploadDraftFile(entry);
+ }
 }
 function dialogError(s){const e=dialog?.querySelector('[data-form-error]');if(e)e.textContent=s}
-function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.documents||[]).map(d=>({...d}));
- const meeting=state.meeting;if(!meeting)return;closeDialog();dialog=document.createElement('div');dialog.className='sma13-overlay';
+function openEdit(item=null){const meeting=state.meeting;if(!meeting)return;closeDialog();state.edit=item||null;state.selectedDocs=(item?.documents||[]).map(d=>({...d}));
+ fileDraft={draftId:crypto.randomUUID(),files:[],removed:new Set(),uploading:0,saving:false,saved:false};dialog=document.createElement('div');dialog.className='sma13-overlay';
  dialog.innerHTML=`<div class="sma13-dialog" role="dialog" aria-modal="true" aria-label="ویرایش دستور جلسه"><div class="sma13-dialog-head"><div><h3>${item?'ویرایش دستور جلسه':'ثبت دستور جلسه'}</h3><small>جلسه: ${esc(meeting.title)}</small></div><button type="button" data-close-dialog>×</button></div>
  <form data-agenda-form><div class="sma13-dialog-body"><div class="sma13-form-grid">
  <label class="wide">عنوان دستور جلسه <input name="title" required maxlength="240" value="${esc(item?.title||'')}" placeholder="عنوان دقیق موضوع مطرح‌شده در جلسه"></label>
  <label class="wide">شرح موضوع و مستندات <textarea name="description" rows="4" maxlength="12000" placeholder="شرح موضوع، پیشینه و نکات لازم برای طرح در جلسه">${esc(item?.description||'')}</textarea></label>
- <div class="wide sma13-topic-files"><div class="sma13-section-header"><h4>پیوست‌های شرح موضوع</h4><small>پیوست هر دستور مستقل است؛ فایل‌ها در سامانه ذخیره می‌شوند.</small></div>
- <div data-existing-attachments></div><label class="sma13-choose-file">＋ افزودن فایل‌های مستندات<input type="file" multiple data-new-files accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></label>
- <div data-file-summary class="sma13-muted">PDF، Word، Excel، PowerPoint، تصویر یا متن؛ حداکثر ۲۰ مگابایت برای هر فایل.</div></div>
+ <div class="wide sma13-topic-files"><div class="sma13-section-header"><h4>پیوست‌های شرح موضوع</h4><small>فایل‌ها بلافاصله پس از انتخاب، مستقل از ثبت دستور، در سامانه بارگذاری می‌شوند.</small></div>
+ <div data-existing-attachments></div><div data-staged-files class="sma13-staged-files" aria-live="polite"></div><label class="sma13-choose-file">＋ افزودن فایل‌های مستندات<input type="file" multiple data-new-files accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></label>
+ <div data-file-summary class="sma13-muted">هر فایل بعد از انتخاب فوراً بارگذاری می‌شود؛ حداکثر ۲۰ مگابایت برای هر فایل.</div></div>
  <label class="wide">مسئول ارائه / گزارش‌دهنده (اختیاری) <input name="presenter" maxlength="240" value="${esc(item?.presenter||'')}"></label>
  </div>
  <section class="sma13-section"><div class="sma13-section-header"><h4>ارتباط با قوانین و اسناد سامانه</h4><small>انتخاب از بانک اسناد موجود؛ بدون ایجاد نسخه تکراری</small></div>
@@ -105,7 +157,7 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  <section class="sma13-section"><div class="sma13-section-header"><h4>پیوندهای تکمیلی</h4><button type="button" data-add-link>＋ افزودن پیوند</button></div><div data-links>${(item?.referenceLinks||[]).map(linkRow).join('')}</div></section>
  </div><div class="sma13-dialog-foot"><p class="sma13-form-error" data-form-error role="alert"></p><div class="sma13-foot-actions"><button type="button" data-close-dialog>انصراف</button><button type="submit" class="sma13-primary" data-submit>ذخیره دستور جلسه</button></div></div></form></div>`;
  document.body.appendChild(dialog);document.body.classList.add('sma13-locked');
- dialog.querySelectorAll('[data-close-dialog]').forEach(b=>b.onclick=closeDialog);
+ dialog.querySelectorAll('[data-close-dialog]').forEach(b=>b.onclick=()=>closeDialog());
  dialog.addEventListener('click',e=>{if(e.target===dialog)closeDialog()});
  dialog.querySelector('[data-search-doc]').onclick=searchDocs;
  dialog.querySelector('[data-close-doc-results]').onclick=hideDocResults;
@@ -123,10 +175,10 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  });
  dialog.querySelector('[data-add-link]').onclick=()=>dialog.querySelector('[data-links]').insertAdjacentHTML('beforeend',linkRow());
  dialog.addEventListener('click',e=>{if(e.target.closest('[data-remove-link]'))e.target.closest('.sma13-link-row')?.remove()});
- dialog.querySelector('[data-new-files]').onchange=e=>{const fs=[...e.target.files];dialog.querySelector('[data-file-summary]').textContent=fs.length?`${fa(fs.length)} فایل انتخاب شد؛ هنگام ذخیره بارگذاری خواهد شد.`:'فایلی انتخاب نشده است.'};
+ dialog.querySelector('[data-new-files]').onchange=chooseDraftFiles;
  dialog.querySelector('[data-agenda-form]').onsubmit=saveItem;
  dialog.querySelector('[data-agenda-form]').addEventListener('invalid',e=>{dialogError('عنوان دستور جلسه الزامی است.');e.target.focus()},true);
- updateSelected();updateAttachments(item);
+ updateSelected();updateAttachments(item);renderDraftFiles();
 }
 async function searchDocs(){
  const formDialog=dialog,box=formDialog?.querySelector('[data-doc-results]');if(!box)return;
@@ -151,31 +203,38 @@ async function searchDocs(){
   docCandidates=[];box.textContent=e.message;documentSearchMessage('جست‌وجو انجام نشد. دوباره تلاش کنید.');
  }
 }
-async function saveItem(e){e.preventDefault();const form=e.currentTarget,submit=form.querySelector('[data-submit]'),fd=new FormData(form);submit.disabled=true;dialogError('');
+async function saveItem(e){
+ e.preventDefault();const form=e.currentTarget,submit=form.querySelector('[data-submit]'),fd=new FormData(form),working=fileDraft;
+ if(!working||working.saving)return;
+ if(working.uploading){dialogError('تا پایان بارگذاری فایل‌ها، ثبت دستور ممکن نیست.');return}
+ const failures=working.files.filter(f=>f.status!=='uploaded');
+ if(failures.length){dialogError('بارگذاری بعضی فایل‌ها کامل نشده است؛ «تلاش دوباره» یا «حذف» را انتخاب کنید.');return}
  const links=[...dialog.querySelectorAll('.sma13-link-row')].map(row=>({title:row.querySelector('[data-link-title]').value.trim(),url:row.querySelector('[data-link-url]').value.trim()})).filter(x=>x.title||x.url);
- const files=[...dialog.querySelector('[data-new-files]').files];const invalid=files.find(f=>f.size>20*1024*1024||!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|png|jpe?g|txt)$/i.test(f.name));
- if(invalid){dialogError('فرمت یا حجم فایل «'+invalid.name+'» مجاز نیست (حداکثر ۲۰ مگابایت).');submit.disabled=false;return}
- // Legacy metadata is preserved for existing records, but no longer requested from the user.
- const previous=state.edit||{};
- const order=previous.order??(state.items.reduce((max,x)=>Math.max(max,Number(x.order)||0),0)+1);
+ const previous=state.edit||{},order=previous.order??(state.items.reduce((max,x)=>Math.max(max,Number(x.order)||0),0)+1);
  const data={meetingId:state.meeting.id,title:fd.get('title'),description:fd.get('description'),presenter:fd.get('presenter')||'',
   purpose:previous.purpose||'',expectedOutcome:previous.expectedOutcome||'',durationMinutes:previous.durationMinutes||0,
-  order,status:previous.status||'draft',documentRefs:state.selectedDocs.map(x=>x.id),referenceLinks:links};
+  order,status:previous.status||'draft',documentRefs:state.selectedDocs.map(x=>x.id),referenceLinks:links,
+  uploadDraftId:working.draftId,stagedUploadIds:working.files.map(f=>f.stageId),removeAttachmentIds:[...working.removed]};
  if(state.edit){data.id=state.edit.id;data.revision=state.edit.revision}
+ working.saving=true;submit.disabled=true;submit.textContent='در حال ثبت دستور…';dialogError('');
  try{
-  submit.textContent='در حال ثبت دستور…';const saved=await api('save','POST',data),item=saved.item;let failures=[];
-  for(let i=0;i<files.length;i++){const f=files[i];try{submit.textContent=`در حال ارسال پیوست ${fa(i+1)} از ${fa(files.length)}…`;
-    const pre=await api('upload-url','POST',{meetingId:state.meeting.id,agendaId:item.id,fileName:f.name,mimeType:f.type||'application/octet-stream',size:f.size});
-    const put=await fetch(pre.presignedUrl,{method:'PUT',body:f});if(!put.ok)throw Error(`ارسال فایل انجام نشد (HTTP ${put.status})`);
-    await api('attach','POST',{meetingId:state.meeting.id,agendaId:item.id,pathname:pre.pathname,fileName:f.name,mimeType:f.type||'application/octet-stream',size:f.size});
-   }catch(ex){failures.push(`${f.name}: ${ex.message}`)}}
-  closeDialog();await loadAgenda(state.meeting.id);message(failures.length?`دستور جلسه ثبت شد، ولی ${fa(failures.length)} پیوست کامل نشد: ${failures.join('؛ ')}`:'دستور جلسه و ارتباطات آن با موفقیت ثبت شد.',Boolean(failures.length));
- }catch(err){dialogError(err.message);submit.disabled=false;submit.textContent='ذخیره دستور جلسه'}
+  await api('save','POST',data);
+  working.saved=true;closeDialog(true);
+  await loadAgenda(state.meeting.id);message('دستور جلسه و همه پیوست‌های بارگذاری‌شده ذخیره شدند.');
+ }catch(err){if(working.saved){message('دستور ثبت شد ولی دریافت مجدد فهرست ناموفق بود: '+err.message,true)}else{dialogError(err.message);working.saving=false;renderDraftFiles()} }
+ finally{if(dialog?.querySelector('[data-submit]'))dialog.querySelector('[data-submit]').textContent='ذخیره دستور جلسه'}
 }
 async function refreshAfterSave(keepDialog=true){if(!state.meeting)return;try{const data=await api('items','GET',null,{meetingId:state.meeting.id});state.items=data.items||[];if(!keepDialog)renderBehindDialog()}catch{}}
 function renderBehindDialog(){if(!container)return;const d=dialog;renderAgenda();if(d&&d.parentNode)dialog=d}
-function closeDialog(){docRequestVersion++;docCandidates=[];dialog?.remove();dialog=null;document.body.classList.remove('sma13-locked')}
-function close(){clearTimeout(debounce);closeDialog();const ctx=document.getElementById('workspaceContext');ctx?.classList.remove('sma13-open');container?.remove();container=null;state.meeting=null}
+function closeDialog(saved=false){
+ if(dialog&&fileDraft?.uploading){dialogError('بارگذاری فایل‌ها هنوز تمام نشده است. برای انصراف، پس از پایان بارگذاری دوباره اقدام کنید.');return false}
+ if(fileDraft&&!saved&&!fileDraft.saved&&fileDraft.files.some(f=>f.stageId)){
+  // Uploaded but not yet claimed files must not linger when the form is cancelled.
+  api('clear-uploads','POST',{meetingId:state.meeting?.id,draftId:fileDraft.draftId}).catch(e=>console.warn('AGENDA_DRAFT_CLEANUP',e.message));
+ }
+ docRequestVersion++;docCandidates=[];dialog?.remove();dialog=null;fileDraft=null;document.body.classList.remove('sma13-locked');return true;
+}
+function close(){clearTimeout(debounce);if(closeDialog()===false)return;const ctx=document.getElementById('workspaceContext');ctx?.classList.remove('sma13-open');container?.remove();container=null;state.meeting=null}
 async function open(){const ctx=document.getElementById('workspaceContext');if(!ctx)return;window.SinaMeetingsV1?.leave?.();close();ctx.classList.add('sma13-open');container=document.createElement('section');container.className='sma13';ctx.appendChild(container);showList();await loadMeetings()}
 document.addEventListener('click',e=>{const btn=e.target?.closest?.('[data-capability]');if(btn?.dataset.capability==='دستور جلسه' && document.querySelector('[data-workspace="meetings"].active')){e.preventDefault();e.stopImmediatePropagation();open();return}if(e.target?.closest?.('[data-workspace]'))close()},true);
 window.SinaMeetingAgendaV13={open,close};
