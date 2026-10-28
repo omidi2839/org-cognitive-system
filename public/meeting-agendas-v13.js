@@ -1,4 +1,4 @@
-/* Sina V1.4 — simplified agenda form, stable modal footer, document links and attachments. */
+/* Sina V1.5 — real document selection with closable results and immediate feedback. */
 (()=>{'use strict';
 const END='/api/v1/meeting-agendas', P='sma13-', digits='۰۱۲۳۴۵۶۷۸۹';
 const fa=x=>String(x??'').replace(/\d/g,n=>digits[Number(n)]);
@@ -7,7 +7,7 @@ const date=s=>s?new Intl.DateTimeFormat('fa-IR-u-ca-persian',{year:'numeric',mon
 const statusLabel={scheduled:'زمان‌بندی‌شده',tentative:'در انتظار تعیین زمان',completed:'برگزارشده',cancelled:'لغوشده',draft:'پیش‌نویس',review:'در انتظار بررسی',approved:'تأییدشده'};
 const shorten=(s,n=160)=>String(s||'').length>n?String(s).slice(0,n)+'…':String(s||'');
 const state={meetings:[],items:[],meeting:null,query:'',from:'',to:'',status:'active',selectedDocs:[],links:[],edit:null};
-let container=null,dialog=null,debounce;
+let container=null,dialog=null,debounce,docRequestVersion=0,docCandidates=[];
 const query=(resource,params={})=>{const s=new URLSearchParams({resource});Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null&&v!=='')s.set(k,v)});return END+'?'+s};
 async function api(resource,method='GET',data=null,params={}){
  let r;try{r=await fetch(query(resource,params),{method,credentials:'same-origin',cache:'no-store',headers:data?{'content-type':'application/json'}:{},body:data?JSON.stringify(data):undefined})}catch{throw Error('ارتباط با سرور برقرار نشد. اتصال اینترنت را بررسی کنید.')}
@@ -55,8 +55,31 @@ async function loadAgenda(id){if(!container)return;try{const data=await api('ite
 async function removeItem(id){if(!confirm('این دستور جلسه حذف شود؟ سوابق آن برای ممیزی حفظ می‌شود.'))return;try{await api('remove','POST',{id});await loadAgenda(state.meeting.id);message('دستور جلسه حذف شد.')}catch(e){message(e.message,true)}}
 function docTag(d){return `<span class="sma13-selected-doc" data-doc-id="${esc(d.id)}"><span>${esc(shorten(d.title,90))}</span><button type="button" data-unlink-doc="${esc(d.id)}" aria-label="حذف ارتباط سند">×</button></span>`}
 function linkRow(x={},i=0){return `<div class="sma13-link-row"><input data-link-title placeholder="عنوان پیوند یا مرجع" maxlength="200" value="${esc(x.title||'')}"><input data-link-url placeholder="https://..." type="url" maxlength="1300" value="${esc(x.url||'')}"><button type="button" data-remove-link title="حذف پیوند">×</button></div>`}
-function updateSelected(){const e=dialog?.querySelector('[data-selected-docs]');if(!e)return;e.innerHTML=state.selectedDocs.length?state.selectedDocs.map(docTag).join(''):'<span class="sma13-muted">هنوز سندی مرتبط نشده است.</span>';
- e.querySelectorAll('[data-unlink-doc]').forEach(b=>b.onclick=()=>{state.selectedDocs=state.selectedDocs.filter(x=>x.id!==b.dataset.unlinkDoc);updateSelected()});
+function updateSelected(){const e=dialog?.querySelector('[data-selected-docs]');if(!e)return;
+ e.innerHTML=state.selectedDocs.length?state.selectedDocs.map(docTag).join(''):'<span class="sma13-muted">هنوز سندی مرتبط نشده است.</span>';
+ const count=dialog.querySelector('[data-selected-count]');if(count)count.textContent=fa(state.selectedDocs.length);
+ e.querySelectorAll('[data-unlink-doc]').forEach(b=>b.onclick=()=>{
+  const removed=state.selectedDocs.find(x=>x.id===b.dataset.unlinkDoc);
+  state.selectedDocs=state.selectedDocs.filter(x=>x.id!==b.dataset.unlinkDoc);updateSelected();
+  documentSearchMessage(removed?'ارتباط سند «'+shorten(removed.title,65)+'» از این دستور برداشته شد.':'');
+ });
+}
+function documentSearchMessage(s){const el=dialog?.querySelector('[data-doc-feedback]');if(el)el.textContent=s||''}
+function hideDocResults(){
+ docRequestVersion++;
+ const results=dialog?.querySelector('[data-doc-results]');if(results){results.hidden=true;results.innerHTML=''}
+ const close=dialog?.querySelector('[data-close-doc-results]');if(close)close.hidden=true;
+ const search=dialog?.querySelector('[data-search-doc]');if(search)search.setAttribute('aria-expanded','false');
+ docCandidates=[];
+}
+function addDocumentFromResults(id){
+ const doc=docCandidates.find(x=>x.id===id);if(!doc){documentSearchMessage('سند انتخابی در نتایج موجود نیست. مجدداً جست‌وجو کنید.');return}
+ if(state.selectedDocs.some(x=>x.id===doc.id)){
+  hideDocResults();documentSearchMessage('این سند قبلاً به دستور جلسه اضافه شده است.');return;
+ }
+ state.selectedDocs.push({id:doc.id,title:doc.title,documentType:doc.documentType||'',documentNumber:doc.documentNumber||''});
+ updateSelected();hideDocResults();
+ documentSearchMessage('سند «'+shorten(doc.title,80)+'» انتخاب شد؛ با دکمه «ذخیره دستور جلسه» ارتباط آن ثبت می‌شود.');
 }
 function updateAttachments(item){const e=dialog?.querySelector('[data-existing-attachments]');if(!e)return;
  e.innerHTML=item?.attachments?.length?item.attachments.map(f=>`<div class="sma13-file-row"><a href="${query('download',{agendaId:item.id,attachmentId:f.id})}">${esc(f.fileName)} (${fa((f.size/1024).toFixed(0))} کیلوبایت)</a><button type="button" data-remove-attachment="${esc(f.id)}">حذف</button></div>`).join(''):'<span class="sma13-muted">پیوستی ثبت نشده است.</span>';
@@ -75,15 +98,29 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  <label class="wide">مسئول ارائه / گزارش‌دهنده (اختیاری) <input name="presenter" maxlength="240" value="${esc(item?.presenter||'')}"></label>
  </div>
  <section class="sma13-section"><div class="sma13-section-header"><h4>ارتباط با قوانین و اسناد سامانه</h4><small>انتخاب از بانک اسناد موجود؛ بدون ایجاد نسخه تکراری</small></div>
- <div class="sma13-doc-search"><input data-doc-search placeholder="جست‌وجو در عنوان، شماره سند، نوع، مرجع صادرکننده…"><button type="button" data-search-doc>جست‌وجوی سند</button></div><div data-doc-results class="sma13-doc-results"><span class="sma13-muted">برای جست‌وجو، عبارت یا شماره سند را وارد کنید.</span></div>
- <div class="sma13-selected-label">اسناد مرتبط انتخاب‌شده</div><div data-selected-docs class="sma13-selected"></div></section>
+ <div class="sma13-selected-label">اسناد مرتبط انتخاب‌شده (<span data-selected-count>۰</span>)</div><div data-selected-docs class="sma13-selected"></div>
+ <div class="sma13-doc-search"><input data-doc-search aria-label="جست‌وجوی اسناد سازمان" placeholder="جست‌وجو در عنوان، شماره سند، نوع، مرجع صادرکننده…"><button type="button" data-search-doc aria-expanded="false" aria-controls="sma13-document-results">جست‌وجوی سند</button><button type="button" data-close-doc-results hidden>بستن نتایج ×</button></div>
+ <p class="sma13-doc-feedback" role="status" aria-live="polite" data-doc-feedback>برای اتصال سند، جست‌وجو و سپس «افزودن» را انتخاب کنید.</p>
+ <div id="sma13-document-results" data-doc-results class="sma13-doc-results" hidden></div></section>
  <section class="sma13-section"><div class="sma13-section-header"><h4>پیوندهای تکمیلی</h4><button type="button" data-add-link>＋ افزودن پیوند</button></div><div data-links>${(item?.referenceLinks||[]).map(linkRow).join('')}</div></section>
  </div><div class="sma13-dialog-foot"><p class="sma13-form-error" data-form-error role="alert"></p><div class="sma13-foot-actions"><button type="button" data-close-dialog>انصراف</button><button type="submit" class="sma13-primary" data-submit>ذخیره دستور جلسه</button></div></div></form></div>`;
  document.body.appendChild(dialog);document.body.classList.add('sma13-locked');
  dialog.querySelectorAll('[data-close-dialog]').forEach(b=>b.onclick=closeDialog);
  dialog.addEventListener('click',e=>{if(e.target===dialog)closeDialog()});
  dialog.querySelector('[data-search-doc]').onclick=searchDocs;
+ dialog.querySelector('[data-close-doc-results]').onclick=hideDocResults;
  dialog.querySelector('[data-doc-search]').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();searchDocs()}});
+ // Delegate result clicks to the dialog, so rebuilding a result list never loses click handlers.
+ dialog.addEventListener('click',e=>{
+  const add=e.target.closest('[data-add-doc]');
+  if(add){e.preventDefault();addDocumentFromResults(add.dataset.addDoc);return}
+  if(!e.target.closest('.sma13-doc-search,[data-doc-results]') && !e.target.closest('[data-close-doc-results]')){
+   if(!dialog?.querySelector('[data-doc-results]')?.hidden)hideDocResults();
+  }
+ });
+ dialog.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!dialog.querySelector('[data-doc-results]')?.hidden){e.preventDefault();e.stopPropagation();hideDocResults()}
+ });
  dialog.querySelector('[data-add-link]').onclick=()=>dialog.querySelector('[data-links]').insertAdjacentHTML('beforeend',linkRow());
  dialog.addEventListener('click',e=>{if(e.target.closest('[data-remove-link]'))e.target.closest('.sma13-link-row')?.remove()});
  dialog.querySelector('[data-new-files]').onchange=e=>{const fs=[...e.target.files];dialog.querySelector('[data-file-summary]').textContent=fs.length?`${fa(fs.length)} فایل انتخاب شد؛ هنگام ذخیره بارگذاری خواهد شد.`:'فایلی انتخاب نشده است.'};
@@ -91,10 +128,29 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  dialog.querySelector('[data-agenda-form]').addEventListener('invalid',e=>{dialogError('عنوان دستور جلسه الزامی است.');e.target.focus()},true);
  updateSelected();updateAttachments(item);
 }
-async function searchDocs(){const box=dialog?.querySelector('[data-doc-results]');if(!box)return;box.innerHTML='<span class="sma13-muted">در حال جست‌وجو…</span>';
- const formDialog=dialog,q=formDialog.querySelector('[data-doc-search]').value.trim();try{const d=await api('documents','GET',null,{q});if(dialog!==formDialog||!box.isConnected)return;box.innerHTML=d.items.length?d.items.map(x=>`<button type="button" data-add-doc="${esc(x.id)}" class="sma13-doc-option"><strong>${esc(x.title)}</strong><small>${esc([x.documentType,x.documentNumber,x.issuer].filter(Boolean).join(' · '))}</small><span>＋ افزودن</span></button>`).join(''):'<span class="sma13-muted">سندی یافت نشد.</span>';
- if(d.total>d.items.length)box.insertAdjacentHTML('beforeend',`<p class="sma13-muted">${fa(d.total)} نتیجه یافت شد. عبارت دقیق‌تری وارد کنید.</p>`);
- box.querySelectorAll('[data-add-doc]').forEach(b=>b.onclick=()=>{const doc=d.items.find(x=>x.id===b.dataset.addDoc);if(!doc||state.selectedDocs.some(x=>x.id===doc.id))return;state.selectedDocs.push(doc);updateSelected()})}catch(e){box.textContent=e.message}}
+async function searchDocs(){
+ const formDialog=dialog,box=formDialog?.querySelector('[data-doc-results]');if(!box)return;
+ const q=formDialog.querySelector('[data-doc-search]').value.trim();
+ const request=++docRequestVersion;
+ box.hidden=false;box.innerHTML='<span class="sma13-muted">در حال جست‌وجو…</span>';
+ formDialog.querySelector('[data-close-doc-results]').hidden=false;
+ formDialog.querySelector('[data-search-doc]').setAttribute('aria-expanded','true');
+ documentSearchMessage('');
+ try{
+  const data=await api('documents','GET',null,{q});
+  if(dialog!==formDialog||!box.isConnected||box.hidden||request!==docRequestVersion)return;
+  docCandidates=Array.isArray(data.items)?data.items:[];
+  box.innerHTML=docCandidates.length?docCandidates.map(x=>{
+   const selected=state.selectedDocs.some(d=>d.id===x.id);
+   return `<button type="button" data-add-doc="${esc(x.id)}" class="sma13-doc-option" ${selected?'disabled aria-disabled="true"':''}><strong>${esc(x.title)}</strong><small>${esc([x.documentType,x.documentNumber,x.issuer].filter(Boolean).join(' · '))}</small><span>${selected?'✓ انتخاب‌شده':'＋ افزودن'}</span></button>`;
+  }).join(''):'<span class="sma13-muted">سندی یافت نشد؛ عبارت دیگری جست‌وجو کنید.</span>';
+  if(data.total>docCandidates.length)box.insertAdjacentHTML('beforeend',`<p class="sma13-muted">${fa(data.total)} نتیجه یافت شد؛ برای نتایج دقیق‌تر عبارت جست‌وجو را کامل کنید.</p>`);
+  documentSearchMessage(docCandidates.length?'برای اتصال یک سند، روی «＋ افزودن» همان ردیف کلیک کنید.':'');
+ }catch(e){
+  if(dialog!==formDialog||request!==docRequestVersion||box.hidden)return;
+  docCandidates=[];box.textContent=e.message;documentSearchMessage('جست‌وجو انجام نشد. دوباره تلاش کنید.');
+ }
+}
 async function saveItem(e){e.preventDefault();const form=e.currentTarget,submit=form.querySelector('[data-submit]'),fd=new FormData(form);submit.disabled=true;dialogError('');
  const links=[...dialog.querySelectorAll('.sma13-link-row')].map(row=>({title:row.querySelector('[data-link-title]').value.trim(),url:row.querySelector('[data-link-url]').value.trim()})).filter(x=>x.title||x.url);
  const files=[...dialog.querySelector('[data-new-files]').files];const invalid=files.find(f=>f.size>20*1024*1024||!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|png|jpe?g|txt)$/i.test(f.name));
@@ -118,7 +174,7 @@ async function saveItem(e){e.preventDefault();const form=e.currentTarget,submit=
 }
 async function refreshAfterSave(keepDialog=true){if(!state.meeting)return;try{const data=await api('items','GET',null,{meetingId:state.meeting.id});state.items=data.items||[];if(!keepDialog)renderBehindDialog()}catch{}}
 function renderBehindDialog(){if(!container)return;const d=dialog;renderAgenda();if(d&&d.parentNode)dialog=d}
-function closeDialog(){dialog?.remove();dialog=null;document.body.classList.remove('sma13-locked')}
+function closeDialog(){docRequestVersion++;docCandidates=[];dialog?.remove();dialog=null;document.body.classList.remove('sma13-locked')}
 function close(){clearTimeout(debounce);closeDialog();const ctx=document.getElementById('workspaceContext');ctx?.classList.remove('sma13-open');container?.remove();container=null;state.meeting=null}
 async function open(){const ctx=document.getElementById('workspaceContext');if(!ctx)return;window.SinaMeetingsV1?.leave?.();close();ctx.classList.add('sma13-open');container=document.createElement('section');container.className='sma13';ctx.appendChild(container);showList();await loadMeetings()}
 document.addEventListener('click',e=>{const btn=e.target?.closest?.('[data-capability]');if(btn?.dataset.capability==='دستور جلسه' && document.querySelector('[data-workspace="meetings"].active')){e.preventDefault();e.stopImmediatePropagation();open();return}if(e.target?.closest?.('[data-workspace]'))close()},true);

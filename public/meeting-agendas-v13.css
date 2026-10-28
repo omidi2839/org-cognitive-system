@@ -57,3 +57,16 @@
  .sma13-doc-search{flex-direction:column}.sma13-doc-search button{max-width:100%}
  .sma13-link-row{grid-template-columns:1fr}
 }
+
+/* V1.5 – closeable, actionable document search results with visible selected links */
+.sma13-doc-results[hidden],.sma13-doc-search button[hidden]{display:none!important}
+.sma13-selected-label{margin:10px 0 7px;font-size:12px}
+.sma13-selected{min-height:36px;margin-bottom:13px;padding:8px;border:1px dashed #d7e5f6;border-radius:10px;background:#fbfdff}
+.sma13-selected-doc{background:#e8f3ff;border-color:#a9d2ff;color:#1b5da3;font-weight:600;max-width:100%}
+.sma13-selected-doc button{font-size:17px;min-height:24px;min-width:24px}
+.sma13-doc-search [data-close-doc-results]{border:1px solid #f0d9d9;background:#fff9f9;color:#a34c4c;white-space:nowrap}
+.sma13-doc-feedback{font-size:11px;min-height:18px;margin:8px 1px 0;color:#527498;line-height:1.7;overflow-wrap:anywhere}
+.sma13-doc-option:hover,.sma13-doc-option:focus-visible{border-color:#7cb5fa;background:#f2f8ff;outline:none}
+.sma13-doc-option:disabled{cursor:default;color:#60758e;background:#f5f9fc;opacity:.8}
+.sma13-doc-option:disabled span{color:#29845b}
+@media(max-width:650px){.sma13-doc-search [data-close-doc-results]{width:100%}}
