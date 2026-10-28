@@ -1,4 +1,4 @@
-/* Sina V1.3 — meeting agenda, documents and private attachments. Standalone UI module. */
+/* Sina V1.4 — simplified agenda form, stable modal footer, document links and attachments. */
 (()=>{'use strict';
 const END='/api/v1/meeting-agendas', P='sma13-', digits='۰۱۲۳۴۵۶۷۸۹';
 const fa=x=>String(x??'').replace(/\d/g,n=>digits[Number(n)]);
@@ -18,8 +18,8 @@ const card=x=>`<button class="sma13-meeting" type="button" data-select-meeting="
  <span class="sma13-meeting-title">${esc(x.title)}</span><span class="sma13-meeting-sub">${esc(date(x.startDate))} ${esc(x.startTime||'')} · ${esc(statusLabel[x.status]||'')} · ${fa(x.agendaCount||0)} دستور</span>
  <span class="sma13-meeting-arrow">‹</span></button>`;
 const itemCard=(x,i)=>`<article class="sma13-agenda-item">
- <div class="sma13-agenda-num">${fa(i+1)}</div><div class="sma13-agenda-main"><div class="sma13-agenda-top"><strong>${esc(x.title)}</strong><span class="sma13-status">${esc(statusLabel[x.status]||'')}</span></div>
- ${x.description?`<p>${esc(shorten(x.description,280))}</p>`:''}<div class="sma13-agenda-meta">${x.presenter?`<span>ارائه‌دهنده: ${esc(x.presenter)}</span>`:''}${x.durationMinutes?`<span>${fa(x.durationMinutes)} دقیقه</span>`:''}<span>${fa(x.documents?.length||0)} سند مرتبط</span><span>${fa(x.attachments?.length||0)} پیوست</span></div>
+ <div class="sma13-agenda-num">${fa(i+1)}</div><div class="sma13-agenda-main"><div class="sma13-agenda-top"><strong>${esc(x.title)}</strong></div>
+ ${x.description?`<p>${esc(shorten(x.description,280))}</p>`:''}<div class="sma13-agenda-meta">${x.presenter?`<span>ارائه‌دهنده: ${esc(x.presenter)}</span>`:''}<span>${fa(x.documents?.length||0)} سند مرتبط</span><span>${fa(x.attachments?.length||0)} پیوست</span></div>
  ${x.documents?.length?`<div class="sma13-document-tags">${x.documents.map(d=>`<button type="button" data-open-related-doc="${esc(d.id)}" title="مشاهده سند: ${esc(d.title)}">${esc(shorten(d.title,65))} ↗</button>`).join('')}</div>`:''}
  ${x.attachments?.length?`<div class="sma13-attach-list">${x.attachments.map(f=>`<a class="sma13-attachment" href="${query('download',{agendaId:x.id,attachmentId:f.id})}" download>${esc(f.fileName)} <span>↓</span></a>`).join('')}</div>`:''}
  ${x.referenceLinks?.length?`<div class="sma13-link-tags">${x.referenceLinks.map(l=>`<a href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.title)} ↗</a>`).join('')}</div>`:''}
@@ -42,7 +42,7 @@ function showList(){if(!container)return;container.innerHTML=`<header class="sma
 async function loadMeetings(){if(!container)return;const requested=state.query;try{const data=await api('meetings','GET',null,{q:requested,from:state.from,to:state.to,status:state.status});if(requested!==state.query)return;state.meetings=data.items||[];state.meeting=null;const list=container.querySelector('[data-meeting-list]');if(list){list.innerHTML=state.meetings.length?state.meetings.map(card).join(''):'<p class="sma13-empty">جلسه‌ای با شرایط جست‌وجو یافت نشد.</p>';container.querySelector('.sma13-list-top span').textContent=fa(state.meetings.length)+' جلسه';list.querySelectorAll('[data-select-meeting]').forEach(btn=>btn.onclick=()=>loadAgenda(btn.dataset.selectMeeting));}else showList()}catch(e){if(container.querySelector('[data-meeting-list]'))message(e.message,true);else{showList();message(e.message,true)}}}
 function renderAgenda(){if(!container||!state.meeting)return;const m=state.meeting;
  container.innerHTML=`<header class="sma13-header"><div><button type="button" data-back-list>بازگشت به فهرست جلسات</button><h2>${esc(m.title)}</h2><p>${esc(date(m.startDate))} ${esc(m.startTime||'')} · ${fa(state.items.length)} دستور جلسه ثبت شده</p></div>${m.status==='cancelled'?'':`<button class="sma13-primary" data-new-agenda type="button">＋ افزودن دستور جلسه</button>`}</header>
- <div class="sma13-summary"><strong>دستور جلسات</strong><span>برای هر دستور می‌توانید شرح، هدف، مستندات بارگذاری‌شده و ارتباط با اسناد سازمانی را تعریف کنید.</span></div>
+ <div class="sma13-summary"><strong>دستور جلسات</strong><span>برای هر دستور می‌توانید موضوع، پیوست‌ها و ارتباط با قوانین و اسناد ثبت‌شده سازمان را تکمیل کنید.</span></div>
  <div class="sma13-items">${state.items.length?state.items.map(itemCard).join(''):'<div class="sma13-empty"><strong>هنوز دستور جلسه‌ای ثبت نشده است.</strong><p>برای شروع، روی «افزودن دستور جلسه» کلیک کنید.</p></div>'}</div>
  <p class="sma13-message" data-agenda-message role="status"></p>`;
  container.querySelector('[data-back-list]').onclick=loadMeetings;
@@ -68,22 +68,18 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  dialog.innerHTML=`<div class="sma13-dialog" role="dialog" aria-modal="true" aria-label="ویرایش دستور جلسه"><div class="sma13-dialog-head"><div><h3>${item?'ویرایش دستور جلسه':'ثبت دستور جلسه'}</h3><small>جلسه: ${esc(meeting.title)}</small></div><button type="button" data-close-dialog>×</button></div>
  <form data-agenda-form><div class="sma13-dialog-body"><div class="sma13-form-grid">
  <label class="wide">عنوان دستور جلسه <input name="title" required maxlength="240" value="${esc(item?.title||'')}" placeholder="عنوان دقیق موضوع مطرح‌شده در جلسه"></label>
- <label class="wide">شرح موضوع و مستندات اصلی <textarea name="description" rows="3" maxlength="12000">${esc(item?.description||'')}</textarea></label>
- <label>هدف طرح دستور <textarea name="purpose" rows="2" maxlength="1000">${esc(item?.purpose||'')}</textarea></label><label>خروجی مورد انتظار <textarea name="expectedOutcome" rows="2" maxlength="1500">${esc(item?.expectedOutcome||'')}</textarea></label>
- <label>مسئول ارائه / گزارش‌دهنده <input name="presenter" maxlength="240" value="${esc(item?.presenter||'')}"></label>
- <label>زمان پیش‌بینی‌شده (دقیقه) <input name="durationMinutes" type="number" min="0" max="1440" value="${item?.durationMinutes||0}"></label>
- <label>ترتیب بررسی <input name="order" type="number" min="0" max="10000" value="${item?.order??state.items.length+1}"></label>
- <label>وضعیت دستور<select name="status"><option value="draft">پیش‌نویس</option><option value="review">در انتظار بررسی</option></select></label>
+ <label class="wide">شرح موضوع و مستندات <textarea name="description" rows="4" maxlength="12000" placeholder="شرح موضوع، پیشینه و نکات لازم برای طرح در جلسه">${esc(item?.description||'')}</textarea></label>
+ <div class="wide sma13-topic-files"><div class="sma13-section-header"><h4>پیوست‌های شرح موضوع</h4><small>پیوست هر دستور مستقل است؛ فایل‌ها در سامانه ذخیره می‌شوند.</small></div>
+ <div data-existing-attachments></div><label class="sma13-choose-file">＋ افزودن فایل‌های مستندات<input type="file" multiple data-new-files accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></label>
+ <div data-file-summary class="sma13-muted">PDF، Word، Excel، PowerPoint، تصویر یا متن؛ حداکثر ۲۰ مگابایت برای هر فایل.</div></div>
+ <label class="wide">مسئول ارائه / گزارش‌دهنده (اختیاری) <input name="presenter" maxlength="240" value="${esc(item?.presenter||'')}"></label>
  </div>
  <section class="sma13-section"><div class="sma13-section-header"><h4>ارتباط با قوانین و اسناد سامانه</h4><small>انتخاب از بانک اسناد موجود؛ بدون ایجاد نسخه تکراری</small></div>
  <div class="sma13-doc-search"><input data-doc-search placeholder="جست‌وجو در عنوان، شماره سند، نوع، مرجع صادرکننده…"><button type="button" data-search-doc>جست‌وجوی سند</button></div><div data-doc-results class="sma13-doc-results"><span class="sma13-muted">برای جست‌وجو، عبارت یا شماره سند را وارد کنید.</span></div>
  <div class="sma13-selected-label">اسناد مرتبط انتخاب‌شده</div><div data-selected-docs class="sma13-selected"></div></section>
- <section class="sma13-section"><div class="sma13-section-header"><h4>پیوست‌های همین دستور</h4><small>PDF، Word، Excel، PowerPoint، تصویر یا متن — هر فایل حداکثر ۲۰ مگابایت</small></div>
- <div data-existing-attachments></div><label class="sma13-choose-file">＋ انتخاب فایل‌های پیوست<input type="file" multiple data-new-files accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.txt"></label><div data-file-summary class="sma13-muted">فایل‌ها هنگام ثبت دستور، به‌صورت خصوصی بارگذاری می‌شوند.</div></section>
  <section class="sma13-section"><div class="sma13-section-header"><h4>پیوندهای تکمیلی</h4><button type="button" data-add-link>＋ افزودن پیوند</button></div><div data-links>${(item?.referenceLinks||[]).map(linkRow).join('')}</div></section>
- <p class="sma13-form-error" data-form-error role="alert"></p></div><div class="sma13-dialog-foot"><button type="button" data-close-dialog>انصراف</button><button type="submit" class="sma13-primary" data-submit>ذخیره دستور جلسه</button></div></form></div>`;
+ </div><div class="sma13-dialog-foot"><p class="sma13-form-error" data-form-error role="alert"></p><div class="sma13-foot-actions"><button type="button" data-close-dialog>انصراف</button><button type="submit" class="sma13-primary" data-submit>ذخیره دستور جلسه</button></div></div></form></div>`;
  document.body.appendChild(dialog);document.body.classList.add('sma13-locked');
- dialog.querySelector('select[name=status]').value=item?.status||'draft';
  dialog.querySelectorAll('[data-close-dialog]').forEach(b=>b.onclick=closeDialog);
  dialog.addEventListener('click',e=>{if(e.target===dialog)closeDialog()});
  dialog.querySelector('[data-search-doc]').onclick=searchDocs;
@@ -91,17 +87,24 @@ function openEdit(item=null){state.edit=item||null;state.selectedDocs=(item?.doc
  dialog.querySelector('[data-add-link]').onclick=()=>dialog.querySelector('[data-links]').insertAdjacentHTML('beforeend',linkRow());
  dialog.addEventListener('click',e=>{if(e.target.closest('[data-remove-link]'))e.target.closest('.sma13-link-row')?.remove()});
  dialog.querySelector('[data-new-files]').onchange=e=>{const fs=[...e.target.files];dialog.querySelector('[data-file-summary]').textContent=fs.length?`${fa(fs.length)} فایل انتخاب شد؛ هنگام ذخیره بارگذاری خواهد شد.`:'فایلی انتخاب نشده است.'};
- dialog.querySelector('[data-agenda-form]').onsubmit=saveItem;updateSelected();updateAttachments(item);
+ dialog.querySelector('[data-agenda-form]').onsubmit=saveItem;
+ dialog.querySelector('[data-agenda-form]').addEventListener('invalid',e=>{dialogError('عنوان دستور جلسه الزامی است.');e.target.focus()},true);
+ updateSelected();updateAttachments(item);
 }
 async function searchDocs(){const box=dialog?.querySelector('[data-doc-results]');if(!box)return;box.innerHTML='<span class="sma13-muted">در حال جست‌وجو…</span>';
- const q=dialog.querySelector('[data-doc-search]').value.trim();try{const d=await api('documents','GET',null,{q});if(!dialog)return;box.innerHTML=d.items.length?d.items.map(x=>`<button type="button" data-add-doc="${esc(x.id)}" class="sma13-doc-option"><strong>${esc(x.title)}</strong><small>${esc([x.documentType,x.documentNumber,x.issuer].filter(Boolean).join(' · '))}</small><span>＋ افزودن</span></button>`).join(''):'<span class="sma13-muted">سندی یافت نشد.</span>';
+ const formDialog=dialog,q=formDialog.querySelector('[data-doc-search]').value.trim();try{const d=await api('documents','GET',null,{q});if(dialog!==formDialog||!box.isConnected)return;box.innerHTML=d.items.length?d.items.map(x=>`<button type="button" data-add-doc="${esc(x.id)}" class="sma13-doc-option"><strong>${esc(x.title)}</strong><small>${esc([x.documentType,x.documentNumber,x.issuer].filter(Boolean).join(' · '))}</small><span>＋ افزودن</span></button>`).join(''):'<span class="sma13-muted">سندی یافت نشد.</span>';
  if(d.total>d.items.length)box.insertAdjacentHTML('beforeend',`<p class="sma13-muted">${fa(d.total)} نتیجه یافت شد. عبارت دقیق‌تری وارد کنید.</p>`);
  box.querySelectorAll('[data-add-doc]').forEach(b=>b.onclick=()=>{const doc=d.items.find(x=>x.id===b.dataset.addDoc);if(!doc||state.selectedDocs.some(x=>x.id===doc.id))return;state.selectedDocs.push(doc);updateSelected()})}catch(e){box.textContent=e.message}}
 async function saveItem(e){e.preventDefault();const form=e.currentTarget,submit=form.querySelector('[data-submit]'),fd=new FormData(form);submit.disabled=true;dialogError('');
  const links=[...dialog.querySelectorAll('.sma13-link-row')].map(row=>({title:row.querySelector('[data-link-title]').value.trim(),url:row.querySelector('[data-link-url]').value.trim()})).filter(x=>x.title||x.url);
  const files=[...dialog.querySelector('[data-new-files]').files];const invalid=files.find(f=>f.size>20*1024*1024||!/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|png|jpe?g|txt)$/i.test(f.name));
  if(invalid){dialogError('فرمت یا حجم فایل «'+invalid.name+'» مجاز نیست (حداکثر ۲۰ مگابایت).');submit.disabled=false;return}
- const data={meetingId:state.meeting.id,...Object.fromEntries(['title','description','purpose','expectedOutcome','presenter','durationMinutes','order','status'].map(k=>[k,fd.get(k)])),documentRefs:state.selectedDocs.map(x=>x.id),referenceLinks:links};
+ // Legacy metadata is preserved for existing records, but no longer requested from the user.
+ const previous=state.edit||{};
+ const order=previous.order??(state.items.reduce((max,x)=>Math.max(max,Number(x.order)||0),0)+1);
+ const data={meetingId:state.meeting.id,title:fd.get('title'),description:fd.get('description'),presenter:fd.get('presenter')||'',
+  purpose:previous.purpose||'',expectedOutcome:previous.expectedOutcome||'',durationMinutes:previous.durationMinutes||0,
+  order,status:previous.status||'draft',documentRefs:state.selectedDocs.map(x=>x.id),referenceLinks:links};
  if(state.edit){data.id=state.edit.id;data.revision=state.edit.revision}
  try{
   submit.textContent='در حال ثبت دستور…';const saved=await api('save','POST',data),item=saved.item;let failures=[];

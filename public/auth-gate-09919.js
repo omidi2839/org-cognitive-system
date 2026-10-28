@@ -3,7 +3,7 @@ const VERSION='0.9.9.2.14';
 window.__SINA_UI_RELEASE__=VERSION;
 document.documentElement.classList.add('auth-pending');
 const scripts=[
- './app.js','./workspace-shell-075.js','./meetings-v1.js?v=MEETINGS_V1_20261027','./meeting-agendas-v13.js?v=SINA_AGENDA_130','./knowledge-workspace-076.js',
+ './app.js','./workspace-shell-075.js','./meetings-v1.js?v=MEETINGS_V1_20261027','./meeting-agendas-v13.js?v=SINA_AGENDA_140','./knowledge-workspace-076.js',
  `./document-bank-099211.js?v=${VERSION}`,`./document-bank-entry-09587.js?v=${VERSION}`,'./document-amendments-093.js?v=0.9.4.0',
  './document-relations-ui-0944.js?v=0.9.4.4',`./sina-dialog-09927.js?v=${VERSION}`,`./legal-relation-contract-0990.js?v=${VERSION}`,`./document-meeting-command-09582.js?v=${VERSION}`,`./document-registration-commit-09902.js?v=${VERSION}`,`./knowledge-governance-099214.js?v=${VERSION}`,`./platform-unified-09889.js?v=${VERSION}`,`./document-command-suggestions-0990.js?v=${VERSION}`,`./sina-voice-command-09917.js?v=${VERSION}`,`./ui-persian-polish-09906.js?v=${VERSION}`,`./sina-direct-registration-09926.js?v=${VERSION}`,`./sina-bulk-document-intake-09919.js?v=${VERSION}`,`./sina-topic-tree-099210.js?v=${VERSION}`
 ];
