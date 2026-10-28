@@ -1,0 +1,9 @@
+{
+  "api/index.js": "1cb129cfc2ccd503b609124e863abde53be8e5d599d4b4db7799a2ce7c0b9f4e",
+  "src/application/meetingPreparationV110.js": "2eb5fff666b40e431507ef1c76ef18632b6219b6fa3f9f962d1c000c3a8b9b37",
+  "public/meeting-agendas-v13.js": "2f0a12845af94a2302e520887218bdb026ad208745ce7ea55767093224c1b544",
+  "public/meeting-preparation-v110.js": "a7056eda1fa0ef1322e5d7bf3abbb6c5902a728fc31762ccad47e33c2e3bb77f",
+  "public/meeting-preparation-v110.css": "f1398350894fd4318262c451c12cdb7f90fef15e8bd240c469590b8ca5b2730c",
+  "tests/meeting-preparation-v110.test.js": "3b18f594b9c7a4e27679ba949bb27bdd405cd1ba1f94bd2116cdc0c3216637a0",
+  "README_FA.md": "0d241d4d48fc0b87ec23e4022c6d4c6d39e10d5aad1a62dc2bb4357e77a29aed"
+}
